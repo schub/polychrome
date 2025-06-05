@@ -4,7 +4,7 @@ defmodule Octopus.Broadcaster do
 
   alias Phoenix.Tracker.State
   alias Octopus.Protobuf
-  alias Octopus.Protobuf.{FirmwareConfig, RemoteLog, FirmwareInfo, FirmwarePacket}
+  alias Octopus.Protobuf.{FirmwareConfig, RemoteLog, FirmwareInfo, FirmwarePacket, SensorEvent}
 
   @default_config %FirmwareConfig{
     luminance: 150,
@@ -165,6 +165,11 @@ defmodule Octopus.Broadcaster do
 
         send_config(state.config, state)
     end
+  end
+
+  defp handle_firmware_packet(%SensorEvent{} = sensor_event, from_ip, %State{} = state) do
+    # todo
+    state
   end
 
   defp update_firmware_stats(%FirmwareInfo{} = firmware_info, from_ip, %State{} = state) do

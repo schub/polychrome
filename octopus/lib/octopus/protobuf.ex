@@ -40,6 +40,11 @@ defmodule Octopus.Protobuf do
     |> Packet.encode()
   end
 
+  def encode(%RGBFrame{data: data} = rgb_frame) when is_binary(data) do
+    %Packet{content: {:rgb_frame, rgb_frame}}
+    |> Packet.encode()
+  end
+
   def encode(%AudioFrame{} = audio_frame) do
     %Packet{content: {:audio_frame, audio_frame}}
     |> Packet.encode()

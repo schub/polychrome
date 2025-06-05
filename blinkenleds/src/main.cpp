@@ -2,6 +2,7 @@
 #include <schema.pb.h>
 #include <Display.h>
 #include <Network.h>
+#include <Sensor.h>
 
 void setup()
 {
@@ -16,6 +17,7 @@ void setup()
 
   Display::setup();
   Network::setup();
+  Sensor::setup();
 
   Serial.println("Setup done");
 }
@@ -24,4 +26,5 @@ void loop()
 {
   Network::loop();
   Display::loop();
+  Sensor::loop();
 }

@@ -169,17 +169,17 @@ RgbwColor Display::color_from_palette(WFrame_palette_t palette, uint8_t index)
 // maps the pixel index to the physical layout of the LED strip. The first LED should be top left.
 uint32_t Display::map_index(uint32_t index)
 {
-    uint32_t x = index % WIDTH;
-    uint32_t y = index / WIDTH;
+  uint32_t x = index % WIDTH;
+  uint32_t y = index / WIDTH;
 
-    if (y % 2 == 0)
-    {
-        return y * WIDTH + x;
-    }
-    else
-    {
-        return y * WIDTH + (WIDTH - x - 1);
-    }
+  if (y % 2 == 0)
+  {
+    return y * WIDTH + x;
+  }
+  else
+  {
+    return y * WIDTH + (WIDTH - x - 1);
+  }
 }
 
 void Display::render_test_frame()

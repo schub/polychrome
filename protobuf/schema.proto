@@ -30,14 +30,14 @@ message Packet {
 
 // Frame with one byte per pixel and an RGB palette that defines the colors.
 message Frame {
-  bytes data = 1 [(nanopb).max_size = 640]; // Selects pixel colors from the palette. First pixel is top left. One panel after the other.
+  bytes data = 1 [(nanopb).max_size = 720]; // Selects pixel colors from the palette. First pixel is top left. One panel after the other.
   bytes palette = 2 [(nanopb).max_size = 192]; // Series of RGB values. 8bit per color.
   uint32 easing_interval = 3; // Optional. In milliseconds. Fade this frame over the previous one with an easing curve. Colors are blended in gamma corrected RGB space.
 }
 
 // The same as the frame but with access to the white component in the palette (RGBW).
 message WFrame {
-  bytes data = 1 [(nanopb).max_size = 640]; // Selects pixel colors from the palette. First pixel is top left. One panel after the other.
+  bytes data = 1 [(nanopb).max_size = 720]; // Selects pixel colors from the palette. First pixel is top left. One panel after the other.
   bytes palette = 2 [(nanopb).max_size = 256]; // Series of RGBW values. 8bit per color.
   uint32 easing_interval = 3; // Optional. In milliseconds. Fade this frame over the previous one with an easing curve. Colors are blended in gamma corrected RGB space.
 }
@@ -45,12 +45,12 @@ message WFrame {
 // Frame with 3 bytes per pixel (RGB) and no color palette
 // not yet implemented
 message RGBFrame {
-  bytes data = 1 [(nanopb).max_size = 1920]; // Series of RGB values. 8bit per color. First pixel is top left. One panel after the other.
+  bytes data = 1 [(nanopb).max_size = 2304]; // Series of RGB values. 8bit per color. First pixel is top left. One panel after the other.
   uint32 easing_interval = 2; // Optional. In milliseconds. Fade this frame over the previous one with an easing curve. Colors are blended in gamma corrected RGB space.
 }
 
 message RGBWFrame {
-  bytes data = 1 [(nanopb).max_size = 2560]; // Series of RGBW values. 8bit per color. First pixel is top left. One panel after the other.
+  bytes data = 1 [(nanopb).max_size = 3072]; // Series of RGBW values. 8bit per color. First pixel is top left. One panel after the other.
   uint32 easing_interval = 2; 
 }
 
@@ -165,6 +165,12 @@ message SoundToLightControlEvent {
   float high = 3;
 }
 
+message SensorEvent {
+  uint32 panel_index = 1;
+  uint32 sensor_index = 2;
+  float distance = 3;
+}
+
 message FirmwareConfig {
   uint32 luminance = 1;
 
@@ -201,6 +207,7 @@ message FirmwarePacket {
   oneof content {
     FirmwareInfo firmware_info = 1;
     RemoteLog remote_log = 2;
+    SensorEvent sensor_event = 3;
   }
 }
 
@@ -218,6 +225,7 @@ message FirmwareInfo {
   uint64 uptime = 11;
   uint32 heap_size = 12;
   uint32 free_heap = 13;
+  uint32 sensor_readings_per_second = 14;
 }
 
 message RemoteLog {
