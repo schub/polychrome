@@ -3,13 +3,14 @@ defmodule OctopusWeb.Sim3dLive do
 
   alias Octopus.Mixer
   alias Octopus.Protobuf.{FirmwareConfig, RGBFrame}
+  alias Octopus.Params.Sim3d, as: Params
 
   @default_config %FirmwareConfig{
     easing_mode: :LINEAR,
     show_test_frame: false
   }
 
-  @id_prefix "sim3d"
+  @id_prefix "sim_3d"
 
   def mount(_params, _session, socket) do
     socket =
@@ -20,9 +21,12 @@ defmodule OctopusWeb.Sim3dLive do
           data: List.duplicate([0, 0, 0], 80 * 8) |> IO.iodata_to_binary()
         }
 
+        Phoenix.PubSub.subscribe(Octopus.PubSub, Octopus.Params.Sim3d.topic())
+
         socket
         |> push_config(@default_config)
         |> push_frame(frame)
+        |> push_param(%{diameter: Params.diameter(), strength: Params.strength()})
       else
         socket
       end
@@ -34,6 +38,14 @@ defmodule OctopusWeb.Sim3dLive do
     ~H"""
     <div id={"#{@id_prefix}-#{@id}"} class="flex w-full h-full" phx-hook="Pixels3d"></div>
     """
+  end
+
+  def handle_info({:diameter, value}, socket) do
+    {:noreply, push_param(socket, %{diameter: value})}
+  end
+
+  def handle_info({:strength, value}, socket) do
+    {:noreply, push_param(socket, %{strength: value})}
   end
 
   def handle_info({:mixer, {:frame, frame}}, socket) do
@@ -54,5 +66,9 @@ defmodule OctopusWeb.Sim3dLive do
 
   defp push_config(socket, config) do
     push_event(socket, "config:#{@id_prefix}-#{socket.id}", %{config: config})
+  end
+
+  defp push_param(socket, param) do
+    push_event(socket, "param:#{@id_prefix}-#{socket.id}", %{param: param})
   end
 end

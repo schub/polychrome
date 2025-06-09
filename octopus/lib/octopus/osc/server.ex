@@ -68,6 +68,11 @@ defmodule Octopus.Osc.Server do
     put_param_and_reply("global", key, args, state)
   end
 
+  defp handle_message(["sim_3d", key], args, state) do
+    Octopus.Params.Sim3d.handle_param(key, args)
+    put_param_and_reply("sim_3d", key, args, state)
+  end
+
   defp handle_message(["config"], [1.0], state) do
     messages =
       Octopus.Params.all()
