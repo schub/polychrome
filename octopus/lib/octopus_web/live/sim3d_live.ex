@@ -26,7 +26,8 @@ defmodule OctopusWeb.Sim3dLive do
         socket
         |> push_config(@default_config)
         |> push_frame(frame)
-        |> push_param(%{diameter: Params.diameter(), strength: Params.strength()})
+        |> push_param(%{diameter: Params.diameter()})
+        |> push_param(%{move: [0.0, 0.0]})
       else
         socket
       end
@@ -36,7 +37,8 @@ defmodule OctopusWeb.Sim3dLive do
 
   def render(assigns) do
     ~H"""
-    <div id={"#{@id_prefix}-#{@id}"} class="flex w-full h-full" phx-hook="Pixels3d"></div>
+    <div id={"#{@id_prefix}-#{@id}"} num-panels={12} class="flex w-full h-full" phx-hook="Pixels3d">
+    </div>
     """
   end
 
@@ -44,8 +46,8 @@ defmodule OctopusWeb.Sim3dLive do
     {:noreply, push_param(socket, %{diameter: value})}
   end
 
-  def handle_info({:strength, value}, socket) do
-    {:noreply, push_param(socket, %{strength: value})}
+  def handle_info({:move, {x, y}}, socket) do
+    {:noreply, push_param(socket, %{move: [x, y]})}
   end
 
   def handle_info({:mixer, {:frame, frame}}, socket) do
