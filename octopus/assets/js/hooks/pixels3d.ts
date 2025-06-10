@@ -439,7 +439,13 @@ class Pixels3dHook extends Hook {
 
     renderer.setAnimationLoop(animate);
 
-    type Param = { param: { diameter?: number; move?: [number, number] } };
+    type Param = {
+      param: {
+        diameter?: number;
+        move?: [number, number];
+        position?: [number, number];
+      };
+    };
 
     this.handleEvent(`param:${id}`, ({ param: param }: Param) => {
       if (param.diameter) {
@@ -448,6 +454,22 @@ class Pixels3dHook extends Hook {
       }
       if (param.move) {
         moveInput.set(param.move[0], param.move[1]);
+      }
+      if (param.position) {
+        if (!renderer.xr.isPresenting) {
+          camera.position.set(
+            param.position[0],
+            camera.position.y,
+            -param.position[1]
+          );
+        } else {
+          const y = vrMovementObject.position.y;
+          vrMovementObject.position.set(
+            -param.position[0],
+            y,
+            param.position[1]
+          );
+        }
       }
     });
 

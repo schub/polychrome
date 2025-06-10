@@ -28,6 +28,7 @@ defmodule OctopusWeb.Sim3dLive do
         |> push_frame(frame)
         |> push_param(%{diameter: Params.diameter()})
         |> push_param(%{move: [0.0, 0.0]})
+        |> push_param(%{position: Params.position()})
       else
         socket
       end
@@ -46,8 +47,12 @@ defmodule OctopusWeb.Sim3dLive do
     {:noreply, push_param(socket, %{diameter: value})}
   end
 
-  def handle_info({:move, {x, y}}, socket) do
-    {:noreply, push_param(socket, %{move: [x, y]})}
+  def handle_info({:move, move}, socket) do
+    {:noreply, push_param(socket, %{move: move})}
+  end
+
+  def handle_info({:position, position}, socket) do
+    {:noreply, push_param(socket, %{position: position})}
   end
 
   def handle_info({:mixer, {:frame, frame}}, socket) do
