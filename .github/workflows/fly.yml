@@ -5,6 +5,7 @@ on:
       - main
     paths:
       - octopus/**
+  workflow_dispatch:
 
 jobs:
   deploy:
