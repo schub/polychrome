@@ -3,19 +3,18 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'polychrome-nation'
+app = 'polychrome'
 primary_region = 'ams'
 kill_signal = 'SIGTERM'
 
 [build]
 
 [deploy]
-release_command = "/app/bin/migrate"
 strategy = "immediate"
 
 [env]
-DATABASE_PATH = "/data/oldie.db"
-PHX_HOST = 'polychrome-nation.fly.dev'
+DATABASE_PATH = "/data/octopus2.db"
+PHX_HOST = 'polychrome.fly.dev'
 PORT = '8080'
 
 [http_service]
@@ -45,6 +44,10 @@ internal_port = 8000
 
 [[services.ports]]
 port = 8000
+
+[mounts]
+source = "octopus_data"
+destination = "/data"
 
 [[vm]]
 memory = '1gb'

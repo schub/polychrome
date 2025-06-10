@@ -17,13 +17,7 @@ config :octopus,
   generators: [binary_id: true],
   broadcast: false,
   show_sim_preview: true,
-  enable_event_mode: true
-
-config :octopus, Friends.Repo,
-  database: "octopus_#{Mix.env()}",
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost"
+  enable_event_mode: false
 
 # Configures the endpoint
 config :octopus, OctopusWeb.Endpoint,
@@ -56,7 +50,7 @@ config :mdns_lite,
 
 # Configure esbuild (the version is required)
 config :esbuild,
-  version: "0.17.11",
+  version: "0.25.5",
   default: [
     args:
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),

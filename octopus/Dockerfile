@@ -11,9 +11,9 @@
 #   - https://pkgs.org/ - resource for finding needed packages
 #   - Ex: hexpm/elixir:1.16.2-erlang-26.2.4-debian-bullseye-20240423-slim
 #
-ARG ELIXIR_VERSION=1.16.2
-ARG OTP_VERSION=26.2.4
-ARG DEBIAN_VERSION=bullseye-20240423-slim
+ARG ELIXIR_VERSION=1.18.4
+ARG OTP_VERSION=27.3.4
+ARG DEBIAN_VERSION=bullseye-20250520-slim
 
 ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
 ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
@@ -63,6 +63,7 @@ COPY assets assets
 COPY native native
 
 # compile assets
+RUN mix assets.setup
 RUN mix assets.deploy
 
 # Compile the release

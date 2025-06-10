@@ -15,10 +15,10 @@ config :octopus, OctopusWeb.Endpoint,
   check_origin: false
 
 config :octopus,
-  broadcast: true,
-  show_sim_preview: false,
+  broadcast: false,
+  show_sim_preview: true,
   broadcast_ip: {10, 130, 15, 255},
-  enable_event_mode: true
+  enable_event_mode: false
 
 # Configures Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Finch, finch_name: Octopus.Finch
