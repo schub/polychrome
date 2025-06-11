@@ -6,18 +6,22 @@ defmodule Octopus.Apps.ProximityTest do
   alias Octopus.Canvas
 
   defmodule State do
-    defstruct [:min_distance, :max_distance, :measurements]
+    defstruct [:min_distance, :max_distance, :measurements, :smoothed_measurements]
   end
 
   @fps 30
   @frame_time_ms trunc(1000 / @fps)
 
+  # Smoothing factor for exponential moving average (0.0 to 1.0)
+  # Lower values = more smoothing, higher values = more responsive
+  @smoothing_factor 0.1
+
   def name(), do: "Proximity Test"
 
   def config_schema() do
     %{
-      min_distance: {"Min Distance [mm]", :int, %{default: 50, min: 0, max: 50_000}},
-      max_distance: {"Max Distance [mm]", :int, %{default: 5_000, min: 0, max: 50_000}}
+      min_distance: {"Min Distance [mm]", :int, %{default: 500, min: 0, max: 50_000}},
+      max_distance: {"Max Distance [mm]", :int, %{default: 3_000, min: 0, max: 50_000}}
     }
   end
 
@@ -40,7 +44,8 @@ defmodule Octopus.Apps.ProximityTest do
      %State{
        min_distance: config.min_distance,
        max_distance: config.max_distance,
-       measurements: %{}
+       measurements: %{},
+       smoothed_measurements: %{}
      }}
   end
 
@@ -59,16 +64,28 @@ defmodule Octopus.Apps.ProximityTest do
           sensor_index: sensor_index,
           distance_mm: distance
         },
-        %State{measurements: measurements, min_distance: min, max_distance: max} = state
+        %State{
+          measurements: measurements,
+          smoothed_measurements: smoothed,
+          min_distance: min,
+          max_distance: max
+        } = state
       )
       when distance >= min and distance <= max do
     # Logger.info(
     #   "Proximity measurement: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
     # )
 
-    measurements = Map.put(measurements, {panel_index, sensor_index}, distance)
+    sensor_key = {panel_index, sensor_index}
+    measurements = Map.put(measurements, sensor_key, distance)
 
-    {:noreply, %State{state | measurements: measurements}}
+    # Apply exponential moving average for smoothing
+    current_smoothed = Map.get(smoothed, sensor_key, distance)
+    new_smoothed = current_smoothed + @smoothing_factor * (distance - current_smoothed)
+    smoothed_measurements = Map.put(smoothed, sensor_key, new_smoothed)
+
+    {:noreply,
+     %State{state | measurements: measurements, smoothed_measurements: smoothed_measurements}}
   end
 
   def handle_proximity(
@@ -92,13 +109,14 @@ defmodule Octopus.Apps.ProximityTest do
   end
 
   defp render_proximity_data(%State{
-         measurements: measurements,
+         smoothed_measurements: smoothed_measurements,
          min_distance: min,
          max_distance: max
        }) do
     canvas = Canvas.new(96, 8)
 
-    Enum.reduce(measurements, canvas, fn {{panel_index, sensor_index}, distance}, acc_canvas ->
+    Enum.reduce(smoothed_measurements, canvas, fn {{panel_index, sensor_index}, distance},
+                                                  acc_canvas ->
       brightness_ratio = 1.0 - (distance - min) / (max - min)
       brightness_value = trunc(brightness_ratio * 100)
 
