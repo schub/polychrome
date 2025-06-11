@@ -4,6 +4,8 @@ defmodule Octopus.Apps.DoomFire do
   alias Octopus.WebP
   alias Octopus.Canvas
 
+  defdelegate installation, to: Octopus
+
   defmodule Fire do
     defstruct [:width, :height, :buffer]
 
@@ -62,8 +64,12 @@ defmodule Octopus.Apps.DoomFire do
   def icon, do: WebP.load("doom-fire")
 
   def init(_) do
+    # Get dimensions from installation
+    width = installation().width()
+    height = installation().height()
+
     :timer.send_interval(trunc(1000 / 10), :tick)
-    {:ok, %{fire: Fire.new(80, 8), canvas: Canvas.new(80, 8)}}
+    {:ok, %{fire: Fire.new(width, height), canvas: Canvas.new(width, height)}}
   end
 
   def handle_info(:tick, %{fire: fire, canvas: canvas} = state) do
