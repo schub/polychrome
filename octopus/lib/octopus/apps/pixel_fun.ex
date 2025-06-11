@@ -156,17 +156,20 @@ defmodule Octopus.Apps.PixelFun do
     {:noreply, %{state | program: program}}
   end
 
+  defp color_interval_s, do: param(:color_interval_ms, 5000) / 1000.0
+  defp color_interval_ms, do: param(:color_interval_ms, 5000)
+
   def handle_info(:update_colors, %State{} = state) do
     colors = generate_random_colors()
 
-    Process.send_after(self(), :update_colors, param(:color_interval_ms, 5000))
+    Process.send_after(self(), :update_colors, color_interval_ms())
 
     {:noreply,
      %State{
        state
        | last_colors: state.colors,
          target_colors: colors,
-         lerp_time: state.color_interval
+         lerp_time: color_interval_s()
      }}
   end
 
@@ -290,7 +293,7 @@ defmodule Octopus.Apps.PixelFun do
   end
 
   defp interpolate_colors_with_black(%Chameleon.HSV{} = a, %Chameleon.HSV{} = b, value) do
-    rgb =
+    hsv =
       cond do
         value > 0 ->
           %Chameleon.HSV{
@@ -309,9 +312,10 @@ defmodule Octopus.Apps.PixelFun do
         true ->
           %Chameleon.HSV{h: 0, s: 0, v: 0}
       end
-      |> Chameleon.convert(Chameleon.RGB)
 
-    %Chameleon.RGB{r: r, g: g, b: b} = rgb
+    hsv = %Chameleon.HSV{hsv | h: hsv.h |> max(0) |> min(359)}
+
+    %Chameleon.RGB{r: r, g: g, b: b} = Chameleon.convert(hsv, Chameleon.RGB)
     {r, g, b}
   end
 
@@ -336,8 +340,8 @@ defmodule Octopus.Apps.PixelFun do
   end
 
   defp lerp_toward_target_colors(%State{} = state) do
-    current_time = max(state.color_interval - state.lerp_time, 0)
-    t = current_time / state.color_interval
+    current_time = max(color_interval_s() - state.lerp_time, 0)
+    t = current_time / color_interval_s()
     lerp_time = max(state.lerp_time - 1 / @fps, 0)
 
     {last_a, last_b} = state.last_colors
@@ -366,7 +370,7 @@ defmodule Octopus.Apps.PixelFun do
 
   defp generate_random_colors do
     hue_a = :rand.uniform(360) - 1
-    hue_b = Integer.mod(hue_a + 90 + :rand.uniform(180) - 1, 359)
+    hue_b = Integer.mod(hue_a + 90 + :rand.uniform(180) - 1, 360)
     sat_a = param(:saturation_percent, 70)
     sat_b = param(:saturation_percent, 70)
     hsv_a = Chameleon.HSV.new(hue_a, sat_a, 100)
