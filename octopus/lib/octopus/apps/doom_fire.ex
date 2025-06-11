@@ -4,7 +4,8 @@ defmodule Octopus.Apps.DoomFire do
   alias Octopus.WebP
   alias Octopus.Canvas
 
-  defdelegate installation, to: Octopus
+  # Get the installation module for direct function calls
+  @installation Octopus.installation()
 
   defmodule Fire do
     defstruct [:width, :height, :buffer]
@@ -65,8 +66,8 @@ defmodule Octopus.Apps.DoomFire do
 
   def init(_) do
     # Get dimensions from installation
-    width = installation().width()
-    height = installation().height()
+    width = @installation.width()
+    height = @installation.height()
 
     :timer.send_interval(trunc(1000 / 10), :tick)
     {:ok, %{fire: Fire.new(width, height), canvas: Canvas.new(width, height)}}
