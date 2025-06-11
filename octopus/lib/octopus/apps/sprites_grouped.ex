@@ -4,8 +4,18 @@ defmodule Octopus.Apps.SpritesGrouped do
 
   alias Octopus.{Sprite, Canvas, Transitions}
 
+  # Get the installation module for direct function calls
+  @installation Octopus.installation()
+
   defmodule State do
-    defstruct [:canvas, :group_index, :current_sprites, :sprite_queue, :skip]
+    defstruct [
+      :group_index,
+      :current_sprites,
+      :sprite_queue,
+      :skip,
+      :panel_width,
+      :num_panels
+    ]
   end
 
   @sprite_sheet "256-characters-original"
@@ -16,7 +26,7 @@ defmodule Octopus.Apps.SpritesGrouped do
   @animation_steps 50
 
   @tick_interval 500
-  @skip_till_next_group 30
+  @skip_till_next_group 10
 
   @groups [
     mario: [0..7, 9, 12],
@@ -68,11 +78,16 @@ defmodule Octopus.Apps.SpritesGrouped do
   def name(), do: "Sprite Groups"
 
   def init(_args) do
+    # Get dynamic dimensions from installation metadata
+    sprite_panel_width = trunc(@installation.panel_width())
+    num_panels = @installation.panel_count()
+
     state =
       %State{
         group_index: 0,
         skip: 0,
-        canvas: Canvas.new(80, 8),
+        panel_width: sprite_panel_width,
+        num_panels: num_panels,
         current_sprites: %{}
       }
       |> queue_sprites()
@@ -87,19 +102,14 @@ defmodule Octopus.Apps.SpritesGrouped do
   end
 
   def handle_info(:tick, %State{skip: 1} = state) do
-    empty_canvas = Canvas.new(80, 8)
+    # Create empty canvas by joining empty panel canvases
+    empty_canvas = create_final_canvas(%{}, state.num_panels, state.panel_width)
 
-    Transitions.push(state.canvas, empty_canvas, direction: :bottom, steps: @animation_steps)
-    |> Stream.map(fn canvas ->
-      :timer.sleep(@animation_interval)
+    empty_canvas
+    |> Canvas.to_frame(easing_interval: @easing_interval)
+    |> send_frame()
 
-      canvas
-      |> Canvas.to_frame(easing_interval: @easing_interval)
-      |> send_frame()
-    end)
-    |> Stream.run()
-
-    {:noreply, %State{state | skip: 0, canvas: empty_canvas}}
+    {:noreply, %State{state | skip: 0}}
   end
 
   def handle_info(:tick, %State{sprite_queue: []} = state) do
@@ -109,23 +119,53 @@ defmodule Octopus.Apps.SpritesGrouped do
       %State{
         state
         | group_index: next_index,
-          skip: @skip_till_next_group
+          skip: @skip_till_next_group,
+          # Clear current sprites when switching groups
+          current_sprites: %{}
       }
       |> queue_sprites()
 
     {:noreply, state}
   end
 
-  def handle_info(:tick, %State{sprite_queue: [{window, next_sprite} | rest_sprites]} = state) do
-    current_canvas = Canvas.cut(state.canvas, {window * 8, 0}, {window * 8 + 8 - 1, 8 - 1})
-    next_cavnas = load_sprite(next_sprite)
-    # direction = Enum.random([:left, :right, :top, :bottom])
+  def handle_info(
+        :tick,
+        %State{sprite_queue: [{panel_index, next_sprite} | rest_sprites]} = state
+      ) do
+    # Get the current and next sprite canvases for this panel
+    current_sprite = Map.get(state.current_sprites, panel_index)
+    current_panel_canvas = load_sprite(current_sprite, state.panel_width)
+    next_panel_canvas = load_sprite(next_sprite, state.panel_width)
+
+    # Pre-load all static panel canvases once (optimization)
+    static_panel_canvases =
+      0..(state.num_panels - 1)
+      |> Enum.map(fn idx ->
+        if idx == panel_index do
+          # Will be replaced with animated canvas
+          nil
+        else
+          sprite_index = Map.get(state.current_sprites, idx)
+          load_sprite(sprite_index, state.panel_width)
+        end
+      end)
+
+    # Animate the transition for this specific panel
     direction = :top
 
-    Transitions.push(current_canvas, next_cavnas, direction: direction, steps: @animation_steps)
-    |> Stream.map(fn window_canvas ->
-      state.canvas
-      |> Canvas.overlay(window_canvas, offset: {window * 8, 0}, transparency: false)
+    Transitions.push(current_panel_canvas, next_panel_canvas,
+      direction: direction,
+      steps: @animation_steps
+    )
+    |> Stream.map(fn animated_panel_canvas ->
+      # Use pre-loaded static canvases, only replace the animated one
+      panel_canvases =
+        static_panel_canvases
+        |> List.replace_at(panel_index, animated_panel_canvas)
+
+      # Join all panels and send frame
+      panel_canvases
+      |> Enum.reduce(&Canvas.join(&2, &1))
       |> Canvas.to_frame(easing_interval: @easing_interval)
     end)
     |> Stream.map(fn frame ->
@@ -134,49 +174,157 @@ defmodule Octopus.Apps.SpritesGrouped do
     end)
     |> Stream.run()
 
-    canvas =
-      Canvas.overlay(state.canvas, next_cavnas, offset: {window * 8, 0}, transparency: false)
+    # Update the current sprites map and send final frame
+    new_current_sprites = Map.put(state.current_sprites, panel_index, next_sprite)
 
+    # The final frame is the last animation frame, no need to create it again
     {:noreply,
      %State{
        state
        | sprite_queue: rest_sprites,
-         current_sprites: Map.put(state.current_sprites, window, next_sprite),
-         canvas: canvas
+         current_sprites: new_current_sprites
      }}
   end
 
-  defp queue_sprites(%State{group_index: index, current_sprites: current_sprites} = state) do
+  defp queue_sprites(
+         %State{
+           group_index: index,
+           current_sprites: current_sprites,
+           num_panels: num_panels
+         } = state
+       ) do
     {_name, indices} = Enum.at(@groups, index)
 
-    queue =
+    # Get the sprites for this group
+    group_sprites =
       indices
       |> Enum.flat_map(fn
         index when is_number(index) -> [index]
         list -> Enum.to_list(list)
       end)
-      |> place_sprites()
-      |> Enum.with_index(fn sprite, index -> {index, sprite} end)
-      |> Enum.reject(fn {index, sprite} -> Map.get(current_sprites, index) == sprite end)
-      |> Enum.reject(fn {_, sprite} -> sprite == nil end)
-      |> Enum.shuffle()
+
+    # Place sprites in their positions
+    positioned_sprites = place_sprites(group_sprites, num_panels)
+
+    # Create queue of sprites that need to be updated
+    all_positioned =
+      positioned_sprites |> Enum.with_index(fn sprite, panel_index -> {panel_index, sprite} end)
+
+    after_filter =
+      all_positioned
+      |> Enum.reject(fn {panel_index, sprite} ->
+        # Only reject if the exact same sprite is already in the exact same position
+        Map.get(current_sprites, panel_index) == sprite
+      end)
+
+    after_nil_filter = after_filter |> Enum.reject(fn {_, sprite} -> sprite == nil end)
+
+    queue = after_nil_filter |> Enum.shuffle()
 
     %State{state | sprite_queue: queue}
   end
 
-  defp place_sprites([]), do: []
-  defp place_sprites([a]), do: [nil, nil, nil, nil, nil, a, nil, nil, nil, nil]
-  defp place_sprites([a, b]), do: [nil, nil, nil, nil, a, b, nil, nil, nil, nil]
-  defp place_sprites([a, b, c]), do: [nil, nil, nil, nil, a, b, c, nil, nil, nil]
-  defp place_sprites([a, b, c, d]), do: [nil, nil, nil, a, b, c, d, nil, nil, nil]
-  defp place_sprites([a, b, c, d, e]), do: [nil, nil, nil, a, b, c, d, e, nil, nil]
-  defp place_sprites([a, b, c, d, e, f]), do: [nil, nil, a, b, c, d, e, f, nil, nil]
-  defp place_sprites([a, b, c, d, e, f, g]), do: [nil, nil, a, b, c, d, e, f, g, nil]
-  defp place_sprites([a, b, c, d, e, f, g, h]), do: [nil, a, b, c, d, e, f, g, h, nil]
-  defp place_sprites([a, b, c, d, e, f, g, h, i]), do: [nil, a, b, c, d, e, f, g, h, i]
-  defp place_sprites([a, b, c, d, e, f, g, h, i, j]), do: [a, b, c, d, e, f, g, h, i, j]
-  # defp place_sprites(list), do: Enum.take_random(list, 10) |> place_sprites()
+  defp place_sprites([], _num_windows), do: []
 
-  defp load_sprite(nil), do: Canvas.new(8, 8)
-  defp load_sprite(index), do: Sprite.load(@sprite_sheet, index)
+  defp place_sprites(sprites, num_windows) when length(sprites) >= num_windows do
+    Enum.take(sprites, num_windows)
+  end
+
+  defp place_sprites(sprites, num_panels) do
+    sprite_count = length(sprites)
+
+    cond do
+      sprite_count == num_panels ->
+        # Special case: if we have exactly as many sprites as panels, place one in each panel
+        sprites
+
+      sprite_count > num_panels / 2 ->
+        # If we have more than half the panels, place them consecutively centered
+        padding = div(num_panels - sprite_count, 2)
+
+        List.duplicate(nil, padding) ++
+          sprites ++ List.duplicate(nil, num_panels - sprite_count - padding)
+
+      true ->
+        # If we have fewer than half the panels, distribute them evenly across the space
+        positions = distribute_evenly(sprite_count, num_panels)
+
+        # Create result array and place sprites at calculated positions
+        result = List.duplicate(nil, num_panels)
+
+        sprites
+        |> Enum.zip(positions)
+        |> Enum.reduce(result, fn {sprite, pos}, acc ->
+          List.replace_at(acc, pos, sprite)
+        end)
+    end
+  end
+
+  # Distribute sprites evenly across available panels
+  defp distribute_evenly(sprite_count, num_panels) do
+    if sprite_count == 1 do
+      # Single sprite goes in the center
+      [div(num_panels - 1, 2)]
+    else
+      # For multiple sprites, distribute them evenly with better spacing
+      case sprite_count do
+        2 ->
+          # For 2 sprites in 12 panels, use positions like 3, 8 (1-indexed: 4, 9)
+          quarter = div(num_panels, 4)
+          [quarter, num_panels - quarter - 1]
+
+        3 ->
+          # For 3 sprites, use positions like 2, 5, 8 (1-indexed: 3, 6, 9)
+          step = div(num_panels - 1, 3)
+          [step, step * 2, step * 3]
+
+        4 ->
+          # For 4 sprites in 12 panels, use positions like 1, 4, 7, 10 (1-indexed: 2, 5, 8, 11)
+          step = div(num_panels - 1, 4)
+          [step, step * 2, step * 3, step * 4]
+
+        _ ->
+          # For other counts, distribute evenly
+          step = max(1, div(num_panels - 1, sprite_count - 1))
+
+          0..(sprite_count - 1)
+          |> Enum.map(fn i -> min(i * step, num_panels - 1) end)
+      end
+    end
+  end
+
+  # Create the final canvas by joining individual panel canvases - like pixel_fun does
+  defp create_final_canvas(current_sprites, num_panels, panel_width) do
+    0..(num_panels - 1)
+    |> Enum.map(fn panel_index ->
+      sprite_index = Map.get(current_sprites, panel_index)
+      load_sprite(sprite_index, panel_width)
+    end)
+    |> Enum.reduce(&Canvas.join(&2, &1))
+  end
+
+  defp load_sprite(nil, panel_width), do: Canvas.new(panel_width, panel_width)
+
+  defp load_sprite(index, panel_width) do
+    # Load the original 8x8 sprite
+    original_sprite = Sprite.load(@sprite_sheet, index)
+
+    cond do
+      panel_width == 8 ->
+        # Perfect match, use sprite as-is
+        original_sprite
+
+      panel_width > 8 ->
+        # Panel is larger than sprite, center the sprite within the panel
+        new_canvas = Canvas.new(panel_width, panel_width)
+        offset_x = div(panel_width - 8, 2)
+        offset_y = div(panel_width - 8, 2)
+        Canvas.overlay(new_canvas, original_sprite, offset: {offset_x, offset_y})
+
+      panel_width < 8 ->
+        # Panel is smaller than sprite, crop the sprite to fit
+        # Note: This may make sprites unrecognizable
+        Canvas.cut(original_sprite, {0, 0}, {panel_width - 1, panel_width - 1})
+    end
+  end
 end
