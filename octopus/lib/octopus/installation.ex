@@ -1,4 +1,4 @@
-defmodule Octopus.Installation do
+redefmodule Octopus.Installation do
   @typedoc """
   Logical position of a pixel in the installation
   """
@@ -12,6 +12,7 @@ defmodule Octopus.Installation do
   @callback num_panels() :: pos_integer()
 
   @callback panel_offsets() :: nonempty_list({integer(), integer()})
+  @callback panel_count() :: integer()
 
   @callback panel_width() :: integer()
   @callback panel_height() :: integer()

@@ -28,6 +28,11 @@ defmodule Octopus.Installation.Nation2024 do
   end
 
   @impl true
+  def panel_count() do
+    @num_panels
+  end
+
+  @impl true
   def panel_width() do
     @panel_width
   end
