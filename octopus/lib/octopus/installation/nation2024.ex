@@ -1,8 +1,18 @@
-defmodule Octopus.Installation.Nation do
+defmodule Octopus.Installation.Nation2024 do
   @behaviour Octopus.Installation
 
   @panel_height 8
   @panel_width 8
+
+  # Simulator layout constants for 10 panels
+  @sim_pixel_width 25
+  @sim_pixel_height 25
+  @sim_image_width 12900
+  @sim_image_height 5470
+  @sim_offset_x 1750
+  @sim_offset_y 3750
+  @sim_spacing 800
+
   @panels_offsets [
     {0, 0},
     {25 * 1, 0},
@@ -67,21 +77,27 @@ defmodule Octopus.Installation.Nation do
 
   @impl true
   def simulator_layouts() do
-    positions = panels() |> List.flatten()
-    {min_x, max_x} = positions |> Enum.map(fn {x, _y} -> x end) |> Enum.min_max()
-    {min_y, max_y} = positions |> Enum.map(fn {_x, y} -> y end) |> Enum.min_max()
+    positions =
+      for i <- 0..9, y <- 0..7, x <- 0..7 do
+        {
+          @sim_offset_x + i * (@sim_spacing + @sim_pixel_width * 8) + x * @sim_pixel_width,
+          @sim_offset_y + y * @sim_pixel_height
+        }
+      end
 
     [
       %Octopus.Layout{
-        name: "Nation",
+        name: "Nation 2024",
         positions: positions,
-        width: max_x - min_x + 1,
-        height: max_y - min_y + 1,
-        pixel_size: {4, 4},
+        # 10 panels × 8 pixels wide
+        width: 8 * 10,
+        # 8 pixels tall
+        height: 8,
+        pixel_size: {@sim_pixel_width, @sim_pixel_height},
         pixel_margin: {0, 0, 0, 0},
         background_image: "/images/nation.webp",
         pixel_image: "/images/mildenberg-pixel-overlay.webp",
-        image_size: {6458, Atom}
+        image_size: {@sim_image_width, @sim_image_height}
       }
     ]
   end
