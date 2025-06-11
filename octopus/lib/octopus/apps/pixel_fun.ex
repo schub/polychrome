@@ -30,9 +30,7 @@ defmodule Octopus.Apps.PixelFun do
       :move,
       :input,
       :audio_input,
-      :seconds,
-      :center_x,
-      :center_y
+      :seconds
     ]
   end
 
@@ -100,8 +98,6 @@ defmodule Octopus.Apps.PixelFun do
        move: {0, 0},
        input: config.input,
        audio_input: %{low: 0.0, mid: 0.0, high: 0.0},
-       center_x: installation().center_x(),
-       center_y: installation().center_y(),
        seconds: seconds
      }}
   end
@@ -240,14 +236,17 @@ defmodule Octopus.Apps.PixelFun do
     lerp_fn =
       if state.lerp_over_black, do: &interpolate_colors_with_black/3, else: &interpolate_colors/3
 
+    center_x = installation().center_x()
+    center_y = installation().center_y()
+
     installation().panels()
     |> Enum.map(fn panel ->
       for {{x, y}, i} <- Enum.with_index(panel), into: Canvas.new(8, 8) do
         local_x = rem(i, 8)
         local_y = div(i, 8)
 
-        x_translated = x - offset_x - state.center_x
-        y_translated = y - offset_y - state.center_y
+        x_translated = x - offset_x - center_x
+        y_translated = y - offset_y - center_y
 
         x_rotated = x_translated * :math.cos(rotation) - y_translated * :math.sin(rotation)
         y_rotated = x_translated * :math.sin(rotation) + y_translated * :math.cos(rotation)
