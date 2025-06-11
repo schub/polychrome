@@ -3,10 +3,7 @@ defmodule Octopus.Installation.Nation2025 do
 
   @panel_height 8
   @panel_width 8
-  @panel_distance 16
   @num_panels 12
-
-  @panels_offsets for i <- 0..(@num_panels - 1), do: {@panel_distance * i, 0}
 
   # Simulator layout constants
   @sim_pixel_width 8
@@ -17,9 +14,30 @@ defmodule Octopus.Installation.Nation2025 do
   @sim_offset_y 1100
   @sim_spacing 128
 
+  @num_panels 12
+
   @impl true
   def panel_offsets() do
-    @panels_offsets
+    # Calculate panel spacing in virtual pixels for circular arrangement
+    panel_spacing_pixels = calculate_panel_spacing_pixels()
+
+    # Generate linear panel positions on a plane
+    for i <- 0..(@num_panels - 1) do
+      {i * panel_spacing_pixels, 0}
+    end
+  end
+
+  def calculate_panel_spacing_pixels() do
+    diameter_in_meters = Octopus.Params.Sim3d.diameter()
+    radius_in_meters = diameter_in_meters / 2
+    panel_width_in_meters = 1.6
+    angle_between_panels = 2 * :math.pi() / @num_panels
+    pixels_per_meter = 8 / panel_width_in_meters
+
+    chord_length_pixels =
+      2 * (radius_in_meters * pixels_per_meter) * :math.sin(angle_between_panels / 2)
+
+    round(chord_length_pixels)
   end
 
   @impl true
@@ -56,7 +74,7 @@ defmodule Octopus.Installation.Nation2025 do
 
   @impl true
   def panels() do
-    for {offset_x, offset_y} <- @panels_offsets do
+    for {offset_x, offset_y} <- panel_offsets() do
       for y <- 0..(@panel_height - 1), x <- 0..(@panel_width - 1) do
         {
           x + offset_x,
