@@ -173,11 +173,11 @@ typedef struct _SoundToLightControlEvent {
     float high;
 } SoundToLightControlEvent;
 
-typedef struct _SensorEvent {
+typedef struct _ProximityEvent {
     uint32_t panel_index;
     uint32_t sensor_index;
-    float distance;
-} SensorEvent;
+    float distance_mm;
+} ProximityEvent;
 
 typedef struct _FirmwareConfig {
     uint32_t luminance;
@@ -225,7 +225,7 @@ typedef struct _FirmwareInfo {
     uint64_t uptime;
     uint32_t heap_size;
     uint32_t free_heap;
-    uint32_t sensor_readings_per_second;
+    uint32_t proximity_readings_per_second;
 } FirmwareInfo;
 
 typedef struct _RemoteLog {
@@ -238,7 +238,7 @@ typedef struct _FirmwarePacket {
     union {
         FirmwareInfo firmware_info;
         RemoteLog remote_log;
-        SensorEvent sensor_event;
+        ProximityEvent proximity_event;
     } content;
 } FirmwarePacket;
 
@@ -314,7 +314,7 @@ extern "C" {
 #define InputEvent_init_default                  {_InputType_MIN, 0}
 #define ControlEvent_init_default                {_ControlEventType_MIN}
 #define SoundToLightControlEvent_init_default    {0, 0, 0}
-#define SensorEvent_init_default                 {0, 0, 0}
+#define ProximityEvent_init_default              {0, 0, 0}
 #define FirmwareConfig_init_default              {0, _EasingMode_MIN, 0, 0, 0}
 #define FirmwarePacket_init_default              {0, {FirmwareInfo_init_default}}
 #define FirmwareInfo_init_default                {"", "", 0, 0, 0, "", "", "", "", 0, 0, 0, 0, 0}
@@ -333,7 +333,7 @@ extern "C" {
 #define InputEvent_init_zero                     {_InputType_MIN, 0}
 #define ControlEvent_init_zero                   {_ControlEventType_MIN}
 #define SoundToLightControlEvent_init_zero       {0, 0, 0}
-#define SensorEvent_init_zero                    {0, 0, 0}
+#define ProximityEvent_init_zero                 {0, 0, 0}
 #define FirmwareConfig_init_zero                 {0, _EasingMode_MIN, 0, 0, 0}
 #define FirmwarePacket_init_zero                 {0, {FirmwareInfo_init_zero}}
 #define FirmwareInfo_init_zero                   {"", "", 0, 0, 0, "", "", "", "", 0, 0, 0, 0, 0}
@@ -384,9 +384,9 @@ extern "C" {
 #define SoundToLightControlEvent_bass_tag        1
 #define SoundToLightControlEvent_mid_tag         2
 #define SoundToLightControlEvent_high_tag        3
-#define SensorEvent_panel_index_tag              1
-#define SensorEvent_sensor_index_tag             2
-#define SensorEvent_distance_tag                 3
+#define ProximityEvent_panel_index_tag           1
+#define ProximityEvent_sensor_index_tag          2
+#define ProximityEvent_distance_mm_tag           3
 #define FirmwareConfig_luminance_tag             1
 #define FirmwareConfig_easing_mode_tag           2
 #define FirmwareConfig_show_test_frame_tag       3
@@ -417,11 +417,11 @@ extern "C" {
 #define FirmwareInfo_uptime_tag                  11
 #define FirmwareInfo_heap_size_tag               12
 #define FirmwareInfo_free_heap_tag               13
-#define FirmwareInfo_sensor_readings_per_second_tag 14
+#define FirmwareInfo_proximity_readings_per_second_tag 14
 #define RemoteLog_message_tag                    1
 #define FirmwarePacket_firmware_info_tag         1
 #define FirmwarePacket_remote_log_tag            2
-#define FirmwarePacket_sensor_event_tag          3
+#define FirmwarePacket_proximity_event_tag       3
 
 /* Struct field encoding specification for nanopb */
 #define Packet_FIELDLIST(X, a) \
@@ -552,12 +552,12 @@ X(a, STATIC,   SINGULAR, FLOAT,    high,              3)
 #define SoundToLightControlEvent_CALLBACK NULL
 #define SoundToLightControlEvent_DEFAULT NULL
 
-#define SensorEvent_FIELDLIST(X, a) \
+#define ProximityEvent_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   panel_index,       1) \
 X(a, STATIC,   SINGULAR, UINT32,   sensor_index,      2) \
-X(a, STATIC,   SINGULAR, FLOAT,    distance,          3)
-#define SensorEvent_CALLBACK NULL
-#define SensorEvent_DEFAULT NULL
+X(a, STATIC,   SINGULAR, FLOAT,    distance_mm,       3)
+#define ProximityEvent_CALLBACK NULL
+#define ProximityEvent_DEFAULT NULL
 
 #define FirmwareConfig_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   luminance,         1) \
@@ -571,12 +571,12 @@ X(a, STATIC,   SINGULAR, BOOL,     enable_calibration,   5)
 #define FirmwarePacket_FIELDLIST(X, a) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (content,firmware_info,content.firmware_info),   1) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (content,remote_log,content.remote_log),   2) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (content,sensor_event,content.sensor_event),   3)
+X(a, STATIC,   ONEOF,    MESSAGE,  (content,proximity_event,content.proximity_event),   3)
 #define FirmwarePacket_CALLBACK NULL
 #define FirmwarePacket_DEFAULT NULL
 #define FirmwarePacket_content_firmware_info_MSGTYPE FirmwareInfo
 #define FirmwarePacket_content_remote_log_MSGTYPE RemoteLog
-#define FirmwarePacket_content_sensor_event_MSGTYPE SensorEvent
+#define FirmwarePacket_content_proximity_event_MSGTYPE ProximityEvent
 
 #define FirmwareInfo_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   hostname,          1) \
@@ -592,7 +592,7 @@ X(a, STATIC,   SINGULAR, UINT32,   packets_per_second,  10) \
 X(a, STATIC,   SINGULAR, UINT64,   uptime,           11) \
 X(a, STATIC,   SINGULAR, UINT32,   heap_size,        12) \
 X(a, STATIC,   SINGULAR, UINT32,   free_heap,        13) \
-X(a, STATIC,   SINGULAR, UINT32,   sensor_readings_per_second,  14)
+X(a, STATIC,   SINGULAR, UINT32,   proximity_readings_per_second,  14)
 #define FirmwareInfo_CALLBACK NULL
 #define FirmwareInfo_DEFAULT NULL
 
@@ -615,7 +615,7 @@ extern const pb_msgdesc_t InputLightEvent_msg;
 extern const pb_msgdesc_t InputEvent_msg;
 extern const pb_msgdesc_t ControlEvent_msg;
 extern const pb_msgdesc_t SoundToLightControlEvent_msg;
-extern const pb_msgdesc_t SensorEvent_msg;
+extern const pb_msgdesc_t ProximityEvent_msg;
 extern const pb_msgdesc_t FirmwareConfig_msg;
 extern const pb_msgdesc_t FirmwarePacket_msg;
 extern const pb_msgdesc_t FirmwareInfo_msg;
@@ -636,7 +636,7 @@ extern const pb_msgdesc_t RemoteLog_msg;
 #define InputEvent_fields &InputEvent_msg
 #define ControlEvent_fields &ControlEvent_msg
 #define SoundToLightControlEvent_fields &SoundToLightControlEvent_msg
-#define SensorEvent_fields &SensorEvent_msg
+#define ProximityEvent_fields &ProximityEvent_msg
 #define FirmwareConfig_fields &FirmwareConfig_msg
 #define FirmwarePacket_fields &FirmwarePacket_msg
 #define FirmwareInfo_fields &FirmwareInfo_msg
@@ -652,11 +652,11 @@ extern const pb_msgdesc_t RemoteLog_msg;
 #define Frame_size                               924
 #define InputEvent_size                          13
 #define InputLightEvent_size                     13
+#define ProximityEvent_size                      17
 #define RGBFrame_size                            2313
 #define RGBWFrame_size                           3081
 #define RemoteLog_size                           102
 #define SCHEMA_PB_H_MAX_SIZE                     RGBWFrame_size
-#define SensorEvent_size                         17
 #define SoundToLightControlEvent_size            15
 #define SynthAdsrConfig_size                     20
 #define SynthConfig_size                         90
@@ -866,11 +866,11 @@ struct MessageDescriptor<SoundToLightControlEvent> {
     }
 };
 template <>
-struct MessageDescriptor<SensorEvent> {
+struct MessageDescriptor<ProximityEvent> {
     static PB_INLINE_CONSTEXPR const pb_size_t fields_array_length = 3;
-    static PB_INLINE_CONSTEXPR const pb_size_t size = SensorEvent_size;
+    static PB_INLINE_CONSTEXPR const pb_size_t size = ProximityEvent_size;
     static inline const pb_msgdesc_t* fields() {
-        return &SensorEvent_msg;
+        return &ProximityEvent_msg;
     }
     static inline bool has_msgid() {
         return false;

@@ -165,10 +165,10 @@ message SoundToLightControlEvent {
   float high = 3;
 }
 
-message SensorEvent {
+message ProximityEvent {
   uint32 panel_index = 1;
   uint32 sensor_index = 2;
-  float distance = 3;
+  float distance_mm = 3;
 }
 
 message FirmwareConfig {
@@ -207,7 +207,7 @@ message FirmwarePacket {
   oneof content {
     FirmwareInfo firmware_info = 1;
     RemoteLog remote_log = 2;
-    SensorEvent sensor_event = 3;
+    ProximityEvent proximity_event = 3;
   }
 }
 
@@ -225,7 +225,7 @@ message FirmwareInfo {
   uint64 uptime = 11;
   uint32 heap_size = 12;
   uint32 free_heap = 13;
-  uint32 sensor_readings_per_second = 14;
+  uint32 proximity_readings_per_second = 14;
 }
 
 message RemoteLog {

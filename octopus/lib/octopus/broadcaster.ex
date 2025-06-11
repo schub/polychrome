@@ -3,8 +3,8 @@ defmodule Octopus.Broadcaster do
   require Logger
 
   alias Phoenix.Tracker.State
-  alias Octopus.Protobuf
-  alias Octopus.Protobuf.{FirmwareConfig, RemoteLog, FirmwareInfo, FirmwarePacket, SensorEvent}
+  alias Octopus.{Protobuf, Mixer}
+  alias Octopus.Protobuf.{FirmwareConfig, RemoteLog, FirmwareInfo, FirmwarePacket, ProximityEvent}
 
   @default_config %FirmwareConfig{
     luminance: 150,
@@ -167,8 +167,8 @@ defmodule Octopus.Broadcaster do
     end
   end
 
-  defp handle_firmware_packet(%SensorEvent{} = sensor_event, from_ip, %State{} = state) do
-    # todo
+  defp handle_firmware_packet(%ProximityEvent{} = event, from_ip, %State{} = state) do
+    Mixer.handle_event(event)
     state
   end
 

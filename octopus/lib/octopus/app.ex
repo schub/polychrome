@@ -23,7 +23,8 @@ defmodule Octopus.App do
     InputEvent,
     ControlEvent,
     SynthFrame,
-    SoundToLightControlEvent
+    SoundToLightControlEvent,
+    ProximityEvent
   }
 
   alias Octopus.{Mixer, AppSupervisor}
@@ -72,6 +73,8 @@ defmodule Octopus.App do
 
   @callback handle_control_event(%ControlEvent{}, state :: any()) :: {:noreply, state :: any()}
 
+  @callback handle_proximity(%ProximityEvent{}, state :: any()) :: {:noreply, state :: any()}
+
   defmacro __using__(opts) do
     category = Keyword.get(opts, :category, :misc)
 
@@ -94,6 +97,10 @@ defmodule Octopus.App do
 
       def handle_info({:event, %ControlEvent{} = control_event}, state) do
         handle_control_event(control_event, state)
+      end
+
+      def handle_info({:event, %ProximityEvent{} = proximity_event}, state) do
+        handle_proximity(proximity_event, state)
       end
 
       def handle_call(:get_config, _from, state) do
@@ -119,6 +126,10 @@ defmodule Octopus.App do
         {:noreply, state}
       end
 
+      def handle_proximity(_event, state) do
+        {:noreply, state}
+      end
+
       def handle_config(config, state) do
         {:noreply, state}
       end
@@ -134,6 +145,7 @@ defmodule Octopus.App do
       defoverridable icon: 0
       defoverridable handle_input: 2
       defoverridable handle_control_event: 2
+      defoverridable handle_proximity: 2
       defoverridable config_schema: 0
       defoverridable handle_config: 2
       defoverridable get_config: 1

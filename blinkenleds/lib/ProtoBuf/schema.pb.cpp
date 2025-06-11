@@ -48,7 +48,7 @@ PB_BIND(ControlEvent, ControlEvent, AUTO)
 PB_BIND(SoundToLightControlEvent, SoundToLightControlEvent, AUTO)
 
 
-PB_BIND(SensorEvent, SensorEvent, AUTO)
+PB_BIND(ProximityEvent, ProximityEvent, AUTO)
 
 
 PB_BIND(FirmwareConfig, FirmwareConfig, AUTO)

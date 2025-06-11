@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <Sensor.h>
+#include <Proximity.h>
 #include <Network.h>
 
 // PINS
@@ -25,6 +25,7 @@ static float currentReadingsPerSecond = 0.0;
 // Echo interrupt
 void IRAM_ATTR echoISR()
 {
+  // todo: this is a simple implementation and might cause race conditions
   if (digitalRead(ECHO1_PIN) == HIGH)
   {
     echoStartTime = micros();
@@ -37,7 +38,7 @@ void IRAM_ATTR echoISR()
   }
 }
 
-void Sensor::setup()
+void Proximity::setup()
 {
   pinMode(TRIG1_PIN, OUTPUT);
   pinMode(TRIG2_PIN, OUTPUT);
@@ -52,17 +53,18 @@ void Sensor::setup()
   // Interrupt for echo
   attachInterrupt(digitalPinToInterrupt(ECHO1_PIN), echoISR, CHANGE);
 
-  Serial.println("Sensor setup done, frequency: " + String(TRIGGER_FREQ_HZ) + "Hz");
+  Serial.println("Proximity setup done, frequency: " + String(TRIGGER_FREQ_HZ) + "Hz");
 }
 
-void Sensor::loop()
+void Proximity::loop()
 {
   if (measurementReady)
   {
     unsigned long duration = echoEndTime - echoStartTime;
-    float distance = duration * 0.034 / 2;
+    float distance = duration * 0.34 / 2;
 
-    Network::send_sensor_event(0, distance);
+    Network::send_proximity_event(0, distance);
+    Network::send_proximity_event(1, distance);
 
     readingCount++;
 
@@ -83,7 +85,7 @@ void Sensor::loop()
   }
 }
 
-float Sensor::getReadingsPerSecond()
+float Proximity::getReadingsPerSecond()
 {
   return currentReadingsPerSecond;
 }

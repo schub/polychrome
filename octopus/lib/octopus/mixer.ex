@@ -2,14 +2,15 @@ defmodule Octopus.Mixer do
   use GenServer
   require Logger
 
-  alias Octopus.Protobuf.SoundToLightControlEvent
-  alias Octopus.Protobuf.AudioFrame
   alias Octopus.{Broadcaster, Protobuf, AppSupervisor, Canvas, EventScheduler}
 
   alias Octopus.Protobuf.{
     RGBFrame,
     InputEvent,
-    ControlEvent
+    ControlEvent,
+    ProximityEvent,
+    SoundToLightControlEvent,
+    AudioFrame
   }
 
   @pubsub_topic "mixer"
@@ -53,12 +54,8 @@ defmodule Octopus.Mixer do
     GenServer.cast(__MODULE__, {:new_frame, {app_id, binary, frame}})
   end
 
-  def handle_input(%InputEvent{} = input_event) do
-    GenServer.cast(__MODULE__, {:input_event, input_event})
-  end
-
-  def handle_input(%SoundToLightControlEvent{} = stl_event) do
-    GenServer.cast(__MODULE__, {:sound_to_light_control_event, stl_event})
+  def handle_event(%{} = event) do
+    GenServer.cast(__MODULE__, {:event, event})
   end
 
   @doc """
@@ -130,20 +127,20 @@ defmodule Octopus.Mixer do
 
   def handle_cast({:new_canvas, _}, state), do: {:noreply, state}
 
-  def handle_cast({:input_event, %InputEvent{} = input_event}, %State{} = state) do
-    state =
-      %State{state | last_input: System.os_time(:second)}
-      |> do_handle_input(input_event)
+  def handle_cast({:event, %InputEvent{} = input_event}, %State{} = state) do
+    AppSupervisor.send_event(state.selected_app, input_event)
+    EventScheduler.handle_input(input_event)
 
+    {:noreply, %State{state | last_input: System.os_time(:second)}}
+  end
+
+  def handle_cast({:event, %SoundToLightControlEvent{} = stl_event}, %State{} = state) do
+    AppSupervisor.send_event(state.selected_app, stl_event)
     {:noreply, state}
   end
 
-  def handle_cast(
-        {:sound_to_light_control_event, %SoundToLightControlEvent{} = stl_event},
-        %State{} = state
-      ) do
-    AppSupervisor.send_event(state.selected_app, stl_event)
-
+  def handle_cast({:event, %ProximityEvent{} = event}, %State{} = state) do
+    AppSupervisor.send_event(state.selected_app, event)
     {:noreply, state}
   end
 
@@ -314,12 +311,6 @@ defmodule Octopus.Mixer do
 
   def stop_audio_playback() do
     GenServer.cast(__MODULE__, :stop_audio_playback)
-  end
-
-  defp do_handle_input(%State{} = state, %InputEvent{} = input_event) do
-    AppSupervisor.send_event(state.selected_app, input_event)
-    EventScheduler.handle_input(input_event)
-    state
   end
 
   defp handle_new_canvas(%State{} = state, %Canvas{} = canvas, offset) do

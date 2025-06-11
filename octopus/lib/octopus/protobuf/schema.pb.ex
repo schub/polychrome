@@ -267,14 +267,14 @@ defmodule Octopus.Protobuf.SoundToLightControlEvent do
   field :high, 3, type: :float
 end
 
-defmodule Octopus.Protobuf.SensorEvent do
+defmodule Octopus.Protobuf.ProximityEvent do
   @moduledoc false
 
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.12.0"
 
   field :panel_index, 1, type: :uint32, json_name: "panelIndex"
   field :sensor_index, 2, type: :uint32, json_name: "sensorIndex"
-  field :distance, 3, type: :float
+  field :distance_mm, 3, type: :float, json_name: "distanceMm"
 end
 
 defmodule Octopus.Protobuf.FirmwareConfig do
@@ -302,7 +302,11 @@ defmodule Octopus.Protobuf.FirmwarePacket do
     oneof: 0
 
   field :remote_log, 2, type: Octopus.Protobuf.RemoteLog, json_name: "remoteLog", oneof: 0
-  field :sensor_event, 3, type: Octopus.Protobuf.SensorEvent, json_name: "sensorEvent", oneof: 0
+
+  field :proximity_event, 3,
+    type: Octopus.Protobuf.ProximityEvent,
+    json_name: "proximityEvent",
+    oneof: 0
 end
 
 defmodule Octopus.Protobuf.FirmwareInfo do
@@ -323,7 +327,7 @@ defmodule Octopus.Protobuf.FirmwareInfo do
   field :uptime, 11, type: :uint64
   field :heap_size, 12, type: :uint32, json_name: "heapSize"
   field :free_heap, 13, type: :uint32, json_name: "freeHeap"
-  field :sensor_readings_per_second, 14, type: :uint32, json_name: "sensorReadingsPerSecond"
+  field :proximity_readings_per_second, 14, type: :uint32, json_name: "proximityReadingsPerSecond"
 end
 
 defmodule Octopus.Protobuf.RemoteLog do

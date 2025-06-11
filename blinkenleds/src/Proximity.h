@@ -1,10 +1,10 @@
-#ifndef __SENSOR_H_INCLUDED__
-#define __SENSOR_H_INCLUDED__
+#ifndef __PROXIMITY_H_INCLUDED__
+#define __PROXIMITY_H_INCLUDED__
 
 #include <Pixel.h>
 #include <schema.pb.h>
 
-class Sensor
+class Proximity
 {
 public:
   static void setup();
@@ -12,4 +12,4 @@ public:
   static float getReadingsPerSecond();
 };
 
-#endif // __SENSOR_H_INCLUDED__
+#endif // __PROXIMITY_H_INCLUDED__

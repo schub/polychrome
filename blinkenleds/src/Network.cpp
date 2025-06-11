@@ -8,7 +8,7 @@
 #include <pb_decode.h>
 #include <pb_encode.h>
 #include <Display.h>
-#include <Sensor.h>
+#include <Proximity.h>
 
 #ifdef PANEL_HOSTNAME
 String hostname = String(PANEL_HOSTNAME);
@@ -266,7 +266,7 @@ void Network::send_firmware_info()
   framecount = 0;
   packet.content.firmware_info.packets_per_second = packetcount * 1000 / (millis() - last_metrics_send);
   packetcount = 0;
-  packet.content.firmware_info.sensor_readings_per_second = Sensor::getReadingsPerSecond();
+  packet.content.firmware_info.proximity_readings_per_second = Proximity::getReadingsPerSecond();
 
   ETH.macAddress().toCharArray(packet.content.firmware_info.mac, 18);
   ETH.localIP().toString().toCharArray(packet.content.firmware_info.ipv4, 15);
@@ -289,15 +289,15 @@ void Network::send_firmware_info()
   last_metrics_send = millis();
 }
 
-void Network::send_sensor_event(uint32_t sensor_index, float distance)
+void Network::send_proximity_event(uint32_t sensor_index, float distance)
 {
   FirmwarePacket packet = FirmwarePacket_init_default;
-  packet.which_content = FirmwarePacket_sensor_event_tag;
-  packet.content.sensor_event = (SensorEvent)SensorEvent_init_default;
+  packet.which_content = FirmwarePacket_proximity_event_tag;
+  packet.content.proximity_event = (ProximityEvent)ProximityEvent_init_default;
 
-  packet.content.sensor_event.panel_index = PANEL_INDEX;
-  packet.content.sensor_event.sensor_index = sensor_index;
-  packet.content.sensor_event.distance = distance;
+  packet.content.proximity_event.panel_index = PANEL_INDEX;
+  packet.content.proximity_event.sensor_index = sensor_index;
+  packet.content.proximity_event.distance_mm = distance;
 
   pb_ostream_t stream = pb_ostream_from_buffer(udp_buffer, UDP_BUFFER_SIZE);
   pb_encode(&stream, FirmwarePacket_fields, &packet);

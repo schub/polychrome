@@ -15,6 +15,7 @@ defmodule Octopus.Apps.Encounter do
   end
 
   def get_config(%State{} = _state) do
+    %{}
   end
 
   @canvas_width 80
@@ -167,9 +168,8 @@ defmodule Octopus.Apps.Encounter do
   end
 
   def handle_info({:NOTE_ON, channel, note}, %State{} = state) do
-
     %Chameleon.RGB{r: r, g: g, b: b} =
-      Chameleon.HSV.new((note-20)/100 * 360, 100, 100) |> Chameleon.convert(Chameleon.RGB)
+      Chameleon.HSV.new((note - 20) / 100 * 360, 100, 100) |> Chameleon.convert(Chameleon.RGB)
 
     top_left = {(channel - 1) * 8, 0}
 

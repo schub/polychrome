@@ -9,7 +9,7 @@ public:
   static void loop();
   static void remote_log(String message);
   static void send_firmware_info();
-  static void send_sensor_event(uint32_t sensor_index, float distance);
+  static void send_proximity_event(uint32_t sensor_index, float distance);
 
 private:
 };
