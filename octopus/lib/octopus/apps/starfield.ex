@@ -7,6 +7,9 @@ defmodule Octopus.Apps.Starfield do
 
   alias Octopus.Canvas
 
+  # Get the installation module for direct function calls
+  @installation Octopus.installation()
+
   defmodule State do
     defstruct [:width, :height, :stars, :canvas, :config, :speed, :rotation]
   end
@@ -32,16 +35,21 @@ defmodule Octopus.Apps.Starfield do
   end
 
   def init(_) do
-    width = (8 * 10 + 9 * 18) * 2
-    height = 8 * 2
+    # Get dynamic dimensions from installation metadata
+    canvas_width = trunc(@installation.width())
+    canvas_height = trunc(@installation.height())
+
+    # Use larger virtual space for starfield effect
+    virtual_width = canvas_width * 2
+    virtual_height = canvas_height * 2
 
     config = config_schema() |> default_config()
 
     state = %State{
       stars: %{},
-      width: width,
-      height: height,
-      canvas: Canvas.new(8 * 10 + 9 * 18, 8),
+      width: virtual_width,
+      height: virtual_height,
+      canvas: Canvas.new(canvas_width, canvas_height),
       speed: config.speed,
       rotation: :rand.uniform(360) - 1
     }
@@ -107,14 +115,25 @@ defmodule Octopus.Apps.Starfield do
   defp update_canvas(%State{canvas: canvas, stars: stars} = state) do
     canvas = canvas |> Canvas.clear()
 
+    # Get canvas dimensions for clipping
+    canvas_width = canvas.width
+    canvas_height = canvas.height
+
     canvas =
       stars
       |> Enum.sort_by(fn {_, speed} -> speed end)
       |> Enum.reduce(canvas, fn {{x, y}, speed}, canvas ->
-        color_value = speed * 255
-        color = {trunc(color_value * 0.8), trunc(color_value * 0.9), trunc(color_value)}
+        # Only draw stars that are within the canvas bounds
+        pixel_x = trunc(x)
+        pixel_y = trunc(y)
 
-        canvas |> Canvas.put_pixel({trunc(x), trunc(y)}, color)
+        if pixel_x >= 0 and pixel_x < canvas_width and pixel_y >= 0 and pixel_y < canvas_height do
+          color_value = speed * 255
+          color = {trunc(color_value * 0.8), trunc(color_value * 0.9), trunc(color_value)}
+          canvas |> Canvas.put_pixel({pixel_x, pixel_y}, color)
+        else
+          canvas
+        end
       end)
 
     %State{state | canvas: canvas}
