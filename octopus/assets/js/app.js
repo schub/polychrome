@@ -44,6 +44,7 @@ liveSocket.connect();
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket;
+window.liveSocket.disableDebug();
 
 // Monaco Editor
 window.addEventListener("lme:editor_mounted", (ev) => {
