@@ -3,7 +3,10 @@ defmodule Octopus.Installation.Nation2025 do
 
   @panel_height 8
   @panel_width 8
+  @panel_gap 16
   @num_panels 12
+
+  @panels_offsets for i <- 0..(@num_panels - 1), do: {(@panel_width + @panel_gap) * i, 0}
 
   # Simulator layout constants
   @sim_pixel_width 8
@@ -109,8 +112,8 @@ defmodule Octopus.Installation.Nation2025 do
       %Octopus.Layout{
         name: "Nation 2025",
         positions: positions,
-        # Dynamic sizing based on constants
-        width: @panel_width * @num_panels,
+        # Width should match the logical canvas width (including gaps)
+        width: (@num_panels - 1) * (@panel_width + @panel_gap) + @panel_width,
         height: @panel_height,
         pixel_size: {@sim_pixel_width, @sim_pixel_height},
         pixel_margin: {0, 0, 0, 0},
