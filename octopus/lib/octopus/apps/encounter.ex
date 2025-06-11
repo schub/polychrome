@@ -169,7 +169,8 @@ defmodule Octopus.Apps.Encounter do
 
   def handle_info({:NOTE_ON, channel, note}, %State{} = state) do
     %Chameleon.RGB{r: r, g: g, b: b} =
-      Chameleon.HSV.new((note - 20) / 100 * 360, 100, 100) |> Chameleon.convert(Chameleon.RGB)
+      Chameleon.HSV.new(round((note - 20) / 100 * 360), 100, 100)
+      |> Chameleon.convert(Chameleon.RGB)
 
     top_left = {(channel - 1) * 8, 0}
 

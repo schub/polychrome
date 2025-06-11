@@ -19,10 +19,11 @@ defmodule Octopus.Apps.Supermario do
   def name(), do: "Supermario"
 
   def init(args \\ %{}) do
-    state = args
-    |> Map.put_new(:windows_shown, @windows_shown)
-    |> Map.put_new(:side, :right)
-    |> init_state()
+    state =
+      args
+      |> Map.put_new(:windows_shown, @windows_shown)
+      |> Map.put_new(:side, :right)
+      |> init_state()
 
     schedule_ticker(state.interval)
     {:ok, state}
@@ -31,7 +32,6 @@ defmodule Octopus.Apps.Supermario do
   def handle_info(:tick, %State{game: game} = state) do
     case Game.tick(game) do
       {:ok, game} ->
-
         game
         |> Game.render_canvas()
         |> send_canvas()
@@ -86,9 +86,9 @@ defmodule Octopus.Apps.Supermario do
           {:ok, game} ->
             %{state | game: game}
 
-          {:mario_dies, game} ->
-            # TODO: show mario dying, then reset game, reduce level by 1, possibly game over
-            %{state | game: game}
+          # {:mario_dies, game} ->
+          # TODO: show mario dying, then reset game, reduce level by 1, possibly game over
+          # %{state | game: game}
 
           {:game_over, game} ->
             %{state | game: game}
@@ -113,6 +113,7 @@ defmodule Octopus.Apps.Supermario do
 
   defp init_state(args) do
     game = Game.new(args)
+
     %State{
       interval: @frame_time_ms,
       game: game,

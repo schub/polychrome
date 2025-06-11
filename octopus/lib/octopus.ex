@@ -7,6 +7,6 @@ defmodule Octopus do
   if it comes from the database, an external API or others.
   """
 
-  @spec installation() :: Octopus.Installation.t()
+  @spec installation() :: module()
   def installation(), do: Application.get_env(:octopus, :installation)
 end

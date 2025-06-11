@@ -77,7 +77,7 @@ defmodule OctopusWeb.PixelsLive do
               "text-neutral-100 rounded inline-block mx-1 w-6 border border-neutral-500 shadow text-center"
             ]}
           >
-            <%= window %>
+            {window}
           </button>
         </div>
       </div>
@@ -171,7 +171,7 @@ defmodule OctopusWeb.PixelsLive do
       end
 
     %InputEvent{type: button, value: value}
-    |> Mixer.handle_input()
+    |> Mixer.handle_event()
 
     {:noreply, socket}
   end
@@ -193,7 +193,7 @@ defmodule OctopusWeb.PixelsLive do
       end
 
     %InputEvent{type: button, value: 0}
-    |> Mixer.handle_input()
+    |> Mixer.handle_event()
 
     {:noreply, socket}
   end

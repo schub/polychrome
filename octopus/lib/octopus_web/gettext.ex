@@ -20,5 +20,5 @@ defmodule OctopusWeb.Gettext do
 
   See the [Gettext Docs](https://hexdocs.pm/gettext) for detailed usage.
   """
-  use Gettext, otp_app: :octopus
+  use Gettext.Backend, otp_app: :octopus
 end

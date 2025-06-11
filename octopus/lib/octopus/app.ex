@@ -75,6 +75,8 @@ defmodule Octopus.App do
 
   @callback handle_proximity(%ProximityEvent{}, state :: any()) :: {:noreply, state :: any()}
 
+  @callback handle_slc(%SoundToLightControlEvent{}, state :: any()) :: {:noreply, state :: any()}
+
   defmacro __using__(opts) do
     category = Keyword.get(opts, :category, :misc)
 
@@ -91,8 +93,8 @@ defmodule Octopus.App do
         handle_input(input_event, state)
       end
 
-      def handle_info({:event, %SoundToLightControlEvent{} = input_event}, state) do
-        handle_input(input_event, state)
+      def handle_info({:event, %SoundToLightControlEvent{} = slc_event}, state) do
+        handle_slc(slc_event, state)
       end
 
       def handle_info({:event, %ControlEvent{} = control_event}, state) do
@@ -130,6 +132,10 @@ defmodule Octopus.App do
         {:noreply, state}
       end
 
+      def handle_slc(_event, state) do
+        {:noreply, state}
+      end
+
       def handle_config(config, state) do
         {:noreply, state}
       end
@@ -146,6 +152,7 @@ defmodule Octopus.App do
       defoverridable handle_input: 2
       defoverridable handle_control_event: 2
       defoverridable handle_proximity: 2
+      defoverridable handle_slc: 2
       defoverridable config_schema: 0
       defoverridable handle_config: 2
       defoverridable get_config: 1

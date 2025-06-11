@@ -22,7 +22,7 @@ defmodule Octopus.Apps.CanvasTest do
           {0, 5},
           {0, 2}
         ],
-        4
+        {255, 0, 0}
       )
 
     {:ok, %{canvas: canvas}}

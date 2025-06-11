@@ -43,7 +43,7 @@ defmodule OctopusWeb do
         layouts: [html: OctopusWeb.Layouts]
 
       import Plug.Conn
-      import OctopusWeb.Gettext
+      use Gettext, backend: OctopusWeb.Gettext
 
       unquote(verified_routes())
     end
@@ -86,7 +86,7 @@ defmodule OctopusWeb do
       import Phoenix.HTML
       # Core UI components and translation
       import OctopusWeb.CoreComponents
-      import OctopusWeb.Gettext
+      use Gettext, backend: OctopusWeb.Gettext
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS

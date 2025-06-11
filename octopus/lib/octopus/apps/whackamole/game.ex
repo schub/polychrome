@@ -282,7 +282,7 @@ defmodule Octopus.Apps.Whackamole.Game do
     # transition_fn = &[&1, red_canvas, blank_canvas, red_canvas, blank_canvas, red_canvas, &2]
 
     transition_fn = fn canvas_sprite, _ ->
-      blended = Canvas.blend(canvas_sprite, red_canvas, :multiply, 1)
+      blended = Canvas.blend(canvas_sprite, red_canvas, :multiply, 1.0)
       [canvas_sprite, blended, canvas_sprite, blended, canvas_sprite, blended, blank_canvas]
     end
 
@@ -325,7 +325,7 @@ defmodule Octopus.Apps.Whackamole.Game do
     green_canvas = background_canvas(120, 100, 100)
 
     transition_fun = fn canvas_sprite, target ->
-      blended = Canvas.blend(canvas_sprite, green_canvas, :multiply, 1)
+      blended = Canvas.blend(canvas_sprite, green_canvas, :multiply, 1.0)
       Transitions.push(blended, target, direction: :bottom, separation: 0)
     end
 

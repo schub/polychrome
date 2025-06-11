@@ -73,9 +73,9 @@ defmodule Octopus.Apps.ProximityTest do
 
   def handle_proximity(
         %ProximityEvent{
-          panel_index: panel_index,
-          sensor_index: sensor_index,
-          distance_mm: distance
+          panel_index: _panel_index,
+          sensor_index: _sensor_index,
+          distance_mm: _distance
         },
         state
       ) do

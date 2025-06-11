@@ -125,7 +125,7 @@ defmodule Octopus.Canvas do
   @doc """
   Renders a string onto the canvas using the given font and variant.
   """
-  @spec put_string(Canvas.t(), coord(), String.t() | charlist(), Font.t(), non_neg_integer()) ::
+  @spec put_string(Canvas.t(), coord(), String.t() | charlist(), struct(), non_neg_integer()) ::
           Canvas.t()
   def put_string(canvas, pos, string, font, variant \\ 0)
 
@@ -148,7 +148,7 @@ defmodule Octopus.Canvas do
   Creates a canvas that fits the given string.
   The string is rendered using the given font and variant.
   """
-  @spec from_string(String.t() | charlist(), Font.t(), non_neg_integer()) :: Canvas.t()
+  @spec from_string(String.t() | charlist(), struct(), non_neg_integer()) :: Canvas.t()
   def from_string(string, font, variant \\ 0)
 
   def from_string(string, %Font{} = font, variant) when is_binary(string) do
@@ -287,7 +287,7 @@ defmodule Octopus.Canvas do
   @doc """
   Flips the canvas horizontally or vertically.
   """
-  @spec flip(Canvas.t(), :horizontal | :vertical) :: Canvas.t()
+  @spec flip(t(), :horizontal | :vertical) :: Canvas.t()
   def flip(%Canvas{width: width} = canvas, :horizontal) do
     pixels = canvas.pixels |> Enum.map(fn {{x, y}, color} -> {{width - x - 1, y}, color} end)
 
@@ -504,11 +504,11 @@ defmodule Octopus.Canvas do
 
   @type blend_mode :: :multiply | :add | :subtract | :screen | :overlay | :darken | :lighten
 
-  @spec blend(Canvas.t(), Canvas.t(), blend_mode) :: Canvas.t()
+  @spec blend_onto(Canvas.t(), Canvas.t(), blend_mode) :: Canvas.t()
   def blend_onto(%Canvas{} = bottom, %Canvas{} = top, mode), do: blend(top, bottom, mode)
 
   @spec blend(Canvas.t(), Canvas.t(), blend_mode, float) :: Canvas.t()
-  def blend(%Canvas{} = top, %Canvas{} = bottom, blend_mode, alpha \\ 1) do
+  def blend(%Canvas{} = top, %Canvas{} = bottom, blend_mode, alpha \\ 1.0) do
     for y <- 0..(bottom.height - 1),
         x <- 0..(bottom.width - 1),
         into: Canvas.new(bottom.width, bottom.height) do
