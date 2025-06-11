@@ -3,30 +3,19 @@ defmodule Octopus.Installation.Nation2025 do
 
   @panel_height 8
   @panel_width 8
+  @panel_distance 16
+  @num_panels 12
+
+  @panels_offsets for i <- 0..(@num_panels - 1), do: {@panel_distance * i, 0}
 
   # Simulator layout constants
   @sim_pixel_width 8
   @sim_pixel_height 8
   @sim_image_width 3463
   @sim_image_height 1469
-  @sim_offset_x 200
+  @sim_offset_x 600
   @sim_offset_y 1100
-  @sim_spacing 200
-
-  @panels_offsets [
-    {0, 0},
-    {25 * 1, 0},
-    {25 * 2, 0},
-    {25 * 3, 0},
-    {25 * 4, 0},
-    {25 * 5, 0},
-    {25 * 6, 0},
-    {25 * 7, 0},
-    {25 * 8, 0},
-    {25 * 9, 0},
-    {25 * 10, 0},
-    {25 * 11, 0}
-  ]
+  @sim_spacing 128
 
   @impl true
   def panel_offsets() do
@@ -80,9 +69,10 @@ defmodule Octopus.Installation.Nation2025 do
   @impl true
   def simulator_layouts() do
     positions =
-      for i <- 0..11, y <- 0..7, x <- 0..7 do
+      for i <- 0..(@num_panels - 1), y <- 0..(@panel_height - 1), x <- 0..(@panel_width - 1) do
         {
-          @sim_offset_x + i * (@sim_spacing + @sim_pixel_width * 8) + x * @sim_pixel_width,
+          @sim_offset_x + i * (@sim_spacing + @sim_pixel_width * @panel_width) +
+            x * @sim_pixel_width,
           @sim_offset_y + y * @sim_pixel_height
         }
       end
@@ -91,10 +81,9 @@ defmodule Octopus.Installation.Nation2025 do
       %Octopus.Layout{
         name: "Nation 2025",
         positions: positions,
-        # 12 panels × 8 pixels wide
-        width: 8 * 12,
-        # 8 pixels tall
-        height: 8,
+        # Dynamic sizing based on constants
+        width: @panel_width * @num_panels,
+        height: @panel_height,
         pixel_size: {@sim_pixel_width, @sim_pixel_height},
         pixel_margin: {0, 0, 0, 0},
         background_image: "/images/nation2025-background.webp",
