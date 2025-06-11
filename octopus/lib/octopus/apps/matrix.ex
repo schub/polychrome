@@ -2,6 +2,8 @@ defmodule Octopus.Apps.Matrix do
   use Octopus.App, category: :animation
   use Octopus.Params, prefix: :matrix
 
+  defdelegate installation, to: Octopus
+
   defmodule Particle do
     defstruct [:x, :y, :z, :speed, :color, :age, :max_age, :tail]
   end
@@ -12,9 +14,12 @@ defmodule Octopus.Apps.Matrix do
 
     alias Octopus.Canvas
 
-    defstruct [:canvas, :particles]
+    defstruct [:canvas, :particles, :width, :height]
 
-    def spawn_particles(%State{particles: particles} = state, amount) do
+    def spawn_particles(
+          %State{particles: particles, width: width, height: height} = state,
+          amount
+        ) do
       new_particles =
         Enum.map(1..amount, fn _ ->
           speed =
@@ -25,8 +30,8 @@ defmodule Octopus.Apps.Matrix do
             end
 
           %Particle{
-            x: :rand.uniform(80),
-            y: :rand.uniform(8) - 12,
+            x: :rand.uniform(width),
+            y: :rand.uniform(height) - 12,
             z: :rand.uniform() * 0.5 + 0.5,
             speed: speed,
             age: 0.0,
@@ -52,14 +57,14 @@ defmodule Octopus.Apps.Matrix do
           }
         end)
         |> Enum.filter(fn %Particle{y: y, age: age, max_age: max_age} ->
-          y < 16 and age < max_age
+          y < state.height * 2 and age < max_age
         end)
 
       %State{state | particles: particles}
     end
 
-    def render(%State{particles: particles} = state) do
-      canvas = Canvas.new(80, 8)
+    def render(%State{particles: particles, width: width, height: height} = state) do
+      canvas = Canvas.new(width, height)
 
       canvas =
         particles
@@ -110,12 +115,16 @@ defmodule Octopus.Apps.Matrix do
   def name(), do: "Matrix"
 
   def init(_config) do
-    canvas = Canvas.new(80, 8)
+    # Get dimensions from installation
+    width = installation().width()
+    height = installation().height()
+
+    canvas = Canvas.new(width, height)
     particles = []
     :timer.send_interval(trunc(1000 / 60), :tick)
     :timer.send_interval(50, :spawn_particles)
     :timer.send_interval(50, :change_colors)
-    {:ok, %State{canvas: canvas, particles: particles}}
+    {:ok, %State{canvas: canvas, particles: particles, width: width, height: height}}
   end
 
   def handle_info(:change_colors, %State{} = state) do
