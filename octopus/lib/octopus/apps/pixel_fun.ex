@@ -154,8 +154,8 @@ defmodule Octopus.Apps.PixelFun do
     {:noreply, %{state | program: program}}
   end
 
-  defp color_interval_s, do: param(:color_interval_ms, 5000) / 1000.0
-  defp color_interval_ms, do: param(:color_interval_ms, 5000)
+  defp color_interval_s, do: color_interval_ms() / 1000.0
+  defp color_interval_ms, do: max(param(:color_interval_ms, 5000), 1)
 
   def handle_info(:update_colors, %State{} = state) do
     colors = generate_random_colors()
