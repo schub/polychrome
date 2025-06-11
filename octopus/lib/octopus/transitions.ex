@@ -22,7 +22,7 @@ defmodule Octopus.Transitions do
   end
 
   @doc """
-  Canvas2 pushes canvas1 out to one side. 
+  Canvas2 pushes canvas1 out to one side.
   Returns a stream of canvases that are intended to be played at constant frame rate.
 
   ## Options
@@ -65,7 +65,7 @@ defmodule Octopus.Transitions do
           |> Enum.map(fn x -> {{x, 0}, {x + canvas1.width - 1, joined.height - 1}} end)
 
         :right ->
-          (canvas1.width + separation)..0
+          (canvas1.width + separation)..0//-1
           |> Enum.map(fn x -> {{x, 0}, {x + canvas1.width - 1, joined.height - 1}} end)
 
         :top ->
@@ -73,7 +73,7 @@ defmodule Octopus.Transitions do
           |> Enum.map(fn y -> {{0, y}, {joined.width - 1, y + canvas1.height - 1}} end)
 
         :bottom ->
-          (canvas1.height + separation)..0
+          (canvas1.height + separation)..0//-1
           |> Enum.map(fn y -> {{0, y}, {joined.width - 1, y + canvas1.height - 1}} end)
       end
 
