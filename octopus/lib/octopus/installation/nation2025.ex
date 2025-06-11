@@ -17,6 +17,11 @@ defmodule Octopus.Installation.Nation2025 do
   @num_panels 12
 
   @impl true
+  def num_panels() do
+    @num_panels
+  end
+
+  @impl true
   def panel_offsets() do
     # Calculate panel spacing in virtual pixels for circular arrangement
     panel_spacing_pixels = calculate_panel_spacing_pixels()

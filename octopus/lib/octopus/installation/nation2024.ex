@@ -18,6 +18,11 @@ defmodule Octopus.Installation.Nation2024 do
   @sim_spacing 800
 
   @impl true
+  def num_panels() do
+    @num_panels
+  end
+
+  @impl true
   def panel_offsets() do
     @panels_offsets
   end
