@@ -22,7 +22,7 @@ defmodule OctopusWeb.AppConfigComponent do
     <div>
       <form class="flex flex-col gap-4" phx-change="change" phx-target={@myself}>
         <div :for={{key, {name, type, opts}} <- @config_schema}>
-          <label class="font-semibold" for={"#{@app_id}-#{key}"} class="block"><%= name %></label>
+          <label class="font-semibold" for={"#{@app_id}-#{key}"} class="block">{name}</label>
           <div class="flex flex-row">
             <.config_input
               class="w-full"
@@ -44,6 +44,7 @@ defmodule OctopusWeb.AppConfigComponent do
     config =
       params
       |> Map.drop(["_target"])
+      |> Enum.reject(fn {key, _value} -> String.starts_with?(key, "_unused_") end)
       |> Enum.map(fn {key, value} -> {String.to_existing_atom(key), value} end)
       |> Enum.map(fn {key, value} ->
         {key, parse_option(key, value, socket.assigns.config_schema)}
@@ -159,7 +160,7 @@ defmodule OctopusWeb.AppConfigComponent do
     ~H"""
     <select name={@key} id={"#{@app_id}-#{@key}"} phx-debounce={@debounce} {@rest}>
       <option :for={{{name, _value}, i} <- Enum.with_index(@opts.options)} value={i}>
-        <%= name %>
+        {name}
       </option>
     </select>
     """
