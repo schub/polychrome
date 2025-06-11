@@ -1,5 +1,4 @@
 defmodule OctopusWeb.PixelsLive do
-  alias Octopus.Layout.Nation
   use OctopusWeb, :live_view
 
   import Phoenix.LiveView, only: [push_event: 3, connected?: 1]
@@ -15,14 +14,19 @@ defmodule OctopusWeb.PixelsLive do
 
   @id_prefix "pixels"
 
-  @views %{
-    "default" => Nation.layout()
-  }
+  defp get_views() do
+    [default_layout | _] = Octopus.installation().simulator_layouts()
+
+    %{
+      "default" => default_layout
+    }
+  end
 
   @default_view "default"
 
   def mount(_params, _session, socket) do
-    pixel_layout = Nation.layout()
+    views = get_views()
+    pixel_layout = views[@default_view]
 
     socket =
       if connected?(socket) do
@@ -34,7 +38,7 @@ defmodule OctopusWeb.PixelsLive do
         }
 
         socket
-        |> push_layout(@views[@default_view])
+        |> push_layout(views[@default_view])
         |> push_config(@default_config)
         |> push_frame(frame)
         |> push_pixel_offset(0)
@@ -42,16 +46,19 @@ defmodule OctopusWeb.PixelsLive do
         socket
       end
 
-    view_options = Enum.map(@views, fn {k, v} -> [key: v.name, value: k] end)
+    view_options = Enum.map(views, fn {k, v} -> [key: v.name, value: k] end)
+    max_windows = length(Octopus.installation().panels())
 
     {:ok,
      socket
      |> assign(
        id: socket.id,
        id_prefix: @id_prefix,
-       pixel_layout: @views[@default_view],
+       pixel_layout: views[@default_view],
        view: @default_view,
        view_options: view_options,
+       views: views,
+       max_windows: max_windows,
        window: 1
      )}
   end
@@ -69,7 +76,7 @@ defmodule OctopusWeb.PixelsLive do
         </form>
         <div :if={@view != "default"}>
           <button
-            :for={window <- 1..10}
+            :for={window <- 1..@max_windows}
             phx-click="window-changed"
             phx-value-window={window}
             class={[
@@ -98,8 +105,9 @@ defmodule OctopusWeb.PixelsLive do
   end
 
   def handle_event("view-changed", %{"view" => view}, socket) do
-    view = if Map.has_key?(@views, view), do: view, else: @default_view
-    pixel_layout = Map.get(@views, view)
+    views = socket.assigns.views
+    view = if Map.has_key?(views, view), do: view, else: @default_view
+    pixel_layout = Map.get(views, view)
 
     socket =
       socket
@@ -118,7 +126,8 @@ defmodule OctopusWeb.PixelsLive do
 
         _ ->
           {window, _} = Integer.parse(window_string)
-          window = max(1, min(10, window))
+          max_windows = socket.assigns.max_windows
+          window = max(1, min(max_windows, window))
           {window, (window - 1) * 64}
       end
 
