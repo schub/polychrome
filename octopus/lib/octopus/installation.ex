@@ -1,4 +1,4 @@
-redefmodule Octopus.Installation do
+defmodule Octopus.Installation do
   @typedoc """
   Logical position of a pixel in the installation
   """
