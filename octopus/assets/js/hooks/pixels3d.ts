@@ -579,46 +579,8 @@ class Pixels3dHook extends Hook {
     const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
     vrMovementObject.add(groundMesh);
 
-    // Load human model
-    const gltfLoader = new GLTFLoader();
-    gltfLoader.load('/models/low_poly_character/scene.gltf', (gltf) => {
-      const human = gltf.scene;
-
-      // Debug: Log model information
-      console.log('GLTF loaded:', gltf);
-      console.log('Human scene:', human);
-      console.log('Human children:', human.children);
-      console.log('Human bounding box before scaling:');
-
-      // Calculate bounding box to understand model size
-      const box = new THREE.Box3().setFromObject(human);
-      console.log('Bounding box:', box);
-      console.log('Model size:', box.getSize(new THREE.Vector3()));
-
-      // Use natural model size (no scaling)
-
-      // Position in the center of the scene at ground level
-      human.position.set(0, 0, 0);
-
-      // Debug: Log final position and scale
-      console.log('Final position:', human.position);
-      console.log('Final scale:', human.scale);
-
-      // Add to the scene
-      vrMovementObject.add(human);
-
-      console.log('Human model added to scene successfully');
-      console.log('vrMovementObject children count:', vrMovementObject.children.length);
-    }, (progress) => {
-      console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
-    }, (error) => {
-      console.error('Error loading human model:', error);
-      console.error('Make sure the file exists at: /models/low_poly_character/scene.gltf');
-    });
-
-
-
     // Load second human model next to a panel
+    const gltfLoader = new GLTFLoader();
     gltfLoader.load('/models/low_poly_character/scene.gltf', (gltf) => {
       const human2 = gltf.scene.clone();
 
