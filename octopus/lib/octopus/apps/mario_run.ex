@@ -6,6 +6,9 @@ defmodule Octopus.Apps.MarioRun do
 
   use Octopus.App, category: :animation
 
+  # Get the installation module for direct function calls
+  @installation Octopus.installation()
+
   @loops %{
     run: [
       {0, {80, 130}, false},
@@ -16,24 +19,24 @@ defmodule Octopus.Apps.MarioRun do
       {5, {80, 130}, false}
     ],
     look1: [
-      {6, 500, false},
-      {7, 100, false},
-      {8, 500, false}
+      {6, 800, false},
+      {7, 400, false},
+      {8, 800, false}
     ],
     look2: [
-      {6, 500, false},
-      {7, 100, false},
-      {8, 100, false},
-      {7, 100, false},
-      {6, 500, false}
+      {6, 600, false},
+      {7, 300, false},
+      {8, 300, false},
+      {7, 300, false},
+      {6, 600, false}
     ],
     look3: [
-      {6, 500, false},
-      {7, 100, false},
-      {8, 500, false},
-      {6, 500, true},
-      {7, 100, true},
-      {8, 500, true}
+      {6, 600, false},
+      {7, 300, false},
+      {8, 600, false},
+      {6, 600, true},
+      {7, 300, true},
+      {8, 600, true}
     ]
   }
 
@@ -46,7 +49,13 @@ defmodule Octopus.Apps.MarioRun do
       :next_loop,
       :character,
       :current_frame,
-      :speed
+      :speed,
+      :look_speed,
+      :char_x,
+      :virtual_width,
+      :pending_loop,
+      :look_timer_ref,
+      :look_duration_timer_ref
     ]
   end
 
@@ -56,12 +65,13 @@ defmodule Octopus.Apps.MarioRun do
 
   def config_schema do
     %{
-      speed: {"Speed", :float, %{default: 1.0, min: 0.1, max: 10.0}}
+      speed: {"Run Speed", :float, %{default: 1.0, min: 0.1, max: 10.0}},
+      look_speed: {"Look Speed", :float, %{default: 0.5, min: 0.1, max: 5.0}}
     }
   end
 
   def get_config(%State{} = state) do
-    %{speed: state.speed}
+    %{speed: state.speed, look_speed: state.look_speed}
   end
 
   def init(_) do
@@ -70,27 +80,52 @@ defmodule Octopus.Apps.MarioRun do
       luigi: "luigi-run"
     }
 
+    # Get installation dimensions for true circular canvas
+    # Must align with Canvas.to_frame(drop: true) which uses 8px panels + 18px gaps
+    panel_count = @installation.panel_count()
+    panel_width = 8
+    frame_gap = 18
+    virtual_width = panel_count * (panel_width + frame_gap)
+    virtual_height = @installation.height()
+
     state = %State{
-      canvas: Canvas.new(8, 8),
+      canvas: Canvas.new(virtual_width, virtual_height),
       time: 0.0,
       sprite_sheets: sprite_sheets,
-      character: :mario,
+      character: :luigi,
       current_frame: 0,
       loop: :run,
       next_loop: :run,
-      speed: 1.0
+      speed: 3,
+      look_speed: 0.8,
+      char_x: virtual_width - 9,
+      virtual_width: virtual_width,
+      pending_loop: nil,
+      look_timer_ref: nil,
+      look_duration_timer_ref: nil
     }
+
+    # Schedule first random look animation after initialization
+    look_timer_ref = schedule_random_look()
+    state = %State{state | look_timer_ref: look_timer_ref}
 
     Process.send_after(self(), :tick, 0)
 
     {:ok, state}
   end
 
-  defp animate(%State{current_frame: current_frame, next_loop: next_loop, loop: loop} = state) do
-    if state.current_frame + 1 >= length(@loops[state.loop]) do
-      %State{state | loop: next_loop, current_frame: 0}
-    else
-      %State{state | loop: loop, current_frame: current_frame + 1}
+  # Handle animation frame progression and loop transitions
+  defp animate(%State{current_frame: current_frame} = state, loop, next_loop) do
+    loop_length = length(@loops[loop])
+
+    cond do
+      # Animation continues within current loop
+      current_frame + 1 < loop_length ->
+        %State{state | loop: loop, current_frame: current_frame + 1}
+
+      # Animation completes, loop back to beginning (look animations will be ended by timer)
+      true ->
+        %State{state | loop: loop, current_frame: 0}
     end
   end
 
@@ -103,44 +138,173 @@ defmodule Octopus.Apps.MarioRun do
     Process.send_after(self(), :tick, trunc(duration * (1 / speed)))
   end
 
+  # Schedule a random look animation between 5-10 seconds
+  defp schedule_random_look() do
+    delay = Enum.random(5_000..10_000)
+    Process.send_after(self(), :random_look, delay)
+  end
+
+  # Check if character is fully visible on a panel (not in gaps)
+  defp on_panel?(char_x) do
+    panel_section = rem(char_x, 26)
+    panel_section == 0
+  end
+
+  # Character moves when running
+  defp update_position(%State{loop: :run, char_x: char_x}), do: char_x + 1
+
+  # Character stops moving during look animations
+  defp update_position(%State{loop: loop, char_x: char_x}) when loop != :run, do: char_x
+
+  # Character moves when no pending look animation
+  defp update_position(%State{pending_loop: nil, char_x: char_x}), do: char_x + 1
+
+  # Character stops moving when on panel with pending look animation
+  defp update_position(%State{char_x: char_x, pending_loop: _pending})
+       when rem(char_x, 26) == 0 do
+    char_x
+  end
+
+  # Character continues moving toward panel when pending look animation
+  defp update_position(%State{char_x: char_x, pending_loop: _pending}), do: char_x + 1
+
+  # Activate pending loop when character reaches a panel
+  defp handle_loop_transition(%State{pending_loop: pending_loop} = state, char_x)
+       when pending_loop != nil and rem(char_x, 26) == 0 do
+    # Schedule return to run state after 2 seconds
+    look_duration_timer_ref = Process.send_after(self(), :end_look_animation, 2000)
+    {pending_loop, pending_loop, nil, look_duration_timer_ref}
+  end
+
+  # Keep current state when pending loop exists but not on panel
+  defp handle_loop_transition(%State{pending_loop: pending_loop} = state, _char_x)
+       when pending_loop != nil do
+    {state.loop, state.next_loop, pending_loop, state.look_duration_timer_ref}
+  end
+
+  # No pending loop, maintain current state
+  defp handle_loop_transition(state, _char_x) do
+    {state.loop, state.next_loop, state.pending_loop, state.look_duration_timer_ref}
+  end
+
+  # Switch Mario to Luigi when crossing boundary
+  defp handle_character_switch(%State{char_x: old_x, character: :mario}, new_x, virtual_width)
+       when old_x < virtual_width - 8 and new_x >= virtual_width - 8 do
+    :luigi
+  end
+
+  # Switch Luigi to Mario when crossing boundary
+  defp handle_character_switch(%State{char_x: old_x, character: :luigi}, new_x, virtual_width)
+       when old_x < virtual_width - 8 and new_x >= virtual_width - 8 do
+    :mario
+  end
+
+  # No character switch needed
+  defp handle_character_switch(%State{character: character}, _new_x, _virtual_width) do
+    character
+  end
+
+  def handle_info(:random_look, %State{loop: :run, pending_loop: nil} = state) do
+    look_animation = Enum.random([:look1, :look2, :look3])
+    {:noreply, %State{state | pending_loop: look_animation, look_timer_ref: nil}}
+  end
+
+  def handle_info(:random_look, %State{} = state) do
+    look_timer_ref = schedule_random_look()
+    {:noreply, %State{state | look_timer_ref: look_timer_ref}}
+  end
+
+  def handle_info(:end_look_animation, %State{} = state) do
+    look_timer_ref = schedule_random_look()
+
+    {:noreply,
+     %State{
+       state
+       | loop: :run,
+         next_loop: :run,
+         look_timer_ref: look_timer_ref,
+         look_duration_timer_ref: nil
+     }}
+  end
+
   def handle_info(:tick, %State{} = state) do
     {sprite_index, duration, flip} = Enum.at(@loops[state.loop], state.current_frame)
     sprite_sheet = state.sprite_sheets[state.character]
     sprite = Sprite.load(sprite_sheet, sprite_index)
 
-    canvas =
-      state.canvas
-      |> Canvas.clear()
-      |> Canvas.overlay(sprite)
-      |> then(&if(flip, do: Canvas.flip_horizontal(&1), else: &1))
+    # Update character position
+    new_char_x = update_position(state)
+    char_x = rem(new_char_x + state.virtual_width, state.virtual_width)
 
-    canvas |> Canvas.to_frame() |> send_frame()
+    # Handle loop transitions
+    {loop, next_loop, pending_loop, look_duration_timer_ref} =
+      handle_loop_transition(state, char_x)
 
-    state = animate(state)
+    # Handle character switching
+    character = handle_character_switch(state, new_char_x, state.virtual_width)
 
-    schedule_next_frame(duration, state.speed)
+    # Render character
+    canvas = render_character(state.canvas, sprite, char_x, state.virtual_width, flip)
 
-    {:noreply, %State{state | canvas: canvas}}
+    # Send frame
+    canvas |> Canvas.to_frame(drop: true) |> send_frame()
+
+    # Animate and update state
+    new_state = animate(state, loop, next_loop)
+    current_speed = if loop == :run, do: state.speed, else: state.look_speed
+    schedule_next_frame(duration, current_speed)
+
+    {:noreply,
+     %State{
+       new_state
+       | canvas: canvas,
+         char_x: char_x,
+         character: character,
+         pending_loop: pending_loop,
+         look_duration_timer_ref: look_duration_timer_ref
+     }}
   end
 
-  def handle_config(%{speed: speed}, state) do
-    {:noreply, %State{state | speed: speed}}
+  defp render_character(canvas, sprite, char_x, virtual_width, flip) do
+    canvas
+    |> Canvas.clear()
+    |> Canvas.overlay(sprite, offset: {char_x, 0})
+    |> then(fn canvas ->
+      if char_x >= virtual_width - 8 do
+        wrapped_x = char_x - virtual_width
+        Canvas.overlay(canvas, sprite, offset: {wrapped_x, 0})
+      else
+        canvas
+      end
+    end)
+    |> then(&if(flip, do: Canvas.flip_horizontal(&1), else: &1))
+  end
+
+  def handle_config(%{speed: speed, look_speed: look_speed}, state) do
+    {:noreply, %State{state | speed: speed, look_speed: look_speed}}
   end
 
   def handle_input(%InputEvent{type: :BUTTON_1, value: 1}, state) do
-    {:noreply, %State{state | next_loop: :run}}
-  end
+    # Cancel any pending look animation and return to run immediately
+    if state.look_timer_ref do
+      Process.cancel_timer(state.look_timer_ref)
+    end
 
-  def handle_input(%InputEvent{type: :BUTTON_2, value: 1}, state) do
-    {:noreply, %State{state | next_loop: :look1}}
-  end
+    if state.look_duration_timer_ref do
+      Process.cancel_timer(state.look_duration_timer_ref)
+    end
 
-  def handle_input(%InputEvent{type: :BUTTON_3, value: 1}, state) do
-    {:noreply, %State{state | next_loop: :look2}}
-  end
+    new_timer_ref = schedule_random_look()
 
-  def handle_input(%InputEvent{type: :BUTTON_4, value: 1}, state) do
-    {:noreply, %State{state | next_loop: :look3}}
+    {:noreply,
+     %State{
+       state
+       | loop: :run,
+         next_loop: :run,
+         pending_loop: nil,
+         look_timer_ref: new_timer_ref,
+         look_duration_timer_ref: nil
+     }}
   end
 
   def handle_input(%InputEvent{type: :BUTTON_10, value: 1}, %State{character: :mario} = state) do
