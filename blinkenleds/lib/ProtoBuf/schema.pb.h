@@ -39,6 +39,8 @@ typedef enum _InputType {
     InputType_BUTTON_8 = 7,
     InputType_BUTTON_9 = 8,
     InputType_BUTTON_10 = 9,
+    InputType_BUTTON_11 = 17,
+    InputType_BUTTON_12 = 18,
     InputType_AXIS_X_1 = 10,
     InputType_AXIS_Y_1 = 11,
     InputType_AXIS_X_2 = 12,
@@ -261,8 +263,8 @@ extern "C" {
 #define _SynthEventType_ARRAYSIZE ((SynthEventType)(SynthEventType_NOTE_OFF+1))
 
 #define _InputType_MIN InputType_BUTTON_1
-#define _InputType_MAX InputType_BUTTON_MENU
-#define _InputType_ARRAYSIZE ((InputType)(InputType_BUTTON_MENU+1))
+#define _InputType_MAX InputType_BUTTON_12
+#define _InputType_ARRAYSIZE ((InputType)(InputType_BUTTON_12+1))
 
 #define _ControlEventType_MIN ControlEventType_APP_SELECTED
 #define _ControlEventType_MAX ControlEventType_APP_STOPPED

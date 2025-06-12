@@ -135,6 +135,8 @@ enum InputType {
   BUTTON_8 = 7;
   BUTTON_9 = 8;
   BUTTON_10 = 9;
+  BUTTON_11 = 17;
+  BUTTON_12 = 18;
 
   AXIS_X_1 = 10;
   AXIS_Y_1 = 11;

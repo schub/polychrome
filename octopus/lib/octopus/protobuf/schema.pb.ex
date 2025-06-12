@@ -43,6 +43,8 @@ defmodule Octopus.Protobuf.InputType do
   field :BUTTON_8, 7
   field :BUTTON_9, 8
   field :BUTTON_10, 9
+  field :BUTTON_11, 17
+  field :BUTTON_12, 18
   field :AXIS_X_1, 10
   field :AXIS_Y_1, 11
   field :AXIS_X_2, 12
