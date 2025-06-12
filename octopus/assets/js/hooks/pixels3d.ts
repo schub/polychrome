@@ -120,8 +120,7 @@ const skyFragmentShader = `
 `;
 
 const PANEL_SIZE = 1.6;
-const PANEL_DISTANCE_FROM_GROUND = 0.4;
-const PANEL_DEPTH = 0.2;
+const PANEL_DEPTH = 0.3;
 
 class Pixels3dHook extends Hook {
   mounted() {
@@ -133,8 +132,13 @@ class Pixels3dHook extends Hook {
     const frontMaterials: THREE.ShaderMaterial[] = [];
     const backMaterials: THREE.ShaderMaterial[] = [];
     const panels: THREE.Object3D[] = [];
+    const poles: { mesh: THREE.Mesh; geometry: THREE.CylinderGeometry }[] = [];
+    const feet: { mesh: THREE.Mesh; geometry: THREE.CylinderGeometry }[] = [];
     const pixels: RGB[] = Array(numPanels * 8 * 8).fill([0, 0, 0]);
     let diameter = 20.0;
+    let height = 0.4;
+    let footDiameter = 0.3;
+    let poleDiameter = 0.15;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.xr.enabled = true;
@@ -231,15 +235,65 @@ class Pixels3dHook extends Hook {
 
     const updateMeshes = () => {
       for (let i = 0; i < numPanels; i++) {
-        const mesh = panels[i];
+        const panel = panels[i];
         const radius = diameter / 2;
         const angle = (i / numPanels) * Math.PI * 2;
-        mesh.position.set(
+        panel.position.set(
           radius * Math.sin(angle),
-          PANEL_SIZE / 2 + PANEL_DISTANCE_FROM_GROUND,
+          PANEL_SIZE / 2 + height,
           radius * Math.cos(angle)
         );
-        mesh.rotation.y = angle + Math.PI;
+        panel.rotation.y = angle + Math.PI;
+
+        const poleLeft = poles[i * 2];
+        const poleRight = poles[i * 2 + 1];
+        poleLeft.mesh.position.set(
+          -PANEL_SIZE / 2 + poleDiameter / 2,
+          -height / 2,
+          -PANEL_DEPTH - poleDiameter / 2
+        );
+        poleRight.mesh.position.set(
+          PANEL_SIZE / 2 - poleDiameter / 2,
+          -height / 2,
+          -PANEL_DEPTH - poleDiameter / 2
+        );
+        poleLeft.mesh.geometry = new THREE.CylinderGeometry(
+          poleDiameter / 2,
+          poleDiameter / 2,
+          PANEL_SIZE + height,
+          16
+        );
+        poleRight.mesh.geometry = new THREE.CylinderGeometry(
+          poleDiameter / 2,
+          poleDiameter / 2,
+          PANEL_SIZE + height,
+          16
+        );
+
+        const footLeft = feet[i * 2];
+        const footRight = feet[i * 2 + 1];
+        footLeft.mesh.position.set(
+          -PANEL_SIZE / 2 + footDiameter / 2,
+          -PANEL_SIZE / 2 - height / 2,
+          -PANEL_DEPTH / 2
+        );
+        footRight.mesh.position.set(
+          PANEL_SIZE / 2 - footDiameter / 2,
+          -PANEL_SIZE / 2 - height / 2,
+          -PANEL_DEPTH / 2
+        );
+        footLeft.mesh.geometry = new THREE.CylinderGeometry(
+          footDiameter / 2,
+          footDiameter / 2,
+          height,
+          16
+        );
+        footRight.mesh.geometry = new THREE.CylinderGeometry(
+          footDiameter / 2,
+          footDiameter / 2,
+          height,
+          16
+        );
       }
     };
 
@@ -310,10 +364,32 @@ class Pixels3dHook extends Hook {
       centerMesh.translateZ(-PANEL_DEPTH / 2);
       centerMesh.scale.set(1.0, 1.0, 0.95);
 
+      const poleGeometry = new THREE.CylinderGeometry();
+      const woodMaterial = new THREE.MeshStandardMaterial({
+        color: 0x8b4513,
+        roughness: 0.9,
+        metalness: 0.0,
+      });
+      const poleLeft = new THREE.Mesh(poleGeometry, woodMaterial);
+      const poleRight = new THREE.Mesh(poleGeometry, woodMaterial);
+
+      const footGeometry = new THREE.CylinderGeometry();
+      const footLeft = new THREE.Mesh(footGeometry, woodMaterial);
+      const footRight = new THREE.Mesh(footGeometry, woodMaterial);
+
+      poles.push({ mesh: poleLeft, geometry: poleGeometry });
+      poles.push({ mesh: poleRight, geometry: poleGeometry });
+      feet.push({ mesh: footLeft, geometry: footGeometry });
+      feet.push({ mesh: footRight, geometry: footGeometry });
+
       const obj = new THREE.Object3D();
       obj.add(frontMesh);
       obj.add(backMesh);
       obj.add(centerMesh);
+      obj.add(poleLeft);
+      obj.add(poleRight);
+      obj.add(footLeft);
+      obj.add(footRight);
 
       panels.push(obj);
       vrMovementObject.add(obj);
@@ -348,7 +424,8 @@ class Pixels3dHook extends Hook {
     groundRoughnessTexture.repeat.set(textureRepeat, textureRepeat);
     groundNormalTexture.repeat.set(textureRepeat, textureRepeat);
 
-    const groundGeometry = new THREE.BoxGeometry(2000, 0.1, 2000);
+    const groundGeometry = new THREE.PlaneGeometry(2000, 2000);
+    groundGeometry.rotateX(-Math.PI / 2);
     const groundMaterial = new THREE.MeshStandardMaterial({
       map: groundAlbedoTexture,
       roughnessMap: groundRoughnessTexture,
@@ -444,6 +521,9 @@ class Pixels3dHook extends Hook {
         diameter?: number;
         move?: [number, number];
         position?: [number, number];
+        height?: number;
+        pole_diameter?: number;
+        foot_diameter?: number;
       };
     };
 
@@ -470,6 +550,18 @@ class Pixels3dHook extends Hook {
             param.position[1]
           );
         }
+      }
+      if (param.height) {
+        height = param.height;
+        updateMeshes();
+      }
+      if (param.pole_diameter) {
+        poleDiameter = param.pole_diameter;
+        updateMeshes();
+      }
+      if (param.foot_diameter) {
+        footDiameter = param.foot_diameter;
+        updateMeshes();
       }
     });
 
