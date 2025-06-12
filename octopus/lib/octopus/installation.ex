@@ -16,6 +16,7 @@ defmodule Octopus.Installation do
 
   @callback panel_width() :: integer()
   @callback panel_height() :: integer()
+  @callback panel_gap() :: integer()
 
   @callback width() :: integer()
   @callback height() :: integer()
