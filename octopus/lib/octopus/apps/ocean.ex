@@ -25,7 +25,11 @@ defmodule Octopus.Apps.Ocean do
       # Track when the system started for decay calculations
       :start_time,
       # Track button press visual feedback
-      :button_flashes
+      :button_flashes,
+      # Track last user interaction for inactivity detection
+      :last_activity_time,
+      # Timer reference for inactivity reactivation
+      :inactivity_timer_ref
     ]
   end
 
@@ -99,7 +103,9 @@ defmodule Octopus.Apps.Ocean do
        background_waves: background_waves,
        interaction_waves: [],
        start_time: :os.system_time(:millisecond),
-       button_flashes: []
+       button_flashes: [],
+       last_activity_time: :os.system_time(:millisecond),
+       inactivity_timer_ref: nil
      }}
   end
 
@@ -142,8 +148,17 @@ defmodule Octopus.Apps.Ocean do
 
     if button_number != nil do
       Logger.info("Ocean: Creating interaction wave for button #{button_number}")
+
+      # Cancel existing inactivity timer if it exists
+      if state.inactivity_timer_ref do
+        :timer.cancel(state.inactivity_timer_ref)
+      end
+
+      # Update last activity time
+      current_time = :os.system_time(:millisecond)
+
       state = create_interaction_wave(state, button_number)
-      {:noreply, state}
+      {:noreply, %{state | last_activity_time: current_time, inactivity_timer_ref: nil}}
     else
       Logger.debug("Ocean: Ignoring unknown button type: #{inspect(type)}")
       {:noreply, state}
@@ -176,22 +191,98 @@ defmodule Octopus.Apps.Ocean do
         age_ms < flash.duration
       end)
 
+    # Check if we need to start inactivity timer
+    updated_state =
+      check_and_start_inactivity_timer(state, current_time, active_interaction_waves)
+
     # Render the water using Gerstner wave calculations
     canvas =
-      render_gerstner_water(state, new_time, active_interaction_waves, active_button_flashes)
+      render_gerstner_water(
+        updated_state,
+        new_time,
+        active_interaction_waves,
+        active_button_flashes
+      )
 
     # Use VirtualMatrix to automatically handle panel cutting and joining
-    VirtualMatrix.render_frame(state.virtual_matrix, canvas)
+    VirtualMatrix.render_frame(updated_state.virtual_matrix, canvas)
     |> Canvas.to_frame()
     |> send_frame()
 
     {:noreply,
      %{
-       state
+       updated_state
        | time: new_time,
          interaction_waves: active_interaction_waves,
          button_flashes: active_button_flashes
      }}
+  end
+
+  # Handle inactivity timer - reactivate initial waves
+  def handle_info(:reactivate_waves, %State{} = state) do
+    Logger.info("Ocean: Reactivating waves after inactivity period")
+
+    # Generate new initial waves (same as startup)
+    new_background_waves = generate_background_waves(state.width, state.wave_strength)
+
+    {:noreply, %{state | background_waves: new_background_waves, inactivity_timer_ref: nil}}
+  end
+
+  # Check if ocean has calmed down and start inactivity timer if needed
+  defp check_and_start_inactivity_timer(state, current_time, active_interaction_waves) do
+    # Only check if we don't already have a timer running
+    if state.inactivity_timer_ref == nil do
+      # Check if ocean has calmed down:
+      # 1. No active interaction waves
+      # 2. All background waves have decayed to minimal levels
+      ocean_is_calm =
+        Enum.empty?(active_interaction_waves) and
+          all_background_waves_decayed?(state.background_waves, current_time)
+
+      if ocean_is_calm do
+        # Check if enough time has passed since last activity
+        time_since_activity = current_time - state.last_activity_time
+
+        # 2 seconds buffer after waves calm down
+        if time_since_activity >= 2000 do
+          Logger.info("Ocean: Ocean has calmed down, starting 15-second inactivity timer")
+
+          # Start 15-second timer
+          {:ok, timer_ref} = :timer.send_after(15_000, :reactivate_waves)
+
+          %{state | inactivity_timer_ref: timer_ref}
+        else
+          state
+        end
+      else
+        state
+      end
+    else
+      state
+    end
+  end
+
+  # Check if all background waves have decayed to minimal levels
+  defp all_background_waves_decayed?(background_waves, current_time) do
+    Enum.all?(background_waves, fn wave ->
+      if wave.is_wind_wave do
+        # Wind waves are always active, so they don't count for "calmed down"
+        true
+      else
+        # Check if non-wind waves have decayed significantly
+        if wave.birth_time do
+          age_seconds = (current_time - wave.birth_time) / 1000.0
+          decay_factor = :math.pow(wave.decay_rate, age_seconds * 0.8)
+          current_amplitude = wave.amplitude * decay_factor
+
+          # Consider wave "decayed" if it's less than 20% of original amplitude
+          current_amplitude < wave.initial_amplitude * 0.2
+        else
+          # Waves without birth_time are considered persistent
+          false
+        end
+      end
+    end)
   end
 
   # Generate realistic background waves using simplified Phillips spectrum
@@ -653,8 +744,14 @@ defmodule Octopus.Apps.Ocean do
   end
 
   # Cleanup when app terminates
-  def terminate(reason, %State{} = _state) do
+  def terminate(reason, %State{} = state) do
     Logger.info("Ocean: App terminating (reason: #{inspect(reason)})")
+
+    # Cancel inactivity timer if it exists
+    if state.inactivity_timer_ref do
+      :timer.cancel(state.inactivity_timer_ref)
+    end
+
     :ok
   end
 end
