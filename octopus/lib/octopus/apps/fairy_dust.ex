@@ -3,6 +3,9 @@ defmodule Octopus.Apps.FairyDust do
 
   alias Octopus.{Canvas, Image, WebP}
 
+  # Add delegate to access installation metadata
+  defdelegate installation, to: Octopus
+
   @fps 60
 
   defmodule State do
@@ -83,8 +86,13 @@ defmodule Octopus.Apps.FairyDust do
   def handle_info(:tick, %State{} = state) do
     dt = 1 / @fps * state.speed
 
-    canvas = Canvas.new((8 + 16) * 10, 8)
-    # canvas = Canvas.new(Octopus.installation().width, Octopus.installation().height)
+    # Create canvas using installation metadata
+    panel_width = installation().panel_width()
+    panel_gap = installation().panel_gap()
+    num_panels = installation().panel_count()
+    panel_height = installation().panel_height()
+
+    canvas = Canvas.new((panel_width + panel_gap) * num_panels, panel_height)
 
     wrap_width = canvas.width + 100
     wrap_offset = -60
@@ -142,10 +150,11 @@ defmodule Octopus.Apps.FairyDust do
         offset: {trunc(rocket_x - fairy_dust.width / 2), trunc(rocket_y - fairy_dust.height / 2)}
       )
 
-    panel_width = Octopus.installation().panel_width()
-    panel_height = Octopus.installation().panel_height()
+    # Cut canvas into panels using installation metadata
+    panel_width = installation().panel_width()
+    panel_height = installation().panel_height()
 
-    Enum.map(Octopus.installation().panel_offsets(), fn {x, y} ->
+    Enum.map(installation().panel_offsets(), fn {x, y} ->
       Canvas.cut(canvas, {x, y}, {x + panel_width - 1, y + panel_height - 1})
     end)
     |> Enum.reverse()
