@@ -150,11 +150,19 @@ defmodule Octopus.Apps.FairyDust do
         offset: {trunc(rocket_x - fairy_dust.width / 2), trunc(rocket_y - fairy_dust.height / 2)}
       )
 
-    # Cut canvas into panels using installation metadata
+    # Cut canvas into panels using calculated positions instead of panel_offsets
     panel_width = installation().panel_width()
     panel_height = installation().panel_height()
+    panel_gap = installation().panel_gap()
+    panel_count = installation().panel_count()
 
-    Enum.map(installation().panel_offsets(), fn {x, y} ->
+    # Calculate panel positions based on panel spacing
+    panel_spacing = panel_width + panel_gap
+
+    0..(panel_count - 1)
+    |> Enum.map(fn panel_id ->
+      x = panel_id * panel_spacing
+      y = 0
       Canvas.cut(canvas, {x, y}, {x + panel_width - 1, y + panel_height - 1})
     end)
     |> Enum.reverse()
