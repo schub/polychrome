@@ -64,6 +64,11 @@ defmodule Octopus.Installation.Nation2025 do
   end
 
   @impl true
+  def panel_gap() do
+    @panel_gap
+  end
+
+  @impl true
   def center_x() do
     width() / 2 - 0.5
   end

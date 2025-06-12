@@ -3,10 +3,10 @@ defmodule Octopus.Installation.Nation2024 do
 
   @panel_height 8
   @panel_width 8
-  @panel_distance 25
+  @panel_gap 17
   @num_panels 10
 
-  @panels_offsets for i <- 0..(@num_panels - 1), do: {@panel_distance * i, 0}
+  @panels_offsets for i <- 0..(@num_panels - 1), do: {(@panel_width + @panel_gap) * i, 0}
 
   # Simulator layout constants for 10 panels
   @sim_pixel_width 25
@@ -40,6 +40,11 @@ defmodule Octopus.Installation.Nation2024 do
   @impl true
   def panel_height() do
     @panel_height
+  end
+
+  @impl true
+  def panel_gap() do
+    @panel_gap
   end
 
   @impl true
