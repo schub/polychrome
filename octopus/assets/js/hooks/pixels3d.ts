@@ -9,6 +9,7 @@ import { VRButton } from "three/addons/webxr/VRButton.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import Stats from "three/addons/libs/stats.module.js";
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const vertexShader = `
   varying vec2 vUv;
@@ -577,6 +578,73 @@ class Pixels3dHook extends Hook {
     });
     const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
     vrMovementObject.add(groundMesh);
+
+    // Load human model
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load('/models/low_poly_character/scene.gltf', (gltf) => {
+      const human = gltf.scene;
+
+      // Debug: Log model information
+      console.log('GLTF loaded:', gltf);
+      console.log('Human scene:', human);
+      console.log('Human children:', human.children);
+      console.log('Human bounding box before scaling:');
+
+      // Calculate bounding box to understand model size
+      const box = new THREE.Box3().setFromObject(human);
+      console.log('Bounding box:', box);
+      console.log('Model size:', box.getSize(new THREE.Vector3()));
+
+      // Use natural model size (no scaling)
+
+      // Position in the center of the scene at ground level
+      human.position.set(0, 0, 0);
+
+      // Debug: Log final position and scale
+      console.log('Final position:', human.position);
+      console.log('Final scale:', human.scale);
+
+      // Add to the scene
+      vrMovementObject.add(human);
+
+      console.log('Human model added to scene successfully');
+      console.log('vrMovementObject children count:', vrMovementObject.children.length);
+    }, (progress) => {
+      console.log('Loading progress:', (progress.loaded / progress.total * 100) + '%');
+    }, (error) => {
+      console.error('Error loading human model:', error);
+      console.error('Make sure the file exists at: /models/low_poly_character/scene.gltf');
+    });
+
+
+
+    // Load second human model next to a panel
+    gltfLoader.load('/models/low_poly_character/scene.gltf', (gltf) => {
+      const human2 = gltf.scene.clone();
+
+      // Use natural model size (no scaling)
+
+      // Position next to the first LED panel (panel 0)
+      const panelRadius = diameter / 2;
+      const panelAngle = 0; // First panel angle
+      const offsetDistance = 3.0; // 3 meters away from the panel
+
+      human2.position.set(
+        (panelRadius + offsetDistance) * Math.sin(panelAngle),
+        0,
+        (panelRadius + offsetDistance) * Math.cos(panelAngle)
+      );
+
+      // Rotate to face the panel
+      human2.rotation.y = panelAngle + Math.PI;
+
+      // Add to the scene
+      vrMovementObject.add(human2);
+
+      console.log('Second human model added next to panel');
+    }, undefined, (error) => {
+      console.error('Error loading second human model:', error);
+    });
 
     window.addEventListener("resize", onWindowResize);
 
