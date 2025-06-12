@@ -78,8 +78,8 @@ defmodule Octopus.Apps.Ocean do
     Logger.info("Ocean: Virtual matrix size: #{width}x#{height} (circular layout)")
     Logger.info("Ocean: Panel count: #{installation().panel_count()}")
 
-    # Water level at rest (lower half of panels)
-    water_level = height / 2
+    # Water level at rest (lower third of panels instead of middle)
+    water_level = height * 0.6
 
     # Generate background ocean waves using realistic wave spectrum
     background_waves = generate_background_waves(width, wave_strength)
@@ -442,14 +442,33 @@ defmodule Octopus.Apps.Ocean do
           green_component = trunc(30 + intensity * 100 + wave_highlight * 60 + wave_shadow * 30)
           red_component = trunc(10 + wave_highlight * 40)
 
-          # Apply wave energy as color saturation boost
-          # Scale energy to reasonable range
-          energy_boost = min(0.5, wave_energy * 0.3)
+          # Apply wave energy as subtle brightness boost - much more conservative
+          # Use the simplified activity value
+          energy_boost = wave_energy
 
-          # Boost saturation by increasing the dominant color (blue) and reducing others
-          blue_boosted = trunc(blue_component * (1.0 + energy_boost))
-          green_boosted = trunc(green_component * (1.0 + energy_boost * 0.5))
-          red_boosted = trunc(red_component * (1.0 + energy_boost * 0.3))
+          # Much more subtle energy visualization
+          {blue_boosted, green_boosted, red_boosted} =
+            if energy_boost > 0.2 do
+              # Only boost colors for significant recent activity
+              # Max 30% brighter
+              brightness_multiplier = 1.0 + energy_boost * 0.3
+
+              blue_val = trunc(blue_component * brightness_multiplier)
+              green_val = trunc(green_component * brightness_multiplier)
+              red_val = trunc(red_component * brightness_multiplier)
+
+              {blue_val, green_val, red_val}
+            else
+              # Normal colors for low/no activity
+              {blue_component, green_component, red_component}
+            end
+
+          # Log color changes for debugging when there are significant differences
+          if rem(x, 25) == 0 and wave_energy > 0.2 do
+            Logger.debug(
+              "Ocean: x=#{x} energy=#{Float.round(wave_energy, 3)}, brightness boost: #{Float.round(1.0 + energy_boost * 0.3, 2)}x"
+            )
+          end
 
           color = {
             max(0, min(255, red_boosted)),
@@ -557,53 +576,51 @@ defmodule Octopus.Apps.Ocean do
     end
   end
 
-  # Calculate wave energy at a specific position (sum of squared amplitudes)
-  defp calculate_wave_energy_at_position(x, time, background_waves, interaction_waves) do
-    # Energy is proportional to the square of amplitude
-    background_energy =
-      Enum.reduce(background_waves, 0.0, fn wave, acc ->
-        amplitude = get_current_wave_amplitude(wave, time)
-        acc + amplitude * amplitude
-      end)
+  # Calculate wave energy at a specific position - focus on recent interaction activity
+  defp calculate_wave_energy_at_position(x, _time, _background_waves, interaction_waves) do
+    # Skip background waves entirely for energy visualization - they're too uniform
+    # Focus only on interaction waves (button presses) for energy differences
 
-    interaction_energy =
+    interaction_activity =
       Enum.reduce(interaction_waves, 0.0, fn wave, acc ->
-        amplitude = get_current_interaction_wave_amplitude(wave, x, time)
-        acc + amplitude * amplitude
+        if wave.birth_time do
+          age_seconds = (:os.system_time(:millisecond) - wave.birth_time) / 1000.0
+          distance = abs(x - wave.origin_x)
+
+          # Only count recent waves (first 3 seconds) for energy visualization
+          if age_seconds < 3.0 do
+            # Simple distance-based energy that's easy to see
+            # Energy visible within 50 pixels
+            max_distance = 50.0
+
+            if distance < max_distance do
+              # Linear falloff from button press location
+              distance_factor = 1.0 - distance / max_distance
+              # Time factor - strongest in first second, fades over 3 seconds
+              time_factor = 1.0 - age_seconds / 3.0
+
+              wave_energy = wave.initial_amplitude * distance_factor * time_factor
+              acc + wave_energy
+            else
+              acc
+            end
+          else
+            acc
+          end
+        else
+          acc
+        end
       end)
 
-    # Normalize energy to a reasonable range (0-1)
-    total_energy = background_energy + interaction_energy
-    # Scale down for visualization
-    :math.sqrt(total_energy) * 0.1
-  end
+    # Simple scaling - no complex math
+    scaled_activity = min(1.0, interaction_activity * 0.5)
 
-  # Get current amplitude of a wave (accounting for decay)
-  defp get_current_wave_amplitude(wave, time) do
-    if wave.birth_time && !wave.is_wind_wave do
-      age_seconds = (:os.system_time(:millisecond) - wave.birth_time) / 1000.0
-      decay_factor = :math.pow(wave.decay_rate, age_seconds * 0.8)
-      min_amplitude = wave.initial_amplitude * 0.05
-      max(min_amplitude, wave.amplitude * decay_factor)
-    else
-      wave.amplitude
+    # Log energy values for debugging
+    if rem(x, 25) == 0 and scaled_activity > 0.1 do
+      Logger.debug("Ocean: x=#{x} interaction_activity=#{Float.round(scaled_activity, 3)}")
     end
-  end
 
-  # Get current amplitude of an interaction wave at a specific position
-  defp get_current_interaction_wave_amplitude(wave, x, time) do
-    if wave.birth_time do
-      age_seconds = (:os.system_time(:millisecond) - wave.birth_time) / 1000.0
-      distance = abs(x - wave.origin_x)
-
-      # Apply time and distance decay
-      time_decay = :math.pow(wave.decay_rate, age_seconds * 2.0)
-      distance_decay = 1.0 / (1.0 + distance * 0.01)
-
-      wave.amplitude * time_decay * distance_decay
-    else
-      0.0
-    end
+    scaled_activity
   end
 
   # Check if a pixel is within any button flash area
