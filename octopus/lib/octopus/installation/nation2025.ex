@@ -6,8 +6,6 @@ defmodule Octopus.Installation.Nation2025 do
   @panel_gap 16
   @num_panels 12
 
-  @panels_offsets for i <- 0..(@num_panels - 1), do: {(@panel_width + @panel_gap) * i, 0}
-
   # Simulator layout constants
   @sim_pixel_width 8
   @sim_pixel_height 8
