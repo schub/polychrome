@@ -8,14 +8,12 @@ defmodule Octopus.VirtualMatrix do
 
   alias Octopus.Canvas
 
-  defstruct [:width, :height, :panels, :layout_type, :installation]
+  defstruct [:width, :height, :layout_type, :installation]
 
   @type layout_type :: :linear | :circular
-  @type panel_mapping :: %{integer() => {integer(), integer(), integer(), integer()}}
   @type t :: %__MODULE__{
           width: integer(),
           height: integer(),
-          panels: panel_mapping(),
           layout_type: layout_type(),
           installation: module()
         }
@@ -25,19 +23,16 @@ defmodule Octopus.VirtualMatrix do
 
   Options:
   - `:layout` - Layout type (:linear, :circular). Default: :linear
-  - `:circular_gap` - Whether to add gap after last panel in circular layout. Default: true
   """
   @spec new(module(), keyword()) :: t()
   def new(installation, opts \\ []) do
     layout_type = Keyword.get(opts, :layout, :linear)
-    circular_gap = Keyword.get(opts, :circular_gap, true)
 
     %__MODULE__{
       installation: installation,
       layout_type: layout_type,
-      width: calculate_width(installation, layout_type, circular_gap),
-      height: calculate_height(installation, layout_type),
-      panels: build_panel_mapping(installation, layout_type, circular_gap)
+      width: calculate_width(installation, layout_type),
+      height: installation.panel_height()
     }
   end
 
@@ -49,11 +44,12 @@ defmodule Octopus.VirtualMatrix do
   """
   @spec render_frame(t(), Canvas.t()) :: Canvas.t()
   def render_frame(%__MODULE__{} = matrix, canvas) do
-    panel_width = matrix.installation.panel_width()
-    panel_height = matrix.installation.panel_height()
+    {panel_width, panel_height, panel_count} = get_panel_dimensions(matrix)
 
-    matrix.installation.panel_offsets()
-    |> Enum.map(fn {x_offset, y_offset} ->
+    0..(panel_count - 1)
+    |> Enum.map(fn panel_id ->
+      {x_offset, y_offset} = panel_position(matrix, panel_id)
+
       Canvas.cut(
         canvas,
         {x_offset, y_offset},
@@ -73,12 +69,12 @@ defmodule Octopus.VirtualMatrix do
   @spec global_to_panel_coords(t(), integer(), integer()) ::
           {integer(), integer(), integer()} | :not_found
   def global_to_panel_coords(%__MODULE__{} = matrix, global_x, global_y) do
-    panel_width = matrix.installation.panel_width()
-    panel_height = matrix.installation.panel_height()
+    {panel_width, panel_height, panel_count} = get_panel_dimensions(matrix)
 
-    matrix.installation.panel_offsets()
-    |> Enum.with_index()
-    |> Enum.find_value(:not_found, fn {{x_offset, y_offset}, panel_id} ->
+    # Find which panel this coordinate falls into
+    Enum.find_value(0..(panel_count - 1), :not_found, fn panel_id ->
+      {x_offset, y_offset} = panel_position(matrix, panel_id)
+
       if global_x >= x_offset and global_x < x_offset + panel_width and
            global_y >= y_offset and global_y < y_offset + panel_height do
         {panel_id, global_x - x_offset, global_y - y_offset}
@@ -94,10 +90,10 @@ defmodule Octopus.VirtualMatrix do
   @spec panel_to_global_coords(t(), integer(), integer(), integer()) ::
           {integer(), integer()} | :invalid_panel
   def panel_to_global_coords(%__MODULE__{} = matrix, panel_id, local_x, local_y) do
-    panel_offsets = matrix.installation.panel_offsets()
+    panel_count = matrix.installation.panel_count()
 
-    if panel_id >= 0 and panel_id < length(panel_offsets) do
-      {x_offset, y_offset} = Enum.at(panel_offsets, panel_id)
+    if panel_id >= 0 and panel_id < panel_count do
+      {x_offset, y_offset} = panel_position(matrix, panel_id)
       {x_offset + local_x, y_offset + local_y}
     else
       :invalid_panel
@@ -114,45 +110,31 @@ defmodule Octopus.VirtualMatrix do
 
   # Private functions
 
-  defp calculate_width(installation, :linear, _circular_gap) do
-    panel_width = installation.panel_width()
-    panel_gap = installation.panel_gap()
+  # Extract common panel dimensions to avoid repeated installation calls
+  defp get_panel_dimensions(%__MODULE__{} = matrix) do
+    installation = matrix.installation
+    {installation.panel_width(), installation.panel_height(), installation.panel_count()}
+  end
+
+  # Calculate panel position - centralized logic
+  defp panel_position(%__MODULE__{} = matrix, panel_id) do
+    panel_spacing = matrix.installation.panel_width() + matrix.installation.panel_gap()
+    {panel_id * panel_spacing, 0}
+  end
+
+  defp calculate_width(installation, :linear) do
+    # Linear layout: (num_panels * panel_width) + ((num_panels - 1) * panel_gap)
+    # Gaps only between panels, not after the last one
     num_panels = installation.panel_count()
-    (panel_width + panel_gap) * num_panels
-  end
-
-  defp calculate_width(installation, :circular, circular_gap) do
     panel_width = installation.panel_width()
-    panel_gap = installation.panel_gap()
-    num_panels = installation.panel_count()
 
-    base_width = (panel_width + panel_gap) * num_panels
-
-    if circular_gap do
-      base_width
-    else
-      base_width - panel_gap
-    end
+    num_panels * panel_width + (num_panels - 1) * installation.panel_gap()
   end
 
-  defp calculate_height(installation, layout_type) when layout_type in [:linear, :circular] do
-    installation.panel_height()
-  end
-
-  defp build_panel_mapping(installation, :linear, _circular_gap) do
-    panel_width = installation.panel_width()
-    panel_height = installation.panel_height()
-
-    installation.panel_offsets()
-    |> Enum.with_index()
-    |> Enum.into(%{}, fn {{x_offset, y_offset}, panel_id} ->
-      {panel_id, {x_offset, y_offset, panel_width, panel_height}}
-    end)
-  end
-
-  defp build_panel_mapping(installation, :circular, circular_gap) do
-    # For now, circular layout is the same as linear
-    # In the future, this could arrange panels in an actual circle
-    build_panel_mapping(installation, :linear, circular_gap)
+  defp calculate_width(installation, :circular) do
+    # Circular layout: (num_panels * panel_width) + (num_panels * panel_gap)
+    # Gaps between panels AND after the last panel for circular wrapping
+    panel_spacing = installation.panel_width() + installation.panel_gap()
+    installation.panel_count() * panel_spacing
   end
 end
