@@ -134,11 +134,30 @@ class Pixels3dHook extends Hook {
     const panels: THREE.Object3D[] = [];
     const poles: { mesh: THREE.Mesh; geometry: THREE.CylinderGeometry }[] = [];
     const feet: { mesh: THREE.Mesh; geometry: THREE.CylinderGeometry }[] = [];
+    const buttonPoles: THREE.Mesh[] = [];
+    const buttonBases: THREE.Mesh[] = [];
+    const buttonRings: THREE.Mesh[] = [];
+    const buttonDomes: THREE.Mesh[] = [];
     const pixels: RGB[] = Array(numPanels * 8 * 8).fill([0, 0, 0]);
     let diameter = 20.0;
     let height = 0.4;
     let footDiameter = 0.3;
     let poleDiameter = 0.15;
+    let buttonPolesDiameter = 6.0; // 6m diameter for button poles circle
+
+    // Button poles configuration
+    const numButtonPoles = 12;
+    const buttonPoleHeight = 1.0; // 100cm
+    const buttonPoleDiameter = 0.1; // 10cm
+
+    // Button components configuration
+    const buttonBaseDiameter = 0.1; // 10cm
+    const buttonBaseHeight = 0.0175; // 17.5mm
+    const buttonRingDiameter = 0.1; // 10cm
+    const buttonRingHeight = 0.008; // 8mm
+    const buttonRingThickness = 0.01; // 1cm
+    const buttonDomeDiameter = 0.09; // 9cm
+    const buttonDomeHeight = 0.02; // 2cm
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.xr.enabled = true;
@@ -295,7 +314,55 @@ class Pixels3dHook extends Hook {
           16
         );
       }
+
+      // Update button poles positions - align with panels
+      const buttonPoleRadius = buttonPolesDiameter / 2;
+      for (let i = 0; i < buttonPoles.length; i++) {
+        const angle = (i / numButtonPoles) * Math.PI * 2;
+        buttonPoles[i].position.set(
+          buttonPoleRadius * Math.sin(angle),
+          buttonPoleHeight / 2, // Half height to position bottom at ground level
+          buttonPoleRadius * Math.cos(angle)
+        );
+      }
+
+      // Update button components positions
+      const buttonTopY = buttonPoleHeight;
+      for (let i = 0; i < buttonBases.length; i++) {
+        const angle = (i / numButtonPoles) * Math.PI * 2;
+        const x = buttonPoleRadius * Math.sin(angle);
+        const z = buttonPoleRadius * Math.cos(angle);
+
+        // Update button base position
+        buttonBases[i].position.set(x, buttonTopY + buttonBaseHeight / 2, z);
+
+        // Update button ring position
+        buttonRings[i].position.set(x, buttonTopY + buttonBaseHeight + buttonRingHeight / 2, z);
+
+        // Update button dome position
+        buttonDomes[i].position.set(x, buttonTopY + buttonBaseHeight + buttonRingHeight, z);
+      }
     };
+
+    // Create shared wood material for all poles
+    const woodMaterial = new THREE.MeshStandardMaterial({
+      color: 0x8b4513,
+      roughness: 0.9,
+      metalness: 0.0,
+    });
+
+    // Create materials for button components
+    const blackButtonMaterial = new THREE.MeshStandardMaterial({
+      color: 0x000000,
+      roughness: 0.3,
+      metalness: 0.1,
+    });
+
+    const redButtonMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff0000,
+      roughness: 0.2,
+      metalness: 0.0,
+    });
 
     for (let i = 0; i < numPanels; i++) {
       const data = new Uint8Array(8 * 8 * 4);
@@ -365,11 +432,6 @@ class Pixels3dHook extends Hook {
       centerMesh.scale.set(1.0, 1.0, 0.95);
 
       const poleGeometry = new THREE.CylinderGeometry();
-      const woodMaterial = new THREE.MeshStandardMaterial({
-        color: 0x8b4513,
-        roughness: 0.9,
-        metalness: 0.0,
-      });
       const poleLeft = new THREE.Mesh(poleGeometry, woodMaterial);
       const poleRight = new THREE.Mesh(poleGeometry, woodMaterial);
 
@@ -396,6 +458,86 @@ class Pixels3dHook extends Hook {
     }
 
     updateMeshes();
+
+    // Create 12 button poles in circular arrangement
+    for (let i = 0; i < numButtonPoles; i++) {
+      const angle = (i / numButtonPoles) * Math.PI * 2;
+      const buttonPoleRadius = buttonPolesDiameter / 2;
+
+      const buttonPoleGeometry = new THREE.CylinderGeometry(
+        buttonPoleDiameter / 2,
+        buttonPoleDiameter / 2,
+        buttonPoleHeight,
+        16
+      );
+
+      const buttonPole = new THREE.Mesh(buttonPoleGeometry, woodMaterial);
+
+      buttonPole.position.set(
+        buttonPoleRadius * Math.sin(angle),
+        buttonPoleHeight / 2, // Half height to position bottom at ground level
+        buttonPoleRadius * Math.cos(angle)
+      );
+
+      buttonPoles.push(buttonPole);
+      vrMovementObject.add(buttonPole);
+
+      // Create button components on top of each pole
+      const buttonTopY = buttonPoleHeight;
+
+      // Button base (black cylinder)
+      const buttonBaseGeometry = new THREE.CylinderGeometry(
+        buttonBaseDiameter / 2,
+        buttonBaseDiameter / 2,
+        buttonBaseHeight,
+        32
+      );
+      const buttonBase = new THREE.Mesh(buttonBaseGeometry, blackButtonMaterial);
+      buttonBase.position.set(
+        buttonPoleRadius * Math.sin(angle),
+        buttonTopY + buttonBaseHeight / 2,
+        buttonPoleRadius * Math.cos(angle)
+      );
+
+      // Button ring (black cylindrical ring - simplified as solid cylinder)
+      const buttonRingGeometry = new THREE.CylinderGeometry(
+        buttonRingDiameter / 2,
+        buttonRingDiameter / 2,
+        buttonRingHeight,
+        32
+      );
+      const buttonRing = new THREE.Mesh(buttonRingGeometry, blackButtonMaterial);
+      buttonRing.position.set(
+        buttonPoleRadius * Math.sin(angle),
+        buttonTopY + buttonBaseHeight + buttonRingHeight / 2,
+        buttonPoleRadius * Math.cos(angle)
+      );
+
+      // Button dome (red hemisphere)
+      const buttonDomeGeometry = new THREE.SphereGeometry(
+        buttonDomeDiameter / 2,
+        32,
+        16,
+        0,
+        Math.PI * 2,
+        0,
+        Math.PI / 2 // Only upper hemisphere
+      );
+      const buttonDome = new THREE.Mesh(buttonDomeGeometry, redButtonMaterial);
+      buttonDome.position.set(
+        buttonPoleRadius * Math.sin(angle),
+        buttonTopY + buttonBaseHeight + buttonRingHeight,
+        buttonPoleRadius * Math.cos(angle)
+      );
+
+      buttonBases.push(buttonBase);
+      buttonRings.push(buttonRing);
+      buttonDomes.push(buttonDome);
+
+      vrMovementObject.add(buttonBase);
+      vrMovementObject.add(buttonRing);
+      vrMovementObject.add(buttonDome);
+    }
 
     const light = new THREE.HemisphereLight(0xb0c4de, 0x556b2f, 0.5);
     light.position.set(0.5, 1, 0.75);
@@ -524,6 +666,7 @@ class Pixels3dHook extends Hook {
         height?: number;
         pole_diameter?: number;
         foot_diameter?: number;
+        button_poles_diameter?: number;
       };
     };
 
@@ -561,6 +704,10 @@ class Pixels3dHook extends Hook {
       }
       if (param.foot_diameter) {
         footDiameter = param.foot_diameter;
+        updateMeshes();
+      }
+      if (param.button_poles_diameter) {
+        buttonPolesDiameter = param.button_poles_diameter;
         updateMeshes();
       }
     });
