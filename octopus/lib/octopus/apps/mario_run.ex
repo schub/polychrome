@@ -115,7 +115,7 @@ defmodule Octopus.Apps.MarioRun do
   end
 
   # Handle animation frame progression and loop transitions
-  defp animate(%State{current_frame: current_frame} = state, loop, next_loop) do
+  defp animate(%State{current_frame: current_frame} = state, loop, _next_loop) do
     loop_length = length(@loops[loop])
 
     cond do
@@ -144,12 +144,6 @@ defmodule Octopus.Apps.MarioRun do
     Process.send_after(self(), :random_look, delay)
   end
 
-  # Check if character is fully visible on a panel (not in gaps)
-  defp on_panel?(char_x) do
-    panel_section = rem(char_x, 26)
-    panel_section == 0
-  end
-
   # Character moves when running
   defp update_position(%State{loop: :run, char_x: char_x}), do: char_x + 1
 
@@ -169,7 +163,7 @@ defmodule Octopus.Apps.MarioRun do
   defp update_position(%State{char_x: char_x, pending_loop: _pending}), do: char_x + 1
 
   # Activate pending loop when character reaches a panel
-  defp handle_loop_transition(%State{pending_loop: pending_loop} = state, char_x)
+  defp handle_loop_transition(%State{pending_loop: pending_loop} = _state, char_x)
        when pending_loop != nil and rem(char_x, 26) == 0 do
     # Schedule return to run state after 2 seconds
     look_duration_timer_ref = Process.send_after(self(), :end_look_animation, 2000)
