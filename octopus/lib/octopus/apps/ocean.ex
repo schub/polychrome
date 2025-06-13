@@ -165,8 +165,8 @@ defmodule Octopus.Apps.Ocean do
     end
   end
 
-  def handle_input(%InputEvent{type: type, value: value}, %State{} = state) do
-    # Logger.debug("Ocean: Ignoring input event - type: #{inspect(type)}, value: #{value}")
+  def handle_input(%InputEvent{type: _type, value: _value}, %State{} = state) do
+    # Logger.debug("Ocean: Ignoring input event - type: \\#{inspect(type)}, value: \\#{value}")
     {:noreply, state}
   end
 
@@ -742,7 +742,7 @@ defmodule Octopus.Apps.Ocean do
   end
 
   # Cleanup when app terminates
-  def terminate(reason, %State{} = state) do
+  def terminate(_reason, %State{} = state) do
     # Logger.info("Ocean: App terminating (reason: \\#{inspect(reason)})")
 
     # Cancel inactivity timer if it exists
