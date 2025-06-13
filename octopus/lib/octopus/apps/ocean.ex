@@ -71,7 +71,7 @@ defmodule Octopus.Apps.Ocean do
   end
 
   def init(%{wave_strength: wave_strength, damping: damping}) do
-    Logger.info("Ocean: Starting initialization...")
+    # Logger.info("Ocean: Starting initialization...")
 
     :timer.send_interval(trunc(1000 / @fps), :tick)
 
@@ -79,8 +79,8 @@ defmodule Octopus.Apps.Ocean do
     width = virtual_matrix.width
     height = virtual_matrix.height
 
-    Logger.info("Ocean: Virtual matrix size: #{width}x#{height} (gapped panels wrapped layout)")
-    Logger.info("Ocean: Panel count: #{installation().panel_count()}")
+    # Logger.info("Ocean: Virtual matrix size: \\#{width}x\\#{height} (gapped panels wrapped layout)")
+    # Logger.info("Ocean: Panel count: \\#{installation().panel_count()}")
 
     # Water level at rest (lower third of panels instead of middle)
     water_level = height * 0.6
@@ -88,8 +88,8 @@ defmodule Octopus.Apps.Ocean do
     # Generate background ocean waves using realistic wave spectrum
     background_waves = generate_background_waves(width, wave_strength)
 
-    Logger.info("Ocean: Generated #{length(background_waves)} background waves")
-    Logger.info("Ocean: Initialization complete!")
+    # Logger.info("Ocean: Generated \\#{length(background_waves)} background waves")
+    # Logger.info("Ocean: Initialization complete!")
 
     {:ok,
      %State{
@@ -128,7 +128,7 @@ defmodule Octopus.Apps.Ocean do
 
   # Handle button press events - create interaction wave
   def handle_input(%InputEvent{type: type, value: 1}, %State{} = state) do
-    Logger.info("Ocean: Button pressed: #{inspect(type)}")
+    # Logger.info("Ocean: Button pressed: \\#{inspect(type)}")
 
     # Map button types to button numbers (0-based)
     button_number =
@@ -147,7 +147,7 @@ defmodule Octopus.Apps.Ocean do
       end
 
     if button_number != nil do
-      Logger.info("Ocean: Creating interaction wave for button #{button_number}")
+      # Logger.info("Ocean: Creating interaction wave for button \\#{button_number}")
 
       # Cancel existing inactivity timer if it exists
       if state.inactivity_timer_ref do
@@ -160,13 +160,13 @@ defmodule Octopus.Apps.Ocean do
       state = create_interaction_wave(state, button_number)
       {:noreply, %{state | last_activity_time: current_time, inactivity_timer_ref: nil}}
     else
-      Logger.debug("Ocean: Ignoring unknown button type: #{inspect(type)}")
+      # Logger.debug("Ocean: Ignoring unknown button type: #{inspect(type)}")
       {:noreply, state}
     end
   end
 
   def handle_input(%InputEvent{type: type, value: value}, %State{} = state) do
-    Logger.debug("Ocean: Ignoring input event - type: #{inspect(type)}, value: #{value}")
+    # Logger.debug("Ocean: Ignoring input event - type: #{inspect(type)}, value: #{value}")
     {:noreply, state}
   end
 
@@ -218,7 +218,7 @@ defmodule Octopus.Apps.Ocean do
 
   # Handle inactivity timer - reactivate initial waves
   def handle_info(:reactivate_waves, %State{} = state) do
-    Logger.info("Ocean: Reactivating waves after inactivity period")
+    # Logger.info("Ocean: Reactivating waves after inactivity period")
 
     # Generate new initial waves (same as startup)
     new_background_waves = generate_background_waves(state.width, state.wave_strength)
@@ -243,7 +243,7 @@ defmodule Octopus.Apps.Ocean do
 
         # 2 seconds buffer after waves calm down
         if time_since_activity >= 2000 do
-          Logger.info("Ocean: Ocean has calmed down, starting 15-second inactivity timer")
+          # Logger.info("Ocean: Ocean has calmed down, starting 15-second inactivity timer")
 
           # Start 15-second timer
           {:ok, timer_ref} = :timer.send_after(15_000, :reactivate_waves)
@@ -478,11 +478,11 @@ defmodule Octopus.Apps.Ocean do
           }
 
         :invalid_panel ->
-          Logger.error("Ocean: Invalid panel #{button_number}")
+          # Logger.error("Ocean: Invalid panel #{button_number}")
           state
       end
     else
-      Logger.debug("Ocean: Button #{button_number} out of range (max: #{panel_count - 1})")
+      # Logger.debug("Ocean: Button #{button_number} out of range (max: #{panel_count - 1})")
       state
     end
   end
@@ -553,11 +553,11 @@ defmodule Octopus.Apps.Ocean do
             end
 
           # Log color changes for debugging when there are significant differences
-          if rem(x, 25) == 0 and wave_energy > 0.2 do
-            Logger.debug(
-              "Ocean: x=#{x} energy=#{Float.round(wave_energy, 3)}, brightness boost: #{Float.round(1.0 + energy_boost * 0.3, 2)}x"
-            )
-          end
+          # if rem(x, 25) == 0 and wave_energy > 0.2 do
+          #   Logger.debug(
+          #     "Ocean: x=#{x} energy=#{Float.round(wave_energy, 3)}, brightness boost: #{Float.round(1.0 + energy_boost * 0.3, 2)}x"
+          #   )
+          # end
 
           color = {
             max(0, min(255, red_boosted)),
@@ -705,9 +705,9 @@ defmodule Octopus.Apps.Ocean do
     scaled_activity = min(1.0, interaction_activity * 0.5)
 
     # Log energy values for debugging
-    if rem(x, 25) == 0 and scaled_activity > 0.1 do
-      Logger.debug("Ocean: x=#{x} interaction_activity=#{Float.round(scaled_activity, 3)}")
-    end
+    # if rem(x, 25) == 0 and scaled_activity > 0.1 do
+    #   Logger.debug("Ocean: x=#{x} interaction_activity=#{Float.round(scaled_activity, 3)}")
+    # end
 
     scaled_activity
   end
@@ -743,7 +743,7 @@ defmodule Octopus.Apps.Ocean do
 
   # Cleanup when app terminates
   def terminate(reason, %State{} = state) do
-    Logger.info("Ocean: App terminating (reason: #{inspect(reason)})")
+    # Logger.info("Ocean: App terminating (reason: \\#{inspect(reason)})")
 
     # Cancel inactivity timer if it exists
     if state.inactivity_timer_ref do
