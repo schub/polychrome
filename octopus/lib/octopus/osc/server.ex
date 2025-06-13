@@ -10,7 +10,7 @@ defmodule Octopus.Osc.Server do
   @client_timeout_check_interval 10_000
 
   def start_link(port \\ 8000) do
-    GenServer.start(__MODULE__, port)
+    GenServer.start_link(__MODULE__, port)
   end
 
   def init(port) do
