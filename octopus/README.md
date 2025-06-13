@@ -16,9 +16,10 @@ On Linux you need:
 - Clone repository `git clone https://github.com/blinkenlights/polychrome`
 - Change directory `cd polychrome/octopus`
 - Run `mix setup` to install and setup dependencies
+- When running for the fist time create and migrate the database by running `mix ecto.create` and then `mix ecto.migrate`
 - Start the server with `iex -S mix phx.server`
 
-Octopus should now be reachable on [`localhost:4000`](http://localhost:4000). 
+Octopus should now be reachable on [`localhost:4000`](http://localhost:4000).
 
 Start the "UDP Server" app to receive external frames on UDP port 2342
 
