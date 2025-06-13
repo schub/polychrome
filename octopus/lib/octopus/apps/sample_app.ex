@@ -4,9 +4,12 @@ defmodule Octopus.Apps.SampleApp do
 
   alias Octopus.Canvas
   alias Octopus.Protobuf.InputEvent
+  alias Octopus.VirtualMatrix
+
+  defdelegate installation, to: Octopus
 
   defmodule State do
-    defstruct [:index, :color, :canvas]
+    defstruct [:index, :color, :canvas, :virtual_matrix]
   end
 
   @fps 60
@@ -15,10 +18,13 @@ defmodule Octopus.Apps.SampleApp do
   def name(), do: "Sample App"
 
   def init(_args) do
+    virtual_matrix = VirtualMatrix.new(installation(), layout: :gapped_panels)
+
     state = %State{
       index: 0,
       color: 0,
-      canvas: Canvas.new(80, 8)
+      canvas: Canvas.new(virtual_matrix.width, virtual_matrix.height),
+      virtual_matrix: virtual_matrix
     }
 
     :timer.send_interval(trunc(1000 / @fps), :tick)
@@ -27,18 +33,23 @@ defmodule Octopus.Apps.SampleApp do
   end
 
   def handle_info(:tick, %State{} = state) do
-    coordinates = {rem(state.index, 80), trunc(state.index / 80)}
+    coordinates =
+      {rem(state.index, state.virtual_matrix.width),
+       trunc(state.index / state.virtual_matrix.width)}
 
     canvas =
       state.canvas
       |> Canvas.clear()
       |> Canvas.put_pixel(coordinates, Enum.at(@colors, state.color))
 
-    canvas
-    |> Canvas.to_frame()
-    |> send_frame()
+    VirtualMatrix.send_frame(state.virtual_matrix, canvas)
 
-    {:noreply, %State{state | canvas: canvas, index: rem(state.index + 1, 640)}}
+    {:noreply,
+     %State{
+       state
+       | canvas: canvas,
+         index: rem(state.index + 1, state.virtual_matrix.width * state.virtual_matrix.height)
+     }}
   end
 
   def handle_input(%InputEvent{type: :BUTTON_1, value: 1}, state) do
