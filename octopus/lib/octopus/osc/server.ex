@@ -42,9 +42,14 @@ defmodule Octopus.Osc.Server do
 
     state = %{state | clients: Map.put(state.clients, {ip, port}, DateTime.utc_now())}
 
-    data
-    |> OSCx.decode()
-    |> handle_bundle_or_message(state)
+    try do
+      data
+      |> OSCx.decode()
+      |> handle_bundle_or_message(state)
+    rescue
+      error ->
+        Logger.error("Error decoding OSC message: #{inspect(error)}")
+    end
 
     {:noreply, state}
   end
