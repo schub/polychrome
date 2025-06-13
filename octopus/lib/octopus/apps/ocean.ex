@@ -75,11 +75,11 @@ defmodule Octopus.Apps.Ocean do
 
     :timer.send_interval(trunc(1000 / @fps), :tick)
 
-    virtual_matrix = VirtualMatrix.new(installation(), layout: :circular)
+    virtual_matrix = VirtualMatrix.new(installation(), layout: :gapped_panels_wrapped)
     width = virtual_matrix.width
     height = virtual_matrix.height
 
-    Logger.info("Ocean: Virtual matrix size: #{width}x#{height} (circular layout)")
+    Logger.info("Ocean: Virtual matrix size: #{width}x#{height} (gapped panels wrapped layout)")
     Logger.info("Ocean: Panel count: #{installation().panel_count()}")
 
     # Water level at rest (lower third of panels instead of middle)
@@ -205,9 +205,7 @@ defmodule Octopus.Apps.Ocean do
       )
 
     # Use VirtualMatrix to automatically handle panel cutting and joining
-    VirtualMatrix.render_frame(updated_state.virtual_matrix, canvas)
-    |> Canvas.to_frame()
-    |> send_frame()
+    VirtualMatrix.send_frame(updated_state.virtual_matrix, canvas)
 
     {:noreply,
      %{

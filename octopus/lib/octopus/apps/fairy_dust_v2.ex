@@ -30,7 +30,7 @@ defmodule Octopus.Apps.FairyDustV2 do
     :timer.send_interval(trunc(1000 / @fps), :tick)
 
     fairy_dust = Image.load("fairy-dust")
-    virtual_matrix = VirtualMatrix.new(installation(), layout: :linear)
+    virtual_matrix = VirtualMatrix.new(installation(), layout: :gapped_panels)
 
     {:ok,
      %State{
@@ -154,9 +154,7 @@ defmodule Octopus.Apps.FairyDustV2 do
       )
 
     # Use VirtualMatrix to automatically handle panel cutting and joining
-    VirtualMatrix.render_frame(state.virtual_matrix, canvas)
-    |> Canvas.to_frame()
-    |> send_frame()
+    VirtualMatrix.send_frame(state.virtual_matrix, canvas)
 
     {:noreply, %State{state | time: state.time + dt, particles: particles}}
   end

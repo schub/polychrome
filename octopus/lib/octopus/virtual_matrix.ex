@@ -10,7 +10,7 @@ defmodule Octopus.VirtualMatrix do
 
   defstruct [:width, :height, :layout_type, :installation]
 
-  @type layout_type :: :linear | :circular
+  @type layout_type :: :adjacent_panels | :gapped_panels | :gapped_panels_wrapped
   @type t :: %__MODULE__{
           width: integer(),
           height: integer(),
@@ -22,11 +22,11 @@ defmodule Octopus.VirtualMatrix do
   Creates a new virtual matrix for the given installation.
 
   Options:
-  - `:layout` - Layout type (:linear, :circular). Default: :linear
+  - `:layout` - Layout type (:adjacent_panels, :gapped_panels, :gapped_panels_wrapped). Default: :gapped_panels
   """
   @spec new(module(), keyword()) :: t()
   def new(installation, opts \\ []) do
-    layout_type = Keyword.get(opts, :layout, :linear)
+    layout_type = Keyword.get(opts, :layout, :gapped_panels)
 
     %__MODULE__{
       installation: installation,
@@ -37,13 +37,10 @@ defmodule Octopus.VirtualMatrix do
   end
 
   @doc """
-  Renders a canvas to individual panel frames and returns the combined frame.
-
-  Takes a canvas that represents the entire virtual matrix and automatically
-  cuts it into the appropriate panel sections, then joins them for transmission.
+  Converts a virtual canvas to a frame, arranging it according to the physical panel layout.
   """
-  @spec render_frame(t(), Canvas.t()) :: Canvas.t()
-  def render_frame(%__MODULE__{} = matrix, canvas) do
+  @spec to_frame(t(), Canvas.t()) :: any()
+  def to_frame(%__MODULE__{} = matrix, canvas) do
     {panel_width, panel_height, panel_count} = get_panel_dimensions(matrix)
 
     0..(panel_count - 1)
@@ -58,6 +55,15 @@ defmodule Octopus.VirtualMatrix do
     end)
     |> Enum.reverse()
     |> Enum.reduce(&Canvas.join/2)
+    |> Canvas.to_frame()
+  end
+
+  @doc """
+  Converts a virtual canvas to a frame and sends it using send_frame/1.
+  """
+  @spec send_frame(t(), Canvas.t()) :: :ok
+  def send_frame(matrix, canvas) do
+    matrix |> to_frame(canvas) |> Octopus.App.send_frame()
   end
 
   @doc """
@@ -118,23 +124,39 @@ defmodule Octopus.VirtualMatrix do
 
   # Calculate panel position - centralized logic
   defp panel_position(%__MODULE__{} = matrix, panel_id) do
-    panel_spacing = matrix.installation.panel_width() + matrix.installation.panel_gap()
-    {panel_id * panel_spacing, 0}
+    panel_width = matrix.installation.panel_width()
+    panel_gap = matrix.installation.panel_gap()
+
+    case matrix.layout_type do
+      :adjacent_panels ->
+        {panel_id * panel_width, 0}
+
+      :gapped_panels ->
+        {panel_id * (panel_width + panel_gap), 0}
+
+      :gapped_panels_wrapped ->
+        {panel_id * (panel_width + panel_gap), 0}
+    end
   end
 
-  defp calculate_width(installation, :linear) do
-    # Linear layout: (num_panels * panel_width) + ((num_panels - 1) * panel_gap)
+  defp calculate_width(installation, :adjacent_panels) do
+    # Panels are directly adjacent, no gaps
+    installation.panel_count() * installation.panel_width()
+  end
+
+  defp calculate_width(installation, :gapped_panels) do
     # Gaps only between panels, not after the last one
     num_panels = installation.panel_count()
     panel_width = installation.panel_width()
-
-    num_panels * panel_width + (num_panels - 1) * installation.panel_gap()
+    panel_gap = installation.panel_gap()
+    num_panels * panel_width + (num_panels - 1) * panel_gap
   end
 
-  defp calculate_width(installation, :circular) do
-    # Circular layout: (num_panels * panel_width) + (num_panels * panel_gap)
-    # Gaps between panels AND after the last panel for circular wrapping
-    panel_spacing = installation.panel_width() + installation.panel_gap()
-    installation.panel_count() * panel_spacing
+  defp calculate_width(installation, :gapped_panels_wrapped) do
+    # Gaps between panels AND after the last panel for wrapping
+    num_panels = installation.panel_count()
+    panel_width = installation.panel_width()
+    panel_gap = installation.panel_gap()
+    num_panels * (panel_width + panel_gap)
   end
 end
