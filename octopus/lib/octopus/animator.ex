@@ -12,7 +12,7 @@ defmodule Octopus.Animator do
   @canvas_size_y 8
 
   @moduledoc """
-    Animates transistions between static frages. Sends out streams of frames to the mixer.
+    Animates transistions between static frames. Sends out streams of frames to the mixer.
   """
   defmodule State do
     defstruct canvas: nil,
@@ -73,7 +73,7 @@ defmodule Octopus.Animator do
   end
 
   @doc """
-    Clears the canvas and stops all animations. 
+    Clears the canvas and stops all animations.
 
     Options:
      * fade_out - duration of fade out. [default: 0]
