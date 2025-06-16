@@ -6,10 +6,7 @@ import Config
 #   stacktrace: true
 
 config :octopus, Octopus.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "octopus_test#{System.get_env("MIX_TEST_PARTITION")}",
+  database: "octopus_test.db",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
