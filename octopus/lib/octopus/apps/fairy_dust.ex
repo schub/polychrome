@@ -1,7 +1,7 @@
 defmodule Octopus.Apps.FairyDust do
   use Octopus.App, category: :animation
 
-  alias Octopus.{Canvas, Image, WebP}
+  alias Octopus.{Canvas, Image, WebP, VirtualMatrix}
 
   # Add delegate to access installation metadata
   defdelegate installation, to: Octopus
@@ -9,7 +9,7 @@ defmodule Octopus.Apps.FairyDust do
   @fps 60
 
   defmodule State do
-    defstruct [:fairy_dust, :time, :particles, :speed]
+    defstruct [:fairy_dust, :time, :particles, :speed, :virtual_matrix]
   end
 
   defmodule Particle do
@@ -30,8 +30,16 @@ defmodule Octopus.Apps.FairyDust do
     :timer.send_interval(trunc(1000 / @fps), :tick)
 
     fairy_dust = Image.load("fairy-dust")
+    virtual_matrix = VirtualMatrix.new(installation(), layout: :gapped_panels)
 
-    {:ok, %State{fairy_dust: fairy_dust, time: 0, particles: [], speed: speed}}
+    {:ok,
+     %State{
+       fairy_dust: fairy_dust,
+       time: 0,
+       particles: [],
+       speed: speed,
+       virtual_matrix: virtual_matrix
+     }}
   end
 
   def handle_config(%{speed: speed}, %State{} = state) do
@@ -55,13 +63,13 @@ defmodule Octopus.Apps.FairyDust do
     |> Enum.filter(fn particle -> particle.ttl > 0 end)
   end
 
-  defp draw_particles(particles) do
+  defp draw_particles(particles, canvas_width) do
     particle_size = 1
 
     # find required maximal size, then draw according to colors
     max_x = Enum.reduce(particles, 0, fn particle, acc -> max(acc, particle.x) end)
 
-    canvas = Canvas.new(trunc(max_x + 1), 8)
+    canvas = Canvas.new(trunc(max(max_x + 1, canvas_width)), 8)
 
     particles = particles |> Enum.filter(fn particle -> particle.x >= 0 and particle.y >= 0 end)
 
@@ -86,13 +94,8 @@ defmodule Octopus.Apps.FairyDust do
   def handle_info(:tick, %State{} = state) do
     dt = 1 / @fps * state.speed
 
-    # Create canvas using installation metadata
-    panel_width = installation().panel_width()
-    panel_gap = installation().panel_gap()
-    num_panels = installation().panel_count()
-    panel_height = installation().panel_height()
-
-    canvas = Canvas.new((panel_width + panel_gap) * num_panels, panel_height)
+    # Create canvas using virtual matrix dimensions
+    canvas = Canvas.new(state.virtual_matrix.width, state.virtual_matrix.height)
 
     wrap_width = canvas.width + 100
     wrap_offset = -60
@@ -134,7 +137,7 @@ defmodule Octopus.Apps.FairyDust do
 
     particles = update_particles(particles, dt)
 
-    particle_canvas = draw_particles(particles)
+    particle_canvas = draw_particles(particles, canvas.width)
 
     fairy_dust =
       if rocket_dir == -1 do
@@ -150,25 +153,8 @@ defmodule Octopus.Apps.FairyDust do
         offset: {trunc(rocket_x - fairy_dust.width / 2), trunc(rocket_y - fairy_dust.height / 2)}
       )
 
-    # Cut canvas into panels using calculated positions instead of panel_offsets
-    panel_width = installation().panel_width()
-    panel_height = installation().panel_height()
-    panel_gap = installation().panel_gap()
-    panel_count = installation().panel_count()
-
-    # Calculate panel positions based on panel spacing
-    panel_spacing = panel_width + panel_gap
-
-    0..(panel_count - 1)
-    |> Enum.map(fn panel_id ->
-      x = panel_id * panel_spacing
-      y = 0
-      Canvas.cut(canvas, {x, y}, {x + panel_width - 1, y + panel_height - 1})
-    end)
-    |> Enum.reverse()
-    |> Enum.reduce(&Canvas.join/2)
-    |> Canvas.to_frame()
-    |> send_frame()
+    # Use VirtualMatrix to automatically handle panel cutting and joining
+    VirtualMatrix.send_frame(state.virtual_matrix, canvas)
 
     {:noreply, %State{state | time: state.time + dt, particles: particles}}
   end
