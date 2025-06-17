@@ -3,6 +3,7 @@ defmodule Octopus.Apps.MarioRun do
   alias Octopus.Canvas
   alias Octopus.Sprite
   alias Octopus.WebP
+  alias Octopus.VirtualMatrix
 
   use Octopus.App, category: :animation
 
@@ -43,6 +44,7 @@ defmodule Octopus.Apps.MarioRun do
   defmodule State do
     defstruct [
       :canvas,
+      :virtual_matrix,
       :time,
       :sprite_sheets,
       :loop,
@@ -53,6 +55,8 @@ defmodule Octopus.Apps.MarioRun do
       :look_speed,
       :char_x,
       :virtual_width,
+      :panel_stride,
+      :sprite_width,
       :pending_loop,
       :look_timer_ref,
       :look_duration_timer_ref
@@ -80,16 +84,22 @@ defmodule Octopus.Apps.MarioRun do
       luigi: "luigi-run"
     }
 
-    # Get installation dimensions for true circular canvas
-    # Must align with Canvas.to_frame(drop: true) which uses 8px panels + 18px gaps
-    panel_count = @installation.panel_count()
-    panel_width = 8
-    frame_gap = 18
-    virtual_width = panel_count * (panel_width + frame_gap)
-    virtual_height = @installation.height()
+    # Create virtual matrix using gapped_panels_wrapped layout for seamless wrapping
+    virtual_matrix = VirtualMatrix.new(@installation, layout: :gapped_panels_wrapped)
+    virtual_width = virtual_matrix.width
+    virtual_height = virtual_matrix.height
+
+    # Calculate panel stride (distance between panel starts) for positioning logic
+    panel_width = @installation.panel_width()
+    panel_gap = @installation.panel_gap()
+    panel_stride = panel_width + panel_gap
+
+    # Assume sprite width is 8 pixels (standard Mario sprite width)
+    sprite_width = 8
 
     state = %State{
       canvas: Canvas.new(virtual_width, virtual_height),
+      virtual_matrix: virtual_matrix,
       time: 0.0,
       sprite_sheets: sprite_sheets,
       character: :luigi,
@@ -98,8 +108,10 @@ defmodule Octopus.Apps.MarioRun do
       next_loop: :run,
       speed: 3,
       look_speed: 0.8,
-      char_x: virtual_width - 9,
+      char_x: virtual_width - sprite_width - 1,
       virtual_width: virtual_width,
+      panel_stride: panel_stride,
+      sprite_width: sprite_width,
       pending_loop: nil,
       look_timer_ref: nil,
       look_duration_timer_ref: nil
@@ -154,8 +166,8 @@ defmodule Octopus.Apps.MarioRun do
   defp update_position(%State{pending_loop: nil, char_x: char_x}), do: char_x + 1
 
   # Character stops moving when on panel with pending look animation
-  defp update_position(%State{char_x: char_x, pending_loop: _pending})
-       when rem(char_x, 26) == 0 do
+  defp update_position(%State{char_x: char_x, panel_stride: panel_stride, pending_loop: _pending})
+       when rem(char_x, panel_stride) == 0 do
     char_x
   end
 
@@ -163,8 +175,11 @@ defmodule Octopus.Apps.MarioRun do
   defp update_position(%State{char_x: char_x, pending_loop: _pending}), do: char_x + 1
 
   # Activate pending loop when character reaches a panel
-  defp handle_loop_transition(%State{pending_loop: pending_loop} = _state, char_x)
-       when pending_loop != nil and rem(char_x, 26) == 0 do
+  defp handle_loop_transition(
+         %State{pending_loop: pending_loop, panel_stride: panel_stride} = _state,
+         char_x
+       )
+       when pending_loop != nil and rem(char_x, panel_stride) == 0 do
     # Schedule return to run state after 2 seconds
     look_duration_timer_ref = Process.send_after(self(), :end_look_animation, 2000)
     {pending_loop, pending_loop, nil, look_duration_timer_ref}
@@ -182,14 +197,22 @@ defmodule Octopus.Apps.MarioRun do
   end
 
   # Switch Mario to Luigi when crossing boundary
-  defp handle_character_switch(%State{char_x: old_x, character: :mario}, new_x, virtual_width)
-       when old_x < virtual_width - 8 and new_x >= virtual_width - 8 do
+  defp handle_character_switch(
+         %State{char_x: old_x, character: :mario, sprite_width: sprite_width},
+         new_x,
+         virtual_width
+       )
+       when old_x < virtual_width - sprite_width and new_x >= virtual_width - sprite_width do
     :luigi
   end
 
   # Switch Luigi to Mario when crossing boundary
-  defp handle_character_switch(%State{char_x: old_x, character: :luigi}, new_x, virtual_width)
-       when old_x < virtual_width - 8 and new_x >= virtual_width - 8 do
+  defp handle_character_switch(
+         %State{char_x: old_x, character: :luigi, sprite_width: sprite_width},
+         new_x,
+         virtual_width
+       )
+       when old_x < virtual_width - sprite_width and new_x >= virtual_width - sprite_width do
     :mario
   end
 
@@ -238,10 +261,18 @@ defmodule Octopus.Apps.MarioRun do
     character = handle_character_switch(state, new_char_x, state.virtual_width)
 
     # Render character
-    canvas = render_character(state.canvas, sprite, char_x, state.virtual_width, flip)
+    canvas =
+      render_character(
+        state.canvas,
+        sprite,
+        char_x,
+        state.virtual_width,
+        state.sprite_width,
+        flip
+      )
 
-    # Send frame
-    canvas |> Canvas.to_frame(drop: true) |> send_frame()
+    # Send frame using VirtualMatrix
+    VirtualMatrix.send_frame(state.virtual_matrix, canvas)
 
     # Animate and update state
     new_state = animate(state, loop, next_loop)
@@ -259,12 +290,12 @@ defmodule Octopus.Apps.MarioRun do
      }}
   end
 
-  defp render_character(canvas, sprite, char_x, virtual_width, flip) do
+  defp render_character(canvas, sprite, char_x, virtual_width, sprite_width, flip) do
     canvas
     |> Canvas.clear()
     |> Canvas.overlay(sprite, offset: {char_x, 0})
     |> then(fn canvas ->
-      if char_x >= virtual_width - 8 do
+      if char_x >= virtual_width - sprite_width do
         wrapped_x = char_x - virtual_width
         Canvas.overlay(canvas, sprite, offset: {wrapped_x, 0})
       else
