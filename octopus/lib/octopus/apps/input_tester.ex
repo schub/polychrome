@@ -11,7 +11,7 @@ defmodule Octopus.Apps.InputTester do
 
   def name(), do: "Input Tester"
 
-  def init(_args) do
+  def app_init(_args) do
     state = %State{position: 0, color: 1, palette: ColorPalette.load("pico-8")}
 
     send(self(), :tick)

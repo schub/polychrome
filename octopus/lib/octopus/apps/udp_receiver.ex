@@ -21,7 +21,7 @@ defmodule Octopus.Apps.UdpReceiver do
 
   def name(), do: "UDP Receiver (Port: #{@port})"
 
-  def init(_args) do
+  def app_init(_args) do
     Logger.info("#{__MODULE__}: Listening on UDP port #{inspect(@port)} for protobuf packets.")
 
     {:ok, udp} = :gen_udp.open(@port, [:binary, active: true, ip: bind_address()])

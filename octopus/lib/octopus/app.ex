@@ -42,6 +42,16 @@ defmodule Octopus.App do
   @callback icon() :: Canvas.t() | nil
 
   @doc """
+  App-specific initialization callback. This is called by the framework's init/1 function.
+  Apps should implement this instead of init/1 directly.
+  """
+  @callback app_init(args :: any()) ::
+              {:ok, state :: any()}
+              | {:ok, state :: any(), timeout() | :hibernate}
+              | :ignore
+              | {:stop, reason :: any()}
+
+  @doc """
   Optional callback to handle input events. An app will only receive input events if it is selected as active in the mixer.
   """
   @callback handle_input(%InputEvent{} | %SoundToLightControlEvent{}, state :: any) ::
@@ -87,6 +97,16 @@ defmodule Octopus.App do
 
       def start_link({config, init_args}) do
         GenServer.start_link(__MODULE__, config, init_args)
+      end
+
+      # Framework-provided init/1 that calls the app's app_init/1
+      def init(args) do
+        app_init(args)
+      end
+
+      # Default app_init/1 implementation - can be overridden by apps
+      def app_init(args) do
+        {:ok, %{}}
       end
 
       def handle_info({:event, %InputEvent{} = input_event}, state) do
@@ -149,6 +169,7 @@ defmodule Octopus.App do
       end
 
       defoverridable icon: 0
+      defoverridable app_init: 1
       defoverridable handle_input: 2
       defoverridable handle_control_event: 2
       defoverridable handle_proximity: 2

@@ -13,7 +13,7 @@ defmodule Octopus.Apps.SpritesTester do
 
   def name(), do: "Sprite Tester"
 
-  def init(_args) do
+  def app_init(_args) do
     state = %State{
       index: 0
     }

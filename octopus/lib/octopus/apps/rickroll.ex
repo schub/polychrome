@@ -10,7 +10,7 @@ defmodule Octopus.Apps.Rickroll do
 
   def name, do: "Do Not Click"
 
-  def init(_) do
+  def app_init(_) do
     animation = WebP.load_animation("rickroll-fullwidth")
     send(self(), :tick)
     {:ok, %{animation: animation, index: 0}}

@@ -85,7 +85,7 @@ defmodule Octopus.Apps.Tla do
 
   def name, do: "TLA"
 
-  def init(_) do
+  def app_init(_) do
     path = Path.join([:code.priv_dir(:octopus), "words", "nog24-256-10--letter-words.txt"])
     words = Words.load(path)
     :timer.send_after(0, :next_word)

@@ -77,7 +77,7 @@ defmodule Octopus.Apps.SpritesGrouped do
 
   def name(), do: "Sprite Groups"
 
-  def init(_args) do
+  def app_init(_args) do
     # Get dynamic dimensions from installation metadata
     sprite_panel_width = trunc(@installation.panel_width())
     num_panels = @installation.panel_count()

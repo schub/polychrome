@@ -25,7 +25,7 @@ defmodule Octopus.Apps.BeakTest do
     :BUTTON_10
   ]
 
-  def init(_args) do
+  def app_init(_args) do
     {:ok, %State{canvas: Canvas.new(80, 8)}}
   end
 

@@ -191,7 +191,7 @@ defmodule Octopus.Apps.SpaceInvaders do
 
   def name, do: "Space Invaders"
 
-  def init(_) do
+  def app_init(_) do
     game = Game.new()
     canvas = Canvas.new(80, 8)
     :timer.send_interval(@frame_time_ms, :tick)

@@ -16,7 +16,7 @@ defmodule Octopus.Apps.StaticImage do
     %{image: image}
   end
 
-  def init(%{image: image}) do
+  def app_init(%{image: image}) do
     send(self(), :display)
     {:ok, %{image: image}}
   end

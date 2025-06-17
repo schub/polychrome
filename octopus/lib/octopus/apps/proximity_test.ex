@@ -36,7 +36,7 @@ defmodule Octopus.Apps.ProximityTest do
     {:ok, %State{state | min_distance: config.min_distance, max_distance: config.max_distance}}
   end
 
-  def init(config) do
+  def app_init(config) do
     # Start the timer for rendering
     :timer.send_interval(@frame_time_ms, :tick)
 

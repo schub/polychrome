@@ -70,7 +70,7 @@ defmodule Octopus.Apps.Ocean do
     }
   end
 
-  def init(%{wave_strength: wave_strength, damping: damping}) do
+  def app_init(%{wave_strength: wave_strength, damping: damping}) do
     # Logger.info("Ocean: Starting initialization...")
 
     :timer.send_interval(trunc(1000 / @fps), :tick)

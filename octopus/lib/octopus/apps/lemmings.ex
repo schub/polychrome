@@ -16,7 +16,7 @@ defmodule Octopus.Apps.Lemmings do
 
   def icon(), do: Sprite.load("lemmings/LemmingWalk", 3)
 
-  def init(_args) do
+  def app_init(_args) do
     installation = Application.get_env(:octopus, :installation)
     matrix = Octopus.VirtualMatrix.new(installation)
     panel_count = Octopus.VirtualMatrix.panel_count(matrix)

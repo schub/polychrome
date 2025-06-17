@@ -17,7 +17,7 @@ defmodule Octopus.Apps.SampleApp do
 
   def name(), do: "Sample App"
 
-  def init(_args) do
+  def app_init(_args) do
     virtual_matrix = VirtualMatrix.new(installation(), layout: :gapped_panels)
 
     state = %State{

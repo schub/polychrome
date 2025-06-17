@@ -64,7 +64,7 @@ defmodule Octopus.Apps.DoomFire do
   def name, do: "Doom Fire"
   def icon, do: WebP.load("doom-fire")
 
-  def init(_) do
+  def app_init(_) do
     # Get dimensions from installation
     width = @installation.width()
     height = @installation.height()

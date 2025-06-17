@@ -34,7 +34,7 @@ defmodule Octopus.Apps.Starfield do
     }
   end
 
-  def init(_) do
+  def app_init(_) do
     # Get dynamic dimensions from installation metadata
     canvas_width = trunc(@installation.width())
     canvas_height = trunc(@installation.height())

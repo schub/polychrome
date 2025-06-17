@@ -59,7 +59,7 @@ defmodule Octopus.Apps.Senso do
 
   def name(), do: "Senso"
 
-  def init(_args) do
+  def app_init(_args) do
     state = %State{
       expected_sequence: generate_sequence(@first_squence_len),
       index: 0,

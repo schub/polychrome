@@ -21,7 +21,7 @@ defmodule Octopus.Apps.Encounter do
   @canvas_width 80
   @canvas_height 8
 
-  def init(_args) do
+  def app_init(_args) do
     {:ok, %State{canvas: Canvas.new(80, 8)}}
   end
 

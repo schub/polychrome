@@ -26,7 +26,7 @@ defmodule Octopus.Apps.FairyDust do
     }
   end
 
-  def init(%{speed: speed}) do
+  def app_init(%{speed: speed}) do
     :timer.send_interval(trunc(1000 / @fps), :tick)
 
     fairy_dust = Image.load("fairy-dust")

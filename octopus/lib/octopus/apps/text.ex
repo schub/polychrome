@@ -24,7 +24,7 @@ defmodule Octopus.Apps.Text do
 
   def name(), do: "Text"
 
-  def init(config) do
+  def app_init(config) do
     state = struct(State, config)
 
     {:ok, state}

@@ -12,7 +12,7 @@ defmodule Octopus.Apps.Train do
 
   def name(), do: "Train Simulator"
 
-  def init(_args) do
+  def app_init(_args) do
     canvas = Image.load("landscape")
 
     :timer.send_interval(trunc(1000 / @fps), :tick)
@@ -22,7 +22,7 @@ defmodule Octopus.Apps.Train do
   end
 
   def add_window_corners(canvas) do
-    window_locations = for x <- 0..(9 * (8 + 18))//8 + 18, do: {x, 0}
+    window_locations = for x <- 0..(9 * (8 + 18))//(8 + 18), do: {x, 0}
 
     Enum.reduce(window_locations, canvas, fn {x, y}, canvas ->
       canvas

@@ -289,7 +289,7 @@ defmodule Octopus.Apps.Calibrator do
 
   def name(), do: "Calibrator"
 
-  def init(_args) do
+  def app_init(_args) do
     data =
       0..(640 - 1)
       |> Enum.map(fn _ -> 1 end)

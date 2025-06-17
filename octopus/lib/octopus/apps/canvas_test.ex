@@ -6,7 +6,7 @@ defmodule Octopus.Apps.CanvasTest do
 
   def name(), do: "Canvas Test"
 
-  def init(_args) do
+  def app_init(_args) do
     :timer.send_interval(@tick_interval, self(), :tick)
 
     canvas =

@@ -114,7 +114,7 @@ defmodule Octopus.Apps.Matrix do
 
   def name(), do: "Matrix"
 
-  def init(_config) do
+  def app_init(_config) do
     # Get dimensions from installation
     width = installation().width()
     height = installation().height()

@@ -69,7 +69,7 @@ defmodule Octopus.Apps.PixelFun do
     }
   end
 
-  def init(config) do
+  def app_init(config) do
     {:ok, program} = config.program |> Program.parse()
 
     :timer.send_interval(@frame_time_ms, :tick)

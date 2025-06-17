@@ -18,7 +18,7 @@ defmodule Octopus.Apps.Supermario do
 
   def name(), do: "Supermario"
 
-  def init(args \\ %{}) do
+  def app_init(args \\ %{}) do
     state =
       args
       |> Map.put_new(:windows_shown, @windows_shown)

@@ -18,7 +18,7 @@ defmodule Octopus.Apps.Webpanimation do
     }
   end
 
-  def init(%{animation: animation, loop: loop}) do
+  def app_init(%{animation: animation, loop: loop}) do
     state =
       %State{frames: [], animation: nil, width: 0, height: 0, loop: loop}
       |> load_animation(animation)

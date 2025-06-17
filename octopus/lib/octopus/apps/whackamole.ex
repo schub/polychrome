@@ -17,7 +17,7 @@ defmodule Octopus.Apps.Whackamole do
 
   def icon(), do: Canvas.from_string("W", Font.load("cshk-Captain Sky Hawk (RARE)"), 3)
 
-  def init(_) do
+  def app_init(_) do
     state = %State{game: Game.new()}
 
     :timer.send_interval(@tick_every_ms, :tick)

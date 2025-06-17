@@ -16,7 +16,7 @@ defmodule Octopus.Apps.Sprites do
 
   def name(), do: "Random Sprites"
 
-  def init(_args) do
+  def app_init(_args) do
     screens = get_screen_count()
     indexes = Enum.map(1..screens, fn _ -> Enum.random(0..255) end)
 

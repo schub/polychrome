@@ -17,7 +17,7 @@ defmodule Octopus.Apps.FontTester do
 
   def name(), do: "Font Tester"
 
-  def init(_args) do
+  def app_init(_args) do
     state = %State{text: @text}
     state = set_font(@max_index, state)
     send(self(), :tick)

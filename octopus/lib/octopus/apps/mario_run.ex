@@ -78,7 +78,7 @@ defmodule Octopus.Apps.MarioRun do
     %{speed: state.speed, look_speed: state.look_speed}
   end
 
-  def init(_) do
+  def app_init(_) do
     sprite_sheets = %{
       mario: "mario-run",
       luigi: "luigi-run"

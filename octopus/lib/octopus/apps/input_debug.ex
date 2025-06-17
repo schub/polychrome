@@ -202,7 +202,7 @@ defmodule Octopus.Apps.InputDebug do
 
   def name(), do: "Input Debugger"
 
-  def init(_args) do
+  def app_init(_args) do
     state = %State{
       position: 0,
       color: 1,

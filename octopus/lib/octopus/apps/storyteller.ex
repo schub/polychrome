@@ -30,7 +30,7 @@ defmodule Octopus.Apps.StoryTeller do
 
   def name(), do: "Storyteller"
 
-  def init(config) do
+  def app_init(config) do
     {:ok, story} =
       case config do
         %{story: story} -> Story.load(story)

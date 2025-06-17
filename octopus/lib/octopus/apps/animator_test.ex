@@ -7,7 +7,7 @@ defmodule Octopus.Apps.AnimatorTest do
 
   def name(), do: "Animator Test"
 
-  def init(_args) do
+  def app_init(_args) do
     :timer.send_interval(300, self(), :tick)
     {:ok, animator} = Animator.start_link(app_id: get_app_id())
 

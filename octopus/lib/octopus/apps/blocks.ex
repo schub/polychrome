@@ -20,7 +20,7 @@ defmodule Octopus.Apps.Blocks do
 
   def icon(), do: Canvas.from_string("T", Font.load("robot"))
 
-  def init(args) do
+  def app_init(args) do
     state = %State{
       button_state: ButtonState.new(),
       game: Game.new(args),

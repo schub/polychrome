@@ -19,7 +19,7 @@ defmodule Octopus.Apps.Snake do
 
   def icon(), do: Sprite.load("../images/snake", 0)
 
-  def init(args) do
+  def app_init(args) do
     state = %State{
       button_state: ButtonState.new(),
       game: Game.new(args),
