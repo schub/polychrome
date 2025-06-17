@@ -9,7 +9,7 @@ defmodule Octopus.Apps.Lemmings do
   @default_block_time 10
 
   defmodule State do
-    defstruct t: 0, lemmings: [], actions: %{}
+    defstruct t: 0, lemmings: [], actions: %{}, matrix: nil, button_map: %{}
   end
 
   def name(), do: "Lemmings"
@@ -17,81 +17,106 @@ defmodule Octopus.Apps.Lemmings do
   def icon(), do: Sprite.load("lemmings/LemmingWalk", 3)
 
   def init(_args) do
+    installation = Application.get_env(:octopus, :installation)
+    matrix = Octopus.VirtualMatrix.new(installation)
+    panel_count = Octopus.VirtualMatrix.panel_count(matrix)
+
+    button_map =
+      1..panel_count
+      |> Enum.map(fn i -> {"BUTTON_#{i}" |> String.to_atom(), i - 1} end)
+      |> Enum.into(%{})
+
     state = %State{
       lemmings: [
-        Lemming.walking_left(),
-        Lemming.walking_right(),
-        Lemming.stopper(:rand.uniform(5) + 3)
-      ]
+        Lemming.walking_left(matrix),
+        Lemming.walking_right(matrix),
+        Lemming.stopper(matrix, :rand.uniform(panel_count - 2) + 1)
+      ],
+      matrix: matrix,
+      button_map: button_map
     }
 
     :timer.send_interval(100, :tick)
     {:ok, state}
   end
 
-  defp tick(%State{} = state) do
-    state =
-      case state.t do
-        t when t in [1600, 3200] ->
-          %State{
-            state
-            | lemmings: [Lemming.walking_left(), Lemming.walking_right() | state.lemmings]
-          }
+  defp tick(state) do
+    state
+    |> tick_reaction()
+    |> tick_postprocess()
+  end
 
-        _ ->
-          if rem(state.t, 80) == 70 do
-            if length(state.lemmings) < 6 do
-              {:noreply, state} = handle_number_button_press(state, :rand.uniform(10) - 1)
-              state
-            else
-              if length(state.lemmings) > 8 do
-                %State{state | lemmings: explode_first(state.lemmings)}
-              else
-                state
-              end
-            end
-          else
-            state
-          end
-      end
-
-    state.lemmings
-    |> Enum.reduce(Canvas.new(242, 8), fn sprite, canvas ->
-      canvas
-      |> Canvas.overlay(Lemming.sprite(sprite), offset: sprite.anchor)
-    end)
-    |> Canvas.to_frame(drop: true)
-    |> send_frame()
-
-    boundaries =
-      state.lemmings
-      |> Enum.reduce(
-        {[0], [242]},
-        fn
-          %Lemming{state: :stopper} = lem, {l, r} ->
-            window = Lemming.current_window(lem)
-            {[window * (18 + 8) | l], [(window - 1) * (18 + 8) - 18 | r]}
-
-          _, acc ->
-            acc
-        end
-      )
-
+  defp tick_reaction(%State{t: t, matrix: matrix} = state) when t in [1600, 3200] do
     %State{
       state
-      | lemmings:
-          state.lemmings
-          |> Enum.map(fn lem ->
-            lem
-            |> Lemming.tick()
-          end)
-          |> Enum.reject(&is_nil/1)
-          |> Enum.map(fn lem ->
-            lem
-            |> Lemming.boundaries(boundaries |> elem(0), boundaries |> elem(1))
-          end),
+      | lemmings: [
+          Lemming.walking_left(matrix),
+          Lemming.walking_right(matrix) | state.lemmings
+        ]
+    }
+  end
+
+  defp tick_reaction(%State{t: t, lemmings: lems, matrix: matrix} = state)
+       when rem(t, 80) == 70 and length(lems) < 6 do
+    {:noreply, new_state} =
+      handle_number_button_press(
+        state,
+        :rand.uniform(Octopus.VirtualMatrix.panel_count(matrix)) - 1
+      )
+
+    new_state
+  end
+
+  defp tick_reaction(%State{t: t, lemmings: lems, matrix: matrix} = state)
+       when rem(t, 80) == 70 and length(lems) > 8 do
+    %State{state | lemmings: explode_first(state.lemmings, matrix)}
+  end
+
+  defp tick_reaction(state), do: state
+
+  defp tick_postprocess(%State{matrix: matrix} = state) do
+    # Render and send the current frame
+    render_frame(state.lemmings, matrix)
+
+    # Calculate boundaries from stopper lemmings
+    boundaries = calculate_boundaries(state.lemmings, matrix)
+
+    # Update all lemmings and advance time
+    %State{
+      state
+      | lemmings: update_lemmings(state.lemmings, matrix, boundaries),
         t: state.t + 1
     }
+  end
+
+  defp render_frame(lemmings, matrix) do
+    lemmings
+    |> Enum.reduce(Canvas.new(matrix.width, matrix.height), fn sprite, canvas ->
+      Canvas.overlay(canvas, Lemming.sprite(sprite), offset: sprite.anchor)
+    end)
+    |> (&Octopus.VirtualMatrix.send_frame(matrix, &1)).()
+  end
+
+  defp calculate_boundaries(lemmings, matrix) do
+    lemmings
+    |> Enum.reduce({[0], [matrix.width]}, fn
+      %Lemming{state: :stopper} = lem, {left_bounds, right_bounds} ->
+        window = Lemming.current_window(lem, matrix)
+        {start_x, end_x} = Octopus.VirtualMatrix.panel_range(matrix, window - 1, :x)
+        {[end_x + 1 | left_bounds], [start_x - 1 | right_bounds]}
+
+      _, boundaries ->
+        boundaries
+    end)
+  end
+
+  defp update_lemmings(lemmings, matrix, boundaries) do
+    {left_bounds, right_bounds} = boundaries
+
+    lemmings
+    |> Enum.map(&Lemming.tick(&1, matrix))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.map(&Lemming.boundaries(&1, left_bounds, right_bounds))
   end
 
   def action_allowed?(action_map, action, now, min_distance) do
@@ -116,15 +141,15 @@ defmodule Octopus.Apps.Lemmings do
     end
   end
 
-  def add_left(%State{} = state) do
+  defp add_lemming(state, direction_fun) do
     action = __ENV__.function |> elem(0)
-    new_lem = Lemming.walking_right()
+    new_lem = direction_fun.(state.matrix)
 
     if action_allowed?(state.actions, action, state.t, @default_block_time) do
-      new_lem |> Lemming.play_sample("letsgo")
+      new_lem |> Lemming.play_sample("letsgo", state.matrix)
     end
 
-    state = %State{
+    %State{
       state
       | lemmings:
           if action_allowed?(state.actions, action, state.t, 5) do
@@ -134,55 +159,33 @@ defmodule Octopus.Apps.Lemmings do
           end,
         actions: state.actions |> update_action(action, state.t, 5)
     }
-
-    state
   end
 
+  def add_left(%State{} = state), do: add_lemming(state, &Lemming.walking_right/1)
   def add_left(state), do: state
 
-  def add_right(%State{} = state) do
-    action = __ENV__.function |> elem(0)
-    new_lem = Lemming.walking_left()
-
-    if action_allowed?(state.actions, action, state.t, @default_block_time) do
-      new_lem |> Lemming.play_sample("letsgo")
-    end
-
-    state = %State{
-      state
-      | lemmings:
-          if action_allowed?(state.actions, action, state.t, 5) do
-            [new_lem | state.lemmings]
-          else
-            state.lemmings
-          end,
-        actions: state.actions |> update_action(action, state.t, 5)
-    }
-
-    state
-  end
-
+  def add_right(%State{} = state), do: add_lemming(state, &Lemming.walking_left/1)
   def add_right(state), do: state
 
-  def explode_first(lems) do
-    explode_first(lems, [])
-  end
-
-  def explode_first([%Lemming{state: state} = lem | tail], acc)
+  def explode_first([%Lemming{state: state} = lem | tail], acc, matrix)
       when state in [:stopper, :walk_left, :walk_right] do
-    ([Lemming.explode(lem) | tail] ++ acc) |> Enum.reverse()
+    ([Lemming.explode(lem, matrix) | tail] ++ acc) |> Enum.reverse()
   end
 
-  def explode_first([lem | tail], acc), do: explode_first(tail, [lem | acc])
-  def explode_first([], acc), do: acc
+  def explode_first([lem | tail], acc, matrix), do: explode_first(tail, [lem | acc], matrix)
+  def explode_first([], acc, _matrix), do: acc
+  def explode_first(lems, matrix), do: explode_first(lems, [], matrix)
 
   def handle_info(:tick, %State{} = state) do
     {:noreply, tick(state)}
   end
 
-  @button_map 1..10
-              |> Enum.map(fn i -> {"BUTTON_#{i}" |> String.to_atom(), i - 1} end)
-              |> Enum.into(%{})
+  def handle_input(%InputEvent{type: type, value: 1}, state) do
+    case state.button_map[type] do
+      nil -> {:noreply, state}
+      number -> handle_number_button_press(state, number)
+    end
+  end
 
   def handle_input(%InputEvent{type: :AXIS_X_1, value: 1}, state) do
     state = add_left(state)
@@ -218,18 +221,11 @@ defmodule Octopus.Apps.Lemmings do
     handle_kill(state)
   end
 
-  def handle_input(%InputEvent{type: type, value: 1}, state) do
-    case @button_map[type] do
-      nil -> {:noreply, state}
-      number -> handle_number_button_press(state, number)
-    end
-  end
-
   def handle_input(_, state) do
     {:noreply, state}
   end
 
-  def handle_kill(%State{lemmings: lems} = state) do
+  def handle_kill(%State{lemmings: lems, matrix: matrix} = state) do
     action = :explode_random
     block_time = 5
 
@@ -237,7 +233,7 @@ defmodule Octopus.Apps.Lemmings do
       {:noreply,
        %State{
          state
-         | lemmings: explode_first(lems),
+         | lemmings: explode_first(lems, matrix),
            actions: state.actions |> update_action(action, state.t, block_time)
        }}
     else
@@ -245,14 +241,14 @@ defmodule Octopus.Apps.Lemmings do
     end
   end
 
-  def handle_number_button_press(%State{} = state, number) do
+  def handle_number_button_press(%State{matrix: matrix} = state, number) do
     action = "Button_#{number + 1}" |> String.to_atom()
     block_time = 12
 
     {lems, existing_stopper} =
       Enum.reduce(state.lemmings, {[], nil}, fn
         %Lemming{state: :stopper} = lem, {list, nil} ->
-          if Lemming.current_window(lem) == number + 1 do
+          if Lemming.current_window(lem, matrix) == number + 1 do
             {list, lem}
           else
             {[lem | list], nil}
@@ -265,10 +261,10 @@ defmodule Octopus.Apps.Lemmings do
     if action_allowed?(state.actions, action, state.t, block_time) do
       new_lems =
         if existing_stopper do
-          [existing_stopper |> Lemming.explode() | lems]
+          [existing_stopper |> Lemming.explode(matrix) | lems]
         else
           new_lem =
-            Lemming.button_lemming(number) |> Lemming.play_sample("yippee")
+            Lemming.button_lemming(matrix, number) |> Lemming.play_sample("yippee", matrix)
 
           [new_lem | state.lemmings]
         end

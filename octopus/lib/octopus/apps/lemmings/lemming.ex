@@ -1,4 +1,4 @@
-alias Octopus.{Sprite, Util, Canvas}
+alias Octopus.{Sprite, Canvas}
 
 defmodule Lemming do
   defstruct frames: nil,
@@ -8,14 +8,15 @@ defmodule Lemming do
             offsets: %{},
             self_destruct: 999_999_999
 
-  def play_sample(%Lemming{} = lem, name) do
-    channel = current_window(lem)
+  def play_sample(%Lemming{} = lem, name, matrix) do
+    channel = current_window(lem, matrix)
     Octopus.App.play_sample("lemmings/#{name}.wav", channel)
     lem
   end
 
-  def current_window(%Lemming{anchor: {x, _}}) do
-    (div(x, 18 + 8) + 1) |> Util.clamp(1, 10)
+  def current_window(%Lemming{anchor: {x, y}}, matrix) do
+    panel_id = Octopus.VirtualMatrix.panel_at_coord(matrix, x, y || 0)
+    if panel_id == :not_found, do: 1, else: panel_id + 1
   end
 
   def turn(%Lemming{anchor: {x, y}} = lem) do
@@ -34,7 +35,7 @@ defmodule Lemming do
     }
   end
 
-  def explode(%Lemming{} = lem) do
+  def explode(%Lemming{} = lem, matrix) do
     %Lemming{
       lem
       | state: :ohno,
@@ -42,10 +43,10 @@ defmodule Lemming do
         anim_step: 0,
         offsets: %{}
     }
-    |> Lemming.play_sample("ohno")
+    |> Lemming.play_sample("ohno", matrix)
   end
 
-  def explode_really(%Lemming{} = lem) do
+  def explode_really(%Lemming{} = lem, matrix) do
     %Lemming{
       lem
       | state: :explode,
@@ -53,47 +54,59 @@ defmodule Lemming do
         anim_step: 0,
         offsets: %{}
     }
-    |> Lemming.play_sample("thud")
+    |> Lemming.play_sample("thud", matrix)
   end
 
-  def splat(%Lemming{} = lem) do
+  def splat(%Lemming{} = lem, matrix) do
     %Lemming{
       anchor: lem.anchor,
       state: :splat,
       frames: Sprite.load(Path.join(["lemmings", "LemmingSplat"])),
       anim_step: 0
     }
-    |> Lemming.play_sample("splat")
+    |> Lemming.play_sample("splat", matrix)
   end
 
-  def walking_right do
+  def walking_right(matrix) do
+    panel_width = matrix.installation.panel_width()
+    panel_gap = matrix.installation.panel_gap()
+    panel_stride = panel_width + panel_gap
+
     %Lemming{
-      anchor: {-4, 0},
+      anchor: {-panel_stride / 2, 0},
       frames: Sprite.load(Path.join(["lemmings", "LemmingWalk"])),
       offsets: 0..7 |> Enum.map(fn i -> {i, {1, 0}} end) |> Enum.into(%{})
     }
   end
 
-  def walking_left do
+  def walking_left(matrix) do
+    panel_width = matrix.installation.panel_width()
+    panel_gap = matrix.installation.panel_gap()
+    panel_stride = panel_width + panel_gap
+
     %Lemming{
-      (walking_right()
+      (walking_right(matrix)
        |> turn())
-      | anchor: {240, 0}
+      | anchor: {matrix.width - 2 * panel_stride, 0}
     }
   end
 
-  def stopper(pos) do
+  def stopper(matrix, pos) do
+    {start_x, _end_x} = Octopus.VirtualMatrix.panel_range(matrix, pos, :x)
+
     %Lemming{
-      anchor: {pos * (18 + 8), 0},
+      anchor: {start_x, 0},
       frames: Sprite.load(Path.join(["lemmings", "LemmingStopper"])),
       state: :stopper
     }
   end
 
-  def faller(pos) do
+  def faller(matrix, pos) do
+    {start_x, _end_x} = Octopus.VirtualMatrix.panel_range(matrix, pos, :x)
+
     new_lem = %Lemming{
       state: :fall,
-      anchor: {pos * (18 + 8), -8},
+      anchor: {start_x, -8},
       frames: Sprite.load(Path.join(["lemmings", "LemmingFall"]))
     }
 
@@ -111,41 +124,41 @@ defmodule Lemming do
     }
   end
 
-  def button_lemming(number) do
-    faller(number)
+  def button_lemming(matrix, number) do
+    faller(matrix, number)
   end
 
-  def tick(%Lemming{state: :ohno, anim_step: 7} = sprite) do
-    Lemming.explode_really(sprite)
+  def tick(%Lemming{state: :ohno, anim_step: 7} = sprite, matrix) do
+    Lemming.explode_really(sprite, matrix)
   end
 
-  def tick(%Lemming{state: :fall, anchor: {_, 0}} = sprite) do
+  def tick(%Lemming{state: :fall, anchor: {_, 0}} = sprite, matrix) do
     case :rand.uniform(5) do
       5 ->
-        Lemming.splat(sprite)
+        Lemming.splat(sprite, matrix)
 
       4 ->
         %Lemming{
-          Lemming.walking_right()
+          Lemming.walking_right(matrix)
           | anchor: sprite.anchor
         }
 
       3 ->
         %Lemming{
-          Lemming.walking_left()
+          Lemming.walking_left(matrix)
           | anchor: sprite.anchor
         }
 
       2 ->
-        sprite |> Lemming.play_sample("thunk")
-        Lemming.stopper(Lemming.current_window(sprite) - 1)
+        sprite |> Lemming.play_sample("thunk", matrix)
+        Lemming.stopper(matrix, Lemming.current_window(sprite, matrix) - 1)
 
       1 ->
-        inner_tick(sprite) |> Lemming.play_sample("ohno")
+        inner_tick(sprite) |> Lemming.play_sample("ohno", matrix)
     end
   end
 
-  def tick(%Lemming{} = sprite) do
+  def tick(%Lemming{} = sprite, _matrix) do
     inner_tick(sprite)
   end
 
@@ -169,15 +182,27 @@ defmodule Lemming do
   end
 
   def boundaries(%Lemming{state: :walk_right, anchor: {x, _}} = lem, _, [bound | tail]) do
+    # fallback default
+    panel_width = 8
+    # fallback default
+    panel_gap = 10
+    panel_stride = panel_width + panel_gap
+
     cond do
-      x == bound - 4 -> turn(lem)
+      x == bound - panel_stride / 2 -> turn(lem)
       true -> boundaries(lem, [], tail)
     end
   end
 
   def boundaries(%Lemming{state: :walk_left, anchor: {x, _}} = lem, [bound | tail], _) do
+    # fallback default
+    panel_width = 8
+    # fallback default
+    panel_gap = 10
+    panel_stride = panel_width + panel_gap
+
     cond do
-      x == bound - 4 -> turn(lem)
+      x == bound - panel_stride / 2 -> turn(lem)
       true -> boundaries(lem, tail, [])
     end
   end

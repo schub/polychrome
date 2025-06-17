@@ -114,6 +114,44 @@ defmodule Octopus.VirtualMatrix do
     {matrix.width / 2 - 0.5, matrix.height / 2 - 0.5}
   end
 
+  @doc """
+  Returns the range (start, end) for a given panel index and axis (:x or :y).
+  """
+  @spec panel_range(t(), integer(), :x | :y) :: {integer(), integer()}
+  def panel_range(%__MODULE__{} = matrix, panel_id, :x) do
+    panel_width = matrix.installation.panel_width()
+    {x_offset, _} = panel_position(matrix, panel_id)
+    {x_offset, x_offset + panel_width - 1}
+  end
+
+  def panel_range(%__MODULE__{} = matrix, panel_id, :y) do
+    panel_height = matrix.installation.panel_height()
+    {_, y_offset} = panel_position(matrix, panel_id)
+    {y_offset, y_offset + panel_height - 1}
+  end
+
+  @doc """
+  Returns the panel index that contains the given (x, y) coordinate, or :not_found.
+  """
+  @spec panel_at_coord(t(), integer(), integer()) :: integer() | :not_found
+  def panel_at_coord(%__MODULE__{} = matrix, x, y) do
+    panel_count = matrix.installation.panel_count()
+
+    Enum.find(0..(panel_count - 1), fn panel_id ->
+      {start_x, end_x} = panel_range(matrix, panel_id, :x)
+      {start_y, end_y} = panel_range(matrix, panel_id, :y)
+      x >= start_x and x <= end_x and y >= start_y and y <= end_y
+    end) || :not_found
+  end
+
+  @doc """
+  Returns the number of panels in the matrix.
+  """
+  @spec panel_count(t()) :: integer()
+  def panel_count(%__MODULE__{} = matrix) do
+    matrix.installation.panel_count()
+  end
+
   # Private functions
 
   # Extract common panel dimensions to avoid repeated installation calls
