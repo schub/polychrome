@@ -72,33 +72,32 @@ defmodule Octopus.Apps.ProximityTest do
         } = state
       )
       when distance >= min and distance <= max do
-    # Logger.info(
-    #   "Proximity measurement: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
-    # )
+    Logger.info(
+      "Proximity measurement: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
+    )
 
     sensor_key = {panel_index, sensor_index}
     measurements = Map.put(measurements, sensor_key, distance)
 
-    # Apply exponential moving average for smoothing
-    current_smoothed = Map.get(smoothed, sensor_key, distance)
-    new_smoothed = current_smoothed + @smoothing_factor * (distance - current_smoothed)
-    smoothed_measurements = Map.put(smoothed, sensor_key, new_smoothed)
+    # # Apply exponential moving average for smoothing
+    # current_smoothed = Map.get(smoothed, sensor_key, distance)
+    # new_smoothed = current_smoothed + @smoothing_factor * (distance - current_smoothed)
+    # smoothed_measurements = Map.put(smoothed, sensor_key, new_smoothed)
 
-    {:noreply,
-     %State{state | measurements: measurements, smoothed_measurements: smoothed_measurements}}
+    {:noreply, %State{state | measurements: measurements, smoothed_measurements: measurements}}
   end
 
   def handle_proximity(
         %ProximityEvent{
-          panel_index: _panel_index,
-          sensor_index: _sensor_index,
-          distance_mm: _distance
+          panel_index: panel_index,
+          sensor_index: sensor_index,
+          distance_mm: distance
         },
         state
       ) do
-    # Logger.debug(
-    #   "Proximity measurement out of range: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
-    # )
+    Logger.debug(
+      "Proximity measurement out of range: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
+    )
 
     {:noreply, state}
   end
