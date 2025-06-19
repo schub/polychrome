@@ -16,15 +16,19 @@ defmodule Octopus.InputAdapter do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
-  def send_light_event(button, duration) when button in 1..10 do
-    binary =
-      %InputLightEvent{
-        type: "BUTTON_#{button}" |> String.to_existing_atom(),
-        duration: duration
-      }
-      |> Protobuf.encode()
+  def send_light_event(button, duration) when is_integer(button) and button >= 1 do
+    max_buttons = Octopus.installation().num_buttons()
 
-    GenServer.cast(__MODULE__, {:send_binary, binary})
+    if button <= max_buttons do
+      binary =
+        %InputLightEvent{
+          type: "BUTTON_#{button}" |> String.to_existing_atom(),
+          duration: duration
+        }
+        |> Protobuf.encode()
+
+      GenServer.cast(__MODULE__, {:send_binary, binary})
+    end
   end
 
   def init(:ok) do

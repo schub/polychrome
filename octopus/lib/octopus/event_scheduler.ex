@@ -100,31 +100,21 @@ defmodule Octopus.EventScheduler do
     {:noreply, %State{state | status: :off}}
   end
 
-  @activate_game_buttons [
-    :BUTTON_1,
-    :BUTTON_2,
-    :BUTTON_3,
-    :BUTTON_4,
-    :BUTTON_5,
-    :BUTTON_6,
-    :BUTTON_7,
-    :BUTTON_8,
-    :BUTTON_9,
-    :BUTTON_10
-  ]
-
   def handle_cast(
         {:input_event, %InputEvent{type: type, value: 1}},
         %State{status: :playlist} = state
-      )
-      when type in @activate_game_buttons do
-    Logger.info("EventScheduler: game button pressed, starting game")
+      ) do
+    if type in activate_game_buttons() do
+      Logger.info("EventScheduler: game button pressed, starting game")
 
-    PlaylistScheduler.pause_playlist()
-    {:ok, app_id} = AppSupervisor.start_app(@game)
-    Mixer.select_app(app_id)
+      PlaylistScheduler.pause_playlist()
+      {:ok, app_id} = AppSupervisor.start_app(@game)
+      Mixer.select_app(app_id)
 
-    {:noreply, %State{state | status: :game, game_app_id: app_id}}
+      {:noreply, %State{state | status: :game, game_app_id: app_id}}
+    else
+      {:noreply, state}
+    end
   end
 
   def handle_cast({:input_event, %InputEvent{}}, state) do
@@ -142,11 +132,17 @@ defmodule Octopus.EventScheduler do
 
   def handle_cast(:game_finished, state), do: {:noreply, state}
 
+  defp activate_game_buttons() do
+    num_buttons = Octopus.installation().num_buttons()
+    for i <- 1..num_buttons, do: "BUTTON_#{i}" |> String.to_atom()
+  end
+
   def handle_call(:is_started?, _, %State{status: :off} = state), do: {:reply, false, state}
   def handle_call(:is_started?, _, state), do: {:reply, true, state}
 
   def handle_info(:idle, %State{status: :playlist} = state) do
-    InputAdapter.send_light_event(Enum.random(1..10), @idle_animation_duration)
+    num_buttons = Octopus.installation().num_buttons()
+    InputAdapter.send_light_event(Enum.random(1..num_buttons), @idle_animation_duration)
 
     {:noreply, state}
   end

@@ -335,7 +335,9 @@ defmodule Octopus.Mixer do
   end
 
   defp do_stop_audio_playback do
-    1..10
+    num_buttons = Octopus.installation().num_buttons()
+
+    1..num_buttons
     |> Enum.map(&%AudioFrame{stop: true, channel: &1})
     |> Enum.map(&Protobuf.encode/1)
     |> Enum.each(&Broadcaster.send_binary/1)
