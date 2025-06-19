@@ -25,7 +25,9 @@ defmodule Octopus.Apps.Rickroll do
   end
 
   def handle_control_event(%ControlEvent{type: :APP_SELECTED}, state) do
-    1..10
+    num_buttons = Octopus.installation().num_buttons()
+
+    1..num_buttons
     |> Enum.map(&%AudioFrame{uri: "file://rickroll.wav", stop: false, channel: &1})
     |> Enum.each(&send_frame/1)
 
