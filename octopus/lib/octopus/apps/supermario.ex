@@ -4,7 +4,7 @@ defmodule Octopus.Apps.Supermario do
 
   alias Octopus.Apps.Supermario.Game
   alias Octopus.Protobuf.InputEvent
-  alias Octopus.Apps.Input.{ButtonState, JoyState}
+  alias Octopus.{ButtonState, JoyState}
 
   @frame_rate 60
   @frame_time_ms trunc(1000 / @frame_rate)
