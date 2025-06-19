@@ -5,6 +5,7 @@ defmodule Octopus.Installation.Nation2024 do
   @panel_width 8
   @panel_gap 17
   @num_panels 10
+  @num_buttons 10
 
   @panels_offsets for i <- 0..(@num_panels - 1), do: {(@panel_width + @panel_gap) * i, 0}
 
@@ -20,6 +21,11 @@ defmodule Octopus.Installation.Nation2024 do
   @impl true
   def num_panels() do
     @num_panels
+  end
+
+  @impl true
+  def num_buttons() do
+    @num_buttons
   end
 
   @impl true

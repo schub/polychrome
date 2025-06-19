@@ -25,4 +25,9 @@ defmodule Octopus.Installation do
   @callback center_y() :: number()
 
   @callback simulator_layouts() :: nonempty_list(Octopus.Layout.t())
+
+  @doc """
+  Returns the number of buttons available in this installation
+  """
+  @callback num_buttons() :: pos_integer()
 end

@@ -5,6 +5,7 @@ defmodule Octopus.Installation.Nation2025 do
   @panel_width 8
   @panel_gap 16
   @num_panels 12
+  @num_buttons 12
 
   # Simulator layout constants
   @sim_pixel_width 8
@@ -20,6 +21,11 @@ defmodule Octopus.Installation.Nation2025 do
   @impl true
   def num_panels() do
     @num_panels
+  end
+
+  @impl true
+  def num_buttons() do
+    @num_buttons
   end
 
   @impl true
