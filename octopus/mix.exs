@@ -58,7 +58,7 @@ defmodule Octopus.MixProject do
       {:cachex, "~> 4.1"},
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
       {:rustler, "~> 0.36.0"},
-      {:telegram, github: "visciang/telegram", tag: "0.22.4"},
+      {:telegram, github: "visciang/telegram", tag: "2.1.0"},
       {:chameleon, "~> 2.5"},
       {:live_monaco_editor, "~> 0.2"},
       {:nimble_parsec, "~> 1.4"},
