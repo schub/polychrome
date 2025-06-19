@@ -4,9 +4,13 @@ defmodule Octopus.ButtonState do
   alias Octopus.JoyState
   alias Octopus.ButtonState
 
-  @button_map 1..10
-              |> Enum.map(fn i -> {"BUTTON_#{i}" |> String.to_atom(), i - 1} end)
-              |> Enum.into(%{})
+  defp button_map() do
+    num_buttons = Octopus.installation().num_buttons()
+
+    1..num_buttons
+    |> Enum.map(fn i -> {"BUTTON_#{i}" |> String.to_atom(), i - 1} end)
+    |> Enum.into(%{})
+  end
 
   def new() do
     %ButtonState{
@@ -41,7 +45,7 @@ defmodule Octopus.ButtonState do
   end
 
   def button_to_index(button) do
-    Map.get(@button_map, button)
+    Map.get(button_map(), button)
   end
 
   def index_to_button(index) do
