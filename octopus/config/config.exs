@@ -22,6 +22,7 @@ config :octopus,
 # Configures the endpoint
 config :octopus, OctopusWeb.Endpoint,
   url: [host: "localhost"],
+  adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [html: OctopusWeb.ErrorHTML, json: OctopusWeb.ErrorJSON],
     layout: false

@@ -51,7 +51,7 @@ defmodule Octopus.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.20"},
       {:jason, "~> 1.2"},
-      {:plug_cowboy, "~> 2.5"},
+      {:bandit, "~> 1.7"},
       {:protobuf, "~> 0.14.0"},
       {:ex_png, "~> 1.0.0"},
       {:easing, "~> 0.3.1"},
