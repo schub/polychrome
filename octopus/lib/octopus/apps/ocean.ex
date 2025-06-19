@@ -130,7 +130,7 @@ defmodule Octopus.Apps.Ocean do
   def handle_input(%InputEvent{type: type, value: 1}, %State{} = state) do
     # Logger.info("Ocean: Button pressed: \\#{inspect(type)}")
 
-    # Map button types to button numbers (0-based)
+    # Map button types to button numbers (0-based) - dynamic for all installation buttons
     button_number =
       case type do
         :BUTTON_1 -> 0
@@ -143,6 +143,8 @@ defmodule Octopus.Apps.Ocean do
         :BUTTON_8 -> 7
         :BUTTON_9 -> 8
         :BUTTON_10 -> 9
+        :BUTTON_11 -> 10
+        :BUTTON_12 -> 11
         _ -> nil
       end
 
