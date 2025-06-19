@@ -55,9 +55,16 @@ defmodule Octopus.Apps.InputTester do
   end
 
   defp render_frame(%State{} = state) do
+    installation = Octopus.installation()
+    num_buttons = installation.num_buttons()
+    panel_size = installation.panel_size()
+
+    # Use dynamic number of pixels based on installation
+    total_pixels = panel_size * num_buttons
+
     data =
-      List.duplicate(0, 640)
-      |> List.update_at(state.position, fn _ -> state.color end)
+      List.duplicate(0, total_pixels)
+      |> List.update_at(rem(state.position, total_pixels), fn _ -> state.color end)
 
     %Frame{
       data: data,
