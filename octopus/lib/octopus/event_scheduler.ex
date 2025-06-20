@@ -3,7 +3,7 @@ defmodule Octopus.EventScheduler do
   require Logger
 
   alias Octopus.{AppSupervisor, Mixer, PlaylistScheduler, InputAdapter}
-  alias Octopus.Protobuf.{InputEvent}
+  alias Octopus.ControllerEvent
   alias Octopus.PlaylistScheduler.Playlist
 
   @game Octopus.Apps.Whackamole
@@ -48,8 +48,8 @@ defmodule Octopus.EventScheduler do
     Phoenix.PubSub.subscribe(Octopus.PubSub, @topic)
   end
 
-  def handle_input(%InputEvent{} = input_event) do
-    GenServer.cast(__MODULE__, {:input_event, input_event})
+  def handle_input(%ControllerEvent{} = controller_event) do
+    GenServer.cast(__MODULE__, {:input_event, controller_event})
   end
 
   def game_finished() do
@@ -100,24 +100,21 @@ defmodule Octopus.EventScheduler do
     {:noreply, %State{state | status: :off}}
   end
 
+  # Handle new button format - any button press starts the game
   def handle_cast(
-        {:input_event, %InputEvent{type: type, value: 1}},
+        {:input_event, %ControllerEvent{type: :button, action: :press}},
         %State{status: :playlist} = state
       ) do
-    if type in activate_game_buttons() do
-      Logger.info("EventScheduler: game button pressed, starting game")
+    Logger.info("EventScheduler: game button pressed, starting game")
 
-      PlaylistScheduler.pause_playlist()
-      {:ok, app_id} = AppSupervisor.start_app(@game)
-      Mixer.select_app(app_id)
+    PlaylistScheduler.pause_playlist()
+    {:ok, app_id} = AppSupervisor.start_app(@game)
+    Mixer.select_app(app_id)
 
-      {:noreply, %State{state | status: :game, game_app_id: app_id}}
-    else
-      {:noreply, state}
-    end
+    {:noreply, %State{state | status: :game, game_app_id: app_id}}
   end
 
-  def handle_cast({:input_event, %InputEvent{}}, state) do
+  def handle_cast({:input_event, %ControllerEvent{}}, state) do
     {:noreply, state}
   end
 
@@ -131,11 +128,6 @@ defmodule Octopus.EventScheduler do
   end
 
   def handle_cast(:game_finished, state), do: {:noreply, state}
-
-  defp activate_game_buttons() do
-    num_buttons = Octopus.installation().num_buttons()
-    for i <- 1..num_buttons, do: "BUTTON_#{i}" |> String.to_atom()
-  end
 
   def handle_call(:is_started?, _, %State{status: :off} = state), do: {:reply, false, state}
   def handle_call(:is_started?, _, state), do: {:reply, true, state}

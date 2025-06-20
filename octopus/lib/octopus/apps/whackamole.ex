@@ -2,7 +2,7 @@ defmodule Octopus.Apps.Whackamole do
   use Octopus.App, category: :game
   require Logger
 
-  alias Octopus.Protobuf.InputEvent
+  alias Octopus.ControllerEvent
   alias Octopus.Canvas
   alias Octopus.Font
   alias Octopus.Apps.Whackamole.Game
@@ -30,28 +30,19 @@ defmodule Octopus.Apps.Whackamole do
     {:noreply, %State{state | game: game}}
   end
 
-  @whack_buttons [
-    :BUTTON_1,
-    :BUTTON_2,
-    :BUTTON_3,
-    :BUTTON_4,
-    :BUTTON_5,
-    :BUTTON_6,
-    :BUTTON_7,
-    :BUTTON_8,
-    :BUTTON_9,
-    :BUTTON_10
-  ]
-  def handle_input(%InputEvent{type: button, value: 1}, %State{} = state)
-      when button in @whack_buttons do
-    button_number = String.to_integer(String.split(to_string(button), "_") |> List.last()) - 1
+  def handle_input(
+        %ControllerEvent{type: :button, action: :press, button: button},
+        %State{} = state
+      )
+      when button >= 1 and button <= 10 do
+    button_number = button - 1
 
     game = Game.whack(state.game, button_number)
 
     {:noreply, %State{state | game: game}}
   end
 
-  def handle_input(%InputEvent{}, %State{} = state) do
+  def handle_input(%ControllerEvent{}, %State{} = state) do
     {:noreply, state}
   end
 end

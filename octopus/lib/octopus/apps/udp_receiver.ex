@@ -4,6 +4,7 @@ defmodule Octopus.Apps.UdpReceiver do
 
   alias Octopus.Protobuf
   alias Octopus.Protobuf.{Frame, RGBFrame, WFrame, InputEvent}
+  alias Octopus.ControllerEvent
 
   @supported_frames [Frame, WFrame, RGBFrame]
 
@@ -55,14 +56,94 @@ defmodule Octopus.Apps.UdpReceiver do
     {:noreply, %State{state | remote_ip: ip, remote_port: port}}
   end
 
-  def handle_input(%InputEvent{}, %State{remote_ip: nil} = state) do
+  def handle_input(%ControllerEvent{}, %State{remote_ip: nil} = state) do
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{} = event, %State{} = state) do
-    binary = Protobuf.encode(event)
+  def handle_input(%ControllerEvent{} = controller_event, %State{} = state) do
+    # Convert ControllerEvent back to protobuf InputEvent for forwarding
+    protobuf_event = convert_to_protobuf_format(controller_event)
+    binary = Protobuf.encode(protobuf_event)
     :gen_udp.send(state.udp, state.remote_ip, state.remote_port, binary)
     {:noreply, state}
+  end
+
+  # Convert internal ControllerEvent back to protobuf InputEvent format
+  defp convert_to_protobuf_format(%ControllerEvent{type: :button, button: button, action: action}) do
+    button_type = String.to_existing_atom("BUTTON_#{button}")
+
+    value =
+      case action do
+        :press -> 1
+        :release -> 0
+      end
+
+    %InputEvent{type: button_type, value: value}
+  end
+
+  # Convert new joystick movement events back to protobuf format
+  defp convert_to_protobuf_format(%ControllerEvent{
+         type: :joystick,
+         joystick: joystick,
+         direction: direction
+       })
+       when direction != nil do
+    {axis_type, value} = joystick_direction_to_protobuf(joystick, direction)
+    %InputEvent{type: axis_type, value: value}
+  end
+
+  # Convert new joystick button events back to protobuf format
+  defp convert_to_protobuf_format(%ControllerEvent{
+         type: :joystick,
+         joystick: joystick,
+         joy_button: joy_button,
+         action: action
+       })
+       when joy_button != nil do
+    button_type = joystick_button_to_protobuf(joystick, joy_button)
+
+    value =
+      case action do
+        :press -> 1
+        :release -> 0
+      end
+
+    %InputEvent{type: button_type, value: value}
+  end
+
+  # Legacy support: Convert old joystick format back to protobuf
+  defp convert_to_protobuf_format(%ControllerEvent{type: type, value: value}) do
+    # Joystick events - pass through unchanged
+    %InputEvent{type: type, value: value}
+  end
+
+  # Convert semantic joystick direction back to protobuf axis events
+  defp joystick_direction_to_protobuf(joystick, direction) do
+    {axis_x, axis_y} =
+      case joystick do
+        1 -> {:AXIS_X_1, :AXIS_Y_1}
+        2 -> {:AXIS_X_2, :AXIS_Y_2}
+      end
+
+    case direction do
+      :left -> {axis_x, -1}
+      :right -> {axis_x, 1}
+      :up -> {axis_y, -1}
+      :down -> {axis_y, 1}
+      # Use X axis for center
+      :center -> {axis_x, 0}
+    end
+  end
+
+  # Convert semantic joystick button back to protobuf button events
+  defp joystick_button_to_protobuf(joystick, joy_button) do
+    case {joystick, joy_button} do
+      {1, :a} -> :BUTTON_A_1
+      {2, :a} -> :BUTTON_A_2
+      {1, :b} -> :BUTTON_B_1
+      {2, :b} -> :BUTTON_B_2
+      {_, :menu} -> :BUTTON_MENU
+    end
   end
 
   def handle_control_event(event, state) do

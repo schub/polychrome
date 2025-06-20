@@ -3,7 +3,7 @@ defmodule Octopus.Apps.Blocks do
   require Logger
 
   alias Octopus.Apps.Blocks
-  alias Octopus.Protobuf.InputEvent
+  alias Octopus.ControllerEvent
   alias Octopus.ButtonState
   alias Octopus.Canvas
   alias Octopus.Font
@@ -37,10 +37,10 @@ defmodule Octopus.Apps.Blocks do
   end
 
   def handle_input(
-        %InputEvent{type: type, value: value} = _event,
+        %ControllerEvent{} = event,
         %State{button_state: bs} = state
       ) do
-    {:noreply, %State{state | button_state: bs |> ButtonState.handle_event(type, value)}}
+    {:noreply, %State{state | button_state: bs |> ButtonState.handle_event(event)}}
   end
 
   defp tick(%State{t: t, button_state: %ButtonState{} = bs, side: side} = state) do

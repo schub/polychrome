@@ -3,7 +3,8 @@ defmodule Octopus.AppSupervisor do
   require Logger
 
   alias Octopus.{Mixer, App}
-  alias Octopus.Protobuf.{InputEvent, ControlEvent, ProximityEvent, SoundToLightControlEvent}
+  alias Octopus.Protobuf.{ControlEvent, ProximityEvent, SoundToLightControlEvent}
+  alias Octopus.ControllerEvent
 
   @topic "apps"
 
@@ -96,7 +97,7 @@ defmodule Octopus.AppSupervisor do
   """
   def stop_app(app_id) do
     if app_id == Mixer.get_selected_app() do
-      Mixer.stop_audio_playback()
+      GenServer.cast(Mixer, :stop_audio_playback)
     end
 
     Phoenix.PubSub.broadcast(Octopus.PubSub, @topic, {:apps, {:stopped, app_id}})
@@ -172,7 +173,7 @@ defmodule Octopus.AppSupervisor do
   Sends an event to an app. Ignores the event if the app is not running.
   """
   def send_event(app_id, %event_type{} = event)
-      when event_type in [InputEvent, ControlEvent, SoundToLightControlEvent, ProximityEvent] do
+      when event_type in [ControllerEvent, ControlEvent, SoundToLightControlEvent, ProximityEvent] do
     case Registry.lookup(Octopus.AppRegistry, app_id) do
       [{pid, _}] -> send(pid, {:event, event})
       [] -> :noop

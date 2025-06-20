@@ -6,12 +6,13 @@ defmodule Octopus.Mixer do
 
   alias Octopus.Protobuf.{
     RGBFrame,
-    InputEvent,
     ControlEvent,
     ProximityEvent,
     SoundToLightControlEvent,
     AudioFrame
   }
+
+  alias Octopus.ControllerEvent
 
   @pubsub_topic "mixer"
   @pubsub_frames [RGBFrame]
@@ -127,9 +128,9 @@ defmodule Octopus.Mixer do
 
   def handle_cast({:new_canvas, _}, state), do: {:noreply, state}
 
-  def handle_cast({:event, %InputEvent{} = input_event}, %State{} = state) do
-    AppSupervisor.send_event(state.selected_app, input_event)
-    EventScheduler.handle_input(input_event)
+  def handle_cast({:event, %ControllerEvent{} = controller_event}, %State{} = state) do
+    AppSupervisor.send_event(state.selected_app, controller_event)
+    EventScheduler.handle_input(controller_event)
 
     {:noreply, %State{state | last_input: System.os_time(:second)}}
   end
@@ -307,39 +308,31 @@ defmodule Octopus.Mixer do
     do_stop_audio_playback()
     AppSupervisor.send_event(state.selected_app, %ControlEvent{type: :APP_SELECTED})
     AppSupervisor.send_event(state.last_selected_app, %ControlEvent{type: :APP_DESELECTED})
+
+    state
   end
 
-  def stop_audio_playback() do
-    GenServer.cast(__MODULE__, :stop_audio_playback)
-  end
-
-  defp handle_new_canvas(%State{} = state, %Canvas{} = canvas, offset) do
-    new_canvas =
-      canvas
-      |> Canvas.cut({0, 0}, {39, 7})
-
+  defp handle_new_canvas(state, canvas, offset) do
     buffer_canvas =
       state.buffer_canvas
-      |> Canvas.overlay(new_canvas, offset: offset, transparency: false)
+      |> Canvas.clear()
+      |> Canvas.overlay(canvas, offset: offset)
 
-    frame =
-      buffer_canvas
-      |> Canvas.to_frame()
-
-    Protobuf.split_and_encode(frame)
-    |> Enum.each(fn binary ->
-      send_frame(binary, frame)
-    end)
+    frame = buffer_canvas |> Canvas.to_frame()
+    binary = Protobuf.encode(frame)
+    send_frame(binary, frame)
 
     {:noreply, %State{state | buffer_canvas: buffer_canvas}}
   end
 
-  defp do_stop_audio_playback do
-    num_buttons = Octopus.installation().num_buttons()
-
-    1..num_buttons
-    |> Enum.map(&%AudioFrame{stop: true, channel: &1})
-    |> Enum.map(&Protobuf.encode/1)
-    |> Enum.each(&Broadcaster.send_binary/1)
+  defp do_stop_audio_playback() do
+    for channel <- 1..8 do
+      %AudioFrame{
+        channel: channel,
+        stop: true
+      }
+      |> Protobuf.encode()
+      |> Broadcaster.send_binary()
+    end
   end
 end

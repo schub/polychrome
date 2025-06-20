@@ -4,7 +4,8 @@ defmodule Octopus.Apps.PixelFun do
 
   require Logger
   alias Octopus.Canvas
-  alias Octopus.Protobuf.{InputEvent, SoundToLightControlEvent}
+  alias Octopus.Protobuf.SoundToLightControlEvent
+  alias Octopus.ControllerEvent
   alias Octopus.Apps.PixelFun.Program
 
   @fps 60
@@ -193,20 +194,45 @@ defmodule Octopus.Apps.PixelFun do
     {:noreply, %State{state | audio_input: %{low: low, mid: mid, high: high}}}
   end
 
+  # New joystick format - much cleaner!
   def handle_input(
-        %InputEvent{type: axis, value: value},
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :left},
         %State{move: {_, y}, input: true} = state
-      )
-      when axis in [:AXIS_X_1, :AXIS_X_2] do
-    {:noreply, %State{state | move: {-value, y}}}
+      ) do
+    # Left = positive X movement
+    {:noreply, %State{state | move: {1, y}}}
   end
 
   def handle_input(
-        %InputEvent{type: axis, value: value},
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :right},
+        %State{move: {_, y}, input: true} = state
+      ) do
+    # Right = negative X movement
+    {:noreply, %State{state | move: {-1, y}}}
+  end
+
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :up},
         %State{move: {x, _}, input: true} = state
-      )
-      when axis in [:AXIS_Y_1, :AXIS_Y_2] do
-    {:noreply, %State{state | move: {x, -value}}}
+      ) do
+    # Up = positive Y movement
+    {:noreply, %State{state | move: {x, 1}}}
+  end
+
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :down},
+        %State{move: {x, _}, input: true} = state
+      ) do
+    # Down = negative Y movement
+    {:noreply, %State{state | move: {x, -1}}}
+  end
+
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :center},
+        %State{input: true} = state
+      ) do
+    # Center = no movement
+    {:noreply, %State{state | move: {0, 0}}}
   end
 
   def handle_input(_, state), do: {:noreply, state}

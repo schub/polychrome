@@ -3,7 +3,8 @@ defmodule Octopus.Apps.InputDebug do
   require Logger
 
   alias Octopus.ColorPalette
-  alias Octopus.Protobuf.{Frame, InputEvent}
+  alias Octopus.Protobuf.Frame
+  alias Octopus.ControllerEvent
   alias Octopus.{ButtonState, JoyState}
 
   @frame_rate 60
@@ -83,12 +84,12 @@ defmodule Octopus.Apps.InputDebug do
   end
 
   def handle_input(
-        %InputEvent{type: type, value: value} = event,
+        %ControllerEvent{} = event,
         %State{button_state: bs} = state
       ) do
     Logger.info("Input Debug: #{inspect(event)}")
 
-    new_bs = bs |> ButtonState.handle_event(type, value) |> IO.inspect()
+    new_bs = bs |> ButtonState.handle_event(event) |> IO.inspect()
 
     {:noreply, %State{state | button_state: new_bs}}
   end
@@ -103,18 +104,18 @@ defmodule Octopus.Apps.InputDebug do
 
     # Define positions for up to 12 buttons - consecutive from top-left
     positions = [
-      {:BUTTON_1, {0, 0}},
-      {:BUTTON_2, {1, 0}},
-      {:BUTTON_3, {2, 0}},
-      {:BUTTON_4, {3, 0}},
-      {:BUTTON_5, {4, 0}},
-      {:BUTTON_6, {5, 0}},
-      {:BUTTON_7, {6, 0}},
-      {:BUTTON_8, {7, 0}},
-      {:BUTTON_9, {0, 1}},
-      {:BUTTON_10, {1, 1}},
-      {:BUTTON_11, {2, 1}},
-      {:BUTTON_12, {3, 1}}
+      {1, {0, 0}},
+      {2, {1, 0}},
+      {3, {2, 0}},
+      {4, {3, 0}},
+      {5, {4, 0}},
+      {6, {5, 0}},
+      {7, {6, 0}},
+      {8, {7, 0}},
+      {9, {0, 1}},
+      {10, {1, 1}},
+      {11, {2, 1}},
+      {12, {3, 1}}
     ]
 
     # Return only the positions for the number of buttons we have

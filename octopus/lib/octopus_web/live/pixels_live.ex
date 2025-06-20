@@ -5,7 +5,8 @@ defmodule OctopusWeb.PixelsLive do
 
   alias Octopus.ColorPalette
   alias Octopus.Mixer
-  alias Octopus.Protobuf.{FirmwareConfig, Frame, InputEvent}
+  alias Octopus.Protobuf.{FirmwareConfig, Frame}
+  alias Octopus.ControllerEvent
 
   @default_config %FirmwareConfig{
     easing_mode: :LINEAR,
@@ -24,55 +25,44 @@ defmodule OctopusWeb.PixelsLive do
 
   @default_view "default"
 
-  defp get_button_atom(index) do
-    # Use existing atoms from protobuf schema
-    case index do
-      1 -> :BUTTON_1
-      2 -> :BUTTON_2
-      3 -> :BUTTON_3
-      4 -> :BUTTON_4
-      5 -> :BUTTON_5
-      6 -> :BUTTON_6
-      7 -> :BUTTON_7
-      8 -> :BUTTON_8
-      9 -> :BUTTON_9
-      10 -> :BUTTON_10
-      11 -> :BUTTON_11
-      12 -> :BUTTON_12
-      _ -> nil
-    end
-  end
-
   defp get_key_map() do
     num_buttons = Octopus.installation().num_buttons()
 
     # Base button mappings for number keys and function keys
     button_mappings =
-      for i <- 1..min(num_buttons, 10), button = get_button_atom(i), not is_nil(button) do
+      for i <- 1..min(num_buttons, 10) do
         key = if i == 10, do: "0", else: to_string(i)
-        {key, button}
+        {key, i}
       end ++
-        for i <- 1..min(num_buttons, 12), button = get_button_atom(i), not is_nil(button) do
+        for i <- 1..min(num_buttons, 12) do
           key = "F#{i}"
-          {key, button}
+          {key, i}
         end
 
-    # Additional mappings for joystick and menu
-    additional_mappings = [
-      {"w", :DIRECTION_1_UP},
-      {"a", :DIRECTION_1_LEFT},
-      {"s", :DIRECTION_1_DOWN},
-      {"d", :DIRECTION_1_RIGHT},
-      {"q", :BUTTON_A_1},
-      {"i", :DIRECTION_2_UP},
-      {"j", :DIRECTION_2_LEFT},
-      {"k", :DIRECTION_2_DOWN},
-      {"l", :DIRECTION_2_RIGHT},
-      {"u", :BUTTON_A_2},
-      {"m", :BUTTON_MENU}
+    # Joystick mappings
+    joystick_mappings = [
+      # Joystick 1 directions: A,S,D,F = left,down,up,right
+      {"a", :JOYSTICK_1_LEFT},
+      {"s", :JOYSTICK_1_DOWN},
+      {"d", :JOYSTICK_1_UP},
+      {"f", :JOYSTICK_1_RIGHT},
+
+      # Joystick 1 buttons: X,C = a,b
+      {"x", :JOYSTICK_1_A},
+      {"c", :JOYSTICK_1_B},
+
+      # Joystick 2 directions: H,J,K,L = left,down,up,right
+      {"h", :JOYSTICK_2_LEFT},
+      {"j", :JOYSTICK_2_DOWN},
+      {"k", :JOYSTICK_2_UP},
+      {"l", :JOYSTICK_2_RIGHT},
+
+      # Joystick 2 buttons: N,M = a,b
+      {"n", :JOYSTICK_2_A},
+      {"m", :JOYSTICK_2_B}
     ]
 
-    (button_mappings ++ additional_mappings) |> Enum.into(%{})
+    (button_mappings ++ joystick_mappings) |> Enum.into(%{})
   end
 
   def mount(_params, _session, socket) do
@@ -166,14 +156,10 @@ defmodule OctopusWeb.PixelsLive do
               phx-value-button={i}
               class={[
                 "rounded px-3 py-2 text-sm font-mono border shadow transition-colors select-none min-w-[2.5rem] cursor-pointer",
-                case get_button_atom(i) do
-                  nil -> "bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500 text-neutral-100 border-neutral-500"
-                  button_atom ->
-                    if MapSet.member?(@pressed_buttons, button_atom) do
-                      "bg-green-600 hover:bg-green-500 border-green-400 text-white"
-                    else
-                      "bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500 text-neutral-100 border-neutral-500"
-                    end
+                if MapSet.member?(@pressed_buttons, i) do
+                  "bg-green-600 hover:bg-green-500 border-green-400 text-white"
+                else
+                  "bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500 text-neutral-100 border-neutral-500"
                 end
               ]}
               type="button"
@@ -226,49 +212,93 @@ defmodule OctopusWeb.PixelsLive do
     key_map = socket.assigns.key_map
 
     if Map.has_key?(key_map, key) do
-      button = key_map[key]
+      key_value = key_map[key]
 
-      {button, value} =
-        case button do
-          :DIRECTION_1_LEFT -> {:AXIS_X_1, -1}
-          :DIRECTION_1_RIGHT -> {:AXIS_X_1, 1}
-          :DIRECTION_1_DOWN -> {:AXIS_Y_1, 1}
-          :DIRECTION_1_UP -> {:AXIS_Y_1, -1}
-          :DIRECTION_2_LEFT -> {:AXIS_X_2, -1}
-          :DIRECTION_2_RIGHT -> {:AXIS_X_2, 1}
-          :DIRECTION_2_DOWN -> {:AXIS_Y_2, 1}
-          :DIRECTION_2_UP -> {:AXIS_Y_2, -1}
-          _ -> {button, 1}
-        end
-
-      # Update visual state for button presses (not directional keys)
-      socket =
-        case button do
-          button
-          when button in [
-                 :BUTTON_1,
-                 :BUTTON_2,
-                 :BUTTON_3,
-                 :BUTTON_4,
-                 :BUTTON_5,
-                 :BUTTON_6,
-                 :BUTTON_7,
-                 :BUTTON_8,
-                 :BUTTON_9,
-                 :BUTTON_10,
-                 :BUTTON_11,
-                 :BUTTON_12
-               ] ->
-            socket |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button))
-
-          _ ->
+      case key_value do
+        # Screen buttons - use new format
+        button_num when is_integer(button_num) ->
+          socket =
             socket
-        end
+            |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button_num))
 
-      %InputEvent{type: button, value: value}
-      |> Mixer.handle_event()
+          %ControllerEvent{type: :button, button: button_num, action: :press}
+          |> Mixer.handle_event()
 
-      {:noreply, socket}
+          {:noreply, socket}
+
+        # New joystick mappings
+        :JOYSTICK_1_LEFT ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :left}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_DOWN ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :down}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_UP ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :up}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_RIGHT ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :right}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_A ->
+          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :a, action: :press}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_B ->
+          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :b, action: :press}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_LEFT ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :left}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_DOWN ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :down}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_UP ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :up}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_RIGHT ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :right}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_A ->
+          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :a, action: :press}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_B ->
+          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :b, action: :press}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+      end
     else
       {:noreply, socket}
     end
@@ -278,86 +308,99 @@ defmodule OctopusWeb.PixelsLive do
     key_map = socket.assigns.key_map
 
     if Map.has_key?(key_map, key) do
-      button = key_map[key]
+      key_value = key_map[key]
 
-      {button, _} =
-        case button do
-          :DIRECTION_1_LEFT -> {:AXIS_X_1, 0}
-          :DIRECTION_1_RIGHT -> {:AXIS_X_1, 0}
-          :DIRECTION_1_UP -> {:AXIS_Y_1, 0}
-          :DIRECTION_1_DOWN -> {:AXIS_Y_1, 0}
-          :DIRECTION_2_LEFT -> {:AXIS_X_2, 0}
-          :DIRECTION_2_RIGHT -> {:AXIS_X_2, 0}
-          :DIRECTION_2_UP -> {:AXIS_Y_2, 0}
-          :DIRECTION_2_DOWN -> {:AXIS_Y_2, 0}
-          _ -> {button, 0}
-        end
-
-      # Update visual state for button releases (not directional keys)
-      socket =
-        case button do
-          button
-          when button in [
-                 :BUTTON_1,
-                 :BUTTON_2,
-                 :BUTTON_3,
-                 :BUTTON_4,
-                 :BUTTON_5,
-                 :BUTTON_6,
-                 :BUTTON_7,
-                 :BUTTON_8,
-                 :BUTTON_9,
-                 :BUTTON_10,
-                 :BUTTON_11,
-                 :BUTTON_12
-               ] ->
+      case key_value do
+        # Screen buttons - use new format
+        button_num when is_integer(button_num) ->
+          socket =
             socket
-            |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button))
+            |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button_num))
 
-          _ ->
-            socket
-        end
+          %ControllerEvent{type: :button, button: button_num, action: :release}
+          |> Mixer.handle_event()
 
-      %InputEvent{type: button, value: 0}
-      |> Mixer.handle_event()
+          {:noreply, socket}
 
-      {:noreply, socket}
+        # New joystick mappings - return to center on keyup
+        joystick_direction
+        when joystick_direction in [
+               :JOYSTICK_1_LEFT,
+               :JOYSTICK_1_DOWN,
+               :JOYSTICK_1_UP,
+               :JOYSTICK_1_RIGHT
+             ] ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :center}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        joystick_direction
+        when joystick_direction in [
+               :JOYSTICK_2_LEFT,
+               :JOYSTICK_2_DOWN,
+               :JOYSTICK_2_UP,
+               :JOYSTICK_2_RIGHT
+             ] ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :center}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_A ->
+          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :a, action: :release}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_B ->
+          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :b, action: :release}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_A ->
+          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :a, action: :release}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_B ->
+          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :b, action: :release}
+          |> Mixer.handle_event()
+
+          {:noreply, socket}
+      end
     else
       {:noreply, socket}
     end
   end
 
   def handle_event("button-click", %{"button" => button_string}, socket) do
-    {button_index, _} = Integer.parse(button_string)
+    {button_num, _} = Integer.parse(button_string)
 
-    case get_button_atom(button_index) do
-      nil ->
-        {:noreply, socket}
+    # Update visual state - add to pressed buttons
+    socket =
+      socket
+      |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button_num))
 
-      button_atom ->
-        # Update visual state - add to pressed buttons
-        socket =
-          socket
-          |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button_atom))
+    # Send button press event
+    %ControllerEvent{type: :button, button: button_num, action: :press}
+    |> Mixer.handle_event()
 
-        # Send button press event
-        %InputEvent{type: button_atom, value: 1}
-        |> Mixer.handle_event()
+    # Send button release event after a short delay to simulate a button press
+    Process.send_after(self(), {:button_release, button_num}, 100)
 
-        # Send button release event after a short delay to simulate a button press
-        Process.send_after(self(), {:button_release, button_atom}, 100)
-
-        {:noreply, socket}
-    end
+    {:noreply, socket}
   end
 
-  def handle_info({:button_release, button_atom}, socket) do
+  def handle_info({:button_release, button_num}, socket) do
     # Update visual state - remove from pressed buttons
     socket =
       socket
-      |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button_atom))
+      |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button_num))
 
-    %InputEvent{type: button_atom, value: 0}
+    %ControllerEvent{type: :button, button: button_num, action: :release}
     |> Mixer.handle_event()
 
     {:noreply, socket}

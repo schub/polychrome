@@ -4,7 +4,7 @@ defmodule Octopus.Apps.BomberPerson do
 
   alias Octopus.Apps.BomberPerson.Maps
   alias Octopus.{Canvas, Util, Font}
-  alias Octopus.Protobuf.InputEvent
+  alias Octopus.ControllerEvent
 
   defmodule State do
     defstruct [
@@ -329,39 +329,50 @@ defmodule Octopus.Apps.BomberPerson do
     end
   end
 
-  def handle_input(%InputEvent{type: :BUTTON_A_1, value: 1}, state), do: place_bomb(state, 0)
+  # New joystick format - works for any joystick/player!
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: joystick, joy_button: :a, action: :press},
+        state
+      ) do
+    # Convert to 0-based player index
+    place_bomb(state, joystick - 1)
+  end
 
-  def handle_input(%InputEvent{type: :BUTTON_A_2, value: 1}, state), do: place_bomb(state, 1)
-
-  # def handle_input(%InputEvent{type: type, value: value}, state) do
-  def handle_input(%InputEvent{} = event, state) do
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: joystick, direction: direction},
+        state
+      )
+      when direction in [:left, :right, :up, :down] do
     if state.game_state == :running do
-      state = handle_player_axis(event, state, 0, {:AXIS_X_1, :AXIS_Y_1})
-      state = handle_player_axis(event, state, 1, {:AXIS_X_2, :AXIS_Y_2})
-      {:noreply, state}
+      move_player(state, joystick - 1, direction)
     else
       {:noreply, state}
     end
+  end
+
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :center},
+        state
+      ) do
+    # Joystick returned to center - no movement needed
+    {:noreply, state}
   end
 
   def handle_input(_input_event, state) do
     {:noreply, state}
   end
 
-  def handle_player_axis(%InputEvent{type: type, value: value}, state, index, {axis_x, axis_y}) do
-    player = state.players[index]
+  # New helper function for semantic direction movement
+  defp move_player(state, player_index, direction) do
+    player = state.players[player_index]
     %Player{position: {player_x, player_y}} = player
 
-    {player_x, player_y} =
-      case type do
-        ^axis_x -> {player_x + value, player_y}
-        ^axis_y -> {player_x, player_y + value}
-        _ -> {player_x, player_y}
-      end
+    {dx, dy} = direction_to_delta(direction)
+    {new_x, new_y} = {player_x + dx, player_y + dy}
 
     position = {
-      player_x |> Util.clamp(0, @grid_size - 1),
-      player_y |> Util.clamp(0, @grid_size - 1)
+      new_x |> Util.clamp(0, @grid_size - 1),
+      new_y |> Util.clamp(0, @grid_size - 1)
     }
 
     position =
@@ -377,8 +388,15 @@ defmodule Octopus.Apps.BomberPerson do
       end
 
     player = %Player{player | position: position}
-    %State{state | players: state.players |> Map.put(index, player)}
+    new_state = %State{state | players: state.players |> Map.put(player_index, player)}
+    {:noreply, new_state}
   end
+
+  # Convert semantic direction to coordinate delta
+  defp direction_to_delta(:left), do: {-1, 0}
+  defp direction_to_delta(:right), do: {1, 0}
+  defp direction_to_delta(:up), do: {0, -1}
+  defp direction_to_delta(:down), do: {0, 1}
 
   def handle_control_event(_event, state) do
     {:noreply, state}
