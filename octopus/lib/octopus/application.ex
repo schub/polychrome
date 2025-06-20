@@ -38,7 +38,7 @@ defmodule Octopus.Application do
         Octopus.AppManager,
         Octopus.InputAdapter,
         Octopus.PlaylistScheduler,
-        Octopus.EventScheduler,
+        Octopus.KioskModeManager,
         Octopus.Mixer,
 
         # WebApp

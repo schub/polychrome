@@ -1,8 +1,8 @@
-defmodule Octopus.EventScheduler do
+defmodule Octopus.KioskModeManager do
   use GenServer
   require Logger
 
-  alias Octopus.{AppSupervisor, Mixer, PlaylistScheduler, InputAdapter}
+  alias Octopus.{AppSupervisor, AppManager, PlaylistScheduler, InputAdapter}
   alias Octopus.ControllerEvent
   alias Octopus.PlaylistScheduler.Playlist
 
@@ -12,7 +12,7 @@ defmodule Octopus.EventScheduler do
   @idle_animation_interval 2_000
   @idle_animation_duration 3_000
 
-  @topic "event_scheduler"
+  @topic "kiosk_mode_manager"
 
   defmodule State do
     # statuses: :game, :playlist, :off
@@ -38,11 +38,11 @@ defmodule Octopus.EventScheduler do
   end
 
   @doc """
-  Subscribes to the event_scheduler topic.
+  Subscribes to the kiosk_mode_manager topic.
 
   Published messages:
-  * `{:event_scheduler, :started}` - an app was started
-  * `{:event_scheduler, :stopped}` - an app was stopped
+  * `{:kiosk_mode_manager, :started}` - kiosk mode was started
+  * `{:kiosk_mode_manager, :stopped}` - kiosk mode was stopped
   """
   def subscribe() do
     Phoenix.PubSub.subscribe(Octopus.PubSub, @topic)
@@ -59,7 +59,7 @@ defmodule Octopus.EventScheduler do
   def init(:ok) do
     case Application.fetch_env(:octopus, :enable_event_mode) do
       {:ok, true} ->
-        Logger.info("EventScheduler: event mode enabled. Starting")
+        Logger.info("KioskModeManager: event mode enabled. Starting")
         start()
 
       _ ->
@@ -71,7 +71,7 @@ defmodule Octopus.EventScheduler do
       |> Enum.find(fn %Playlist{name: name} -> name == @playlist_name end)
       |> case do
         %Playlist{id: id} ->
-          Logger.info("EventScheduler: using playlist #{@playlist_name} with id #{id}")
+          Logger.info("KioskModeManager: using playlist #{@playlist_name} with id #{id}")
           id
 
         _ ->
@@ -85,7 +85,7 @@ defmodule Octopus.EventScheduler do
 
   def handle_cast(:start, %State{status: :off} = state) do
     PlaylistScheduler.start_playlist(state.playlist_id)
-    Phoenix.PubSub.broadcast(Octopus.PubSub, @topic, {:event_scheduler, :started})
+    Phoenix.PubSub.broadcast(Octopus.PubSub, @topic, {:kiosk_mode_manager, :started})
     {:noreply, %State{state | status: :playlist}}
   end
 
@@ -96,7 +96,7 @@ defmodule Octopus.EventScheduler do
   def handle_cast(:stop, %State{} = state) do
     AppSupervisor.stop_app(state.game_app_id)
     PlaylistScheduler.pause_playlist()
-    Phoenix.PubSub.broadcast(Octopus.PubSub, @topic, {:event_scheduler, :stopped})
+    Phoenix.PubSub.broadcast(Octopus.PubSub, @topic, {:kiosk_mode_manager, :stopped})
     {:noreply, %State{state | status: :off}}
   end
 
@@ -105,11 +105,11 @@ defmodule Octopus.EventScheduler do
         {:input_event, %ControllerEvent{type: :button, action: :press}},
         %State{status: :playlist} = state
       ) do
-    Logger.info("EventScheduler: game button pressed, starting game")
+    Logger.info("KioskModeManager: game button pressed, starting game")
 
     PlaylistScheduler.pause_playlist()
     {:ok, app_id} = AppSupervisor.start_app(@game)
-    Mixer.select_app(app_id)
+    AppManager.select_app(app_id)
 
     {:noreply, %State{state | status: :game, game_app_id: app_id}}
   end
@@ -119,7 +119,7 @@ defmodule Octopus.EventScheduler do
   end
 
   def handle_cast(:game_finished, %State{status: :game} = state) do
-    Logger.info("EventScheduler: game finished, starting playlist")
+    Logger.info("KioskModeManager: game finished, starting playlist")
 
     AppSupervisor.stop_app(state.game_app_id)
     PlaylistScheduler.resume_playlist()

@@ -116,13 +116,6 @@ defmodule Octopus.AppManager do
       @topic,
       {:app_manager, {:selected_app, selected}}
     )
-
-    # Also broadcast on mixer topic for backward compatibility during transition
-    Phoenix.PubSub.broadcast(
-      Octopus.PubSub,
-      "mixer",
-      {:mixer, {:selected_app, selected}}
-    )
   end
 
   # Send APP_SELECTED/APP_DESELECTED lifecycle events to apps

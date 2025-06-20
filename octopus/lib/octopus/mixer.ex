@@ -2,7 +2,7 @@ defmodule Octopus.Mixer do
   use GenServer
   require Logger
 
-  alias Octopus.{Broadcaster, Protobuf, AppSupervisor, Canvas, EventScheduler, AppManager}
+  alias Octopus.{Broadcaster, Protobuf, AppSupervisor, Canvas, KioskModeManager, AppManager}
 
   alias Octopus.Protobuf.{
     RGBFrame,
@@ -57,32 +57,12 @@ defmodule Octopus.Mixer do
   end
 
   @doc """
-  Selects the app with the given `app_id`.
-  Delegates to AppManager.
-  """
-  def select_app(app_id) do
-    AppManager.select_app(app_id)
-  end
-
-  def select_app(app_id, side) when side in [:left, :right] do
-    AppManager.select_app(app_id, side)
-  end
-
-  @doc """
-  Returns the currently selected app.
-  Delegates to AppManager.
-  """
-  def get_selected_app() do
-    AppManager.get_selected_app()
-  end
-
-  @doc """
   Subscribes to the mixer topic.
 
   Published messages:
 
-  * `{:mixer, {:selected_app, app_id}}` - the selected app changed
   * `{:mixer, {:frame, %Octopus.Protobuf.Frame{} = frame}}` - a new frame was received from the selected app
+  * `{:mixer, {:config, config}}` - mixer configuration changed
   """
   def subscribe do
     Phoenix.PubSub.subscribe(Octopus.PubSub, @pubsub_topic)
@@ -129,7 +109,7 @@ defmodule Octopus.Mixer do
   def handle_cast({:event, %ControllerEvent{} = controller_event}, %State{} = state) do
     selected_app = AppManager.get_selected_app()
     AppSupervisor.send_event(selected_app, controller_event)
-    EventScheduler.handle_input(controller_event)
+    KioskModeManager.handle_input(controller_event)
 
     {:noreply, %State{state | last_input: System.os_time(:second)}}
   end

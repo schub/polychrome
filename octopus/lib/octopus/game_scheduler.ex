@@ -2,7 +2,7 @@ defmodule Octopus.GameScheduler do
   use GenServer
   require Logger
 
-  alias Octopus.{AppSupervisor, Mixer}
+  alias Octopus.{AppSupervisor, AppManager}
 
   @games [Octopus.Apps.Blocks, Octopus.Apps.Snake, Octopus.Apps.Supermario]
 
@@ -67,7 +67,7 @@ defmodule Octopus.GameScheduler do
     AppSupervisor.stop_app(Map.get(state.app_ids, side))
 
     {:ok, app_id} = AppSupervisor.start_app(module, config: %{side: side})
-    Mixer.select_app(app_id, side)
+    AppManager.select_app(app_id, side)
 
     %State{state | app_ids: Map.put(state.app_ids, side, app_id)}
   end
