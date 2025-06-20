@@ -35,6 +35,7 @@ defmodule Octopus.Application do
         Octopus.Broadcaster,
         {Registry, keys: :unique, name: Octopus.AppRegistry},
         Octopus.AppSupervisor,
+        Octopus.AppManager,
         Octopus.InputAdapter,
         Octopus.PlaylistScheduler,
         Octopus.EventScheduler,

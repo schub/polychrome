@@ -2,11 +2,10 @@ defmodule Octopus.Mixer do
   use GenServer
   require Logger
 
-  alias Octopus.{Broadcaster, Protobuf, AppSupervisor, Canvas, EventScheduler}
+  alias Octopus.{Broadcaster, Protobuf, AppSupervisor, Canvas, EventScheduler, AppManager}
 
   alias Octopus.Protobuf.{
     RGBFrame,
-    ControlEvent,
     ProximityEvent,
     SoundToLightControlEvent,
     AudioFrame
@@ -20,9 +19,7 @@ defmodule Octopus.Mixer do
   @transition_frame_time trunc(1000 / 60)
 
   defmodule State do
-    defstruct selected_app: nil,
-              last_selected_app: nil,
-              rendered_app: nil,
+    defstruct rendered_app: nil,
               transition: nil,
               buffer_canvas: Canvas.new(80, 8),
               max_luminance: 255,
@@ -61,20 +58,22 @@ defmodule Octopus.Mixer do
 
   @doc """
   Selects the app with the given `app_id`.
+  Delegates to AppManager.
   """
   def select_app(app_id) do
-    GenServer.cast(__MODULE__, {:select_app, app_id})
+    AppManager.select_app(app_id)
   end
 
   def select_app(app_id, side) when side in [:left, :right] do
-    GenServer.cast(__MODULE__, {:select_app, app_id, side})
+    AppManager.select_app(app_id, side)
   end
 
   @doc """
   Returns the currently selected app.
+  Delegates to AppManager.
   """
   def get_selected_app() do
-    GenServer.call(__MODULE__, :get_selected_app)
+    AppManager.get_selected_app()
   end
 
   @doc """
@@ -90,15 +89,14 @@ defmodule Octopus.Mixer do
   end
 
   def init(:ok) do
+    # Subscribe to AppManager events to update visual rendering
+    AppManager.subscribe()
+
     state = %State{
       last_input: System.os_time(:second)
     }
 
     {:ok, state}
-  end
-
-  def handle_call(:get_selected_app, _, %State{selected_app: selected_app} = state) do
-    {:reply, selected_app, state}
   end
 
   def handle_cast({:new_frame, {app_id, binary, f}}, %State{rendered_app: rendered_app} = state) do
@@ -129,41 +127,22 @@ defmodule Octopus.Mixer do
   def handle_cast({:new_canvas, _}, state), do: {:noreply, state}
 
   def handle_cast({:event, %ControllerEvent{} = controller_event}, %State{} = state) do
-    AppSupervisor.send_event(state.selected_app, controller_event)
+    selected_app = AppManager.get_selected_app()
+    AppSupervisor.send_event(selected_app, controller_event)
     EventScheduler.handle_input(controller_event)
 
     {:noreply, %State{state | last_input: System.os_time(:second)}}
   end
 
   def handle_cast({:event, %SoundToLightControlEvent{} = stl_event}, %State{} = state) do
-    AppSupervisor.send_event(state.selected_app, stl_event)
+    selected_app = AppManager.get_selected_app()
+    AppSupervisor.send_event(selected_app, stl_event)
     {:noreply, state}
   end
 
   def handle_cast({:event, %ProximityEvent{} = event}, %State{} = state) do
-    AppSupervisor.send_event(state.selected_app, event)
-    {:noreply, state}
-  end
-
-  def handle_cast({:select_app, next_app_id, side}, %State{} = state) do
-    selected_app =
-      case {state.selected_app, side} do
-        {{_, right}, :left} -> {next_app_id, right}
-        {{left, _}, :right} -> {left, next_app_id}
-        {_, :left} -> {next_app_id, nil}
-        {_, :right} -> {nil, next_app_id}
-      end
-
-    state = %State{
-      state
-      | transition: nil,
-        selected_app: selected_app,
-        rendered_app: selected_app
-    }
-
-    broadcast_rendered_app(state)
-    broadcast_selected_app(state)
-
+    selected_app = AppManager.get_selected_app()
+    AppSupervisor.send_event(selected_app, event)
     {:noreply, state}
   end
 
@@ -172,63 +151,59 @@ defmodule Octopus.Mixer do
     {:noreply, state}
   end
 
+  # Handle app selection changes from AppManager
+  def handle_info({:app_manager, {:selected_app, selected_app}}, %State{} = state) do
+    case selected_app do
+      # Dual-side apps render immediately without transitions
+      {_, _} ->
+        state = %State{state | rendered_app: selected_app, transition: nil}
+        {:noreply, state}
+
+      # Single apps use transitions
+      _ ->
+        case state.transition do
+          # No current transition - start new transition
+          nil ->
+            state = %State{state | transition: {:out, @transition_duration}}
+            schedule_transition()
+            {:noreply, state}
+
+          # Already transitioning out - keep transitioning
+          {:out, _} ->
+            {:noreply, state}
+
+          # Transitioning in - reverse to transition out
+          {:in, time_left} ->
+            state = %State{state | transition: {:out, @transition_duration - time_left}}
+            {:noreply, state}
+        end
+    end
+  end
+
+  # Handle app lifecycle events from AppManager (no action needed, just ignore)
+  def handle_info({:app_manager, {:app_lifecycle, _app_id, _event}}, %State{} = state) do
+    {:noreply, state}
+  end
+
   ### App Transitions ###
   # Implemented with a simple state machine that is represented by the `transition` field in the state.
   # Possible values are `{:in, time_left}`, `{:out, time_left}` and `nil`.
-
-  def handle_cast({:select_app, next_app_id}, %State{transition: nil} = state) do
-    state = %State{
-      state
-      | transition: {:out, @transition_duration},
-        selected_app: next_app_id,
-        last_selected_app: state.selected_app
-    }
-
-    broadcast_selected_app(state)
-    schedule_transition()
-
-    {:noreply, state}
-  end
-
-  def handle_cast({:select_app, next_app_id}, %State{transition: {:out, _}} = state) do
-    state = %State{
-      state
-      | selected_app: next_app_id
-    }
-
-    broadcast_selected_app(state)
-    broadcast_rendered_app(state)
-
-    {:noreply, state}
-  end
-
-  def handle_cast({:select_app, next_app_id}, %State{transition: {:in, time_left}} = state) do
-    state = %State{
-      state
-      | transition: {:out, @transition_duration - time_left},
-        selected_app: next_app_id,
-        last_selected_app: state.selected_app
-    }
-
-    broadcast_selected_app(state)
-
-    {:noreply, state}
-  end
+  # Transitions are now triggered by AppManager selection changes.
 
   def handle_info(:transition, %State{transition: nil} = state) do
     {:noreply, state}
   end
 
   def handle_info(:transition, %State{transition: {:out, time}} = state) when time <= 0 do
+    selected_app = AppManager.get_selected_app()
+
     state = %State{
       state
-      | rendered_app: state.selected_app,
+      | rendered_app: selected_app,
         transition: {:in, @transition_duration}
     }
 
     Broadcaster.set_luminance(0)
-
-    broadcast_rendered_app(state)
 
     schedule_transition()
 
@@ -238,8 +213,7 @@ defmodule Octopus.Mixer do
   def handle_info(:transition, %State{transition: {:out, time}} = state) do
     state = %State{
       state
-      | transition: {:out, time - @transition_frame_time},
-        rendered_app: state.last_selected_app
+      | transition: {:out, time - @transition_frame_time}
     }
 
     (Easing.cubic_in(time / @transition_duration) * state.max_luminance)
@@ -259,10 +233,12 @@ defmodule Octopus.Mixer do
   end
 
   def handle_info(:transition, %State{transition: {:in, time}} = state) do
+    selected_app = AppManager.get_selected_app()
+
     state = %State{
       state
       | transition: {:in, time - @transition_frame_time},
-        rendered_app: state.selected_app
+        rendered_app: selected_app
     }
 
     ((1 - Easing.cubic_out(time / @transition_duration)) * state.max_luminance)
@@ -286,30 +262,6 @@ defmodule Octopus.Mixer do
 
   defp schedule_transition() do
     Process.send_after(self(), :transition, @transition_frame_time)
-  end
-
-  defp broadcast_selected_app(%State{} = state) do
-    selected =
-      case state.selected_app do
-        {_, _} -> nil
-        app_id -> app_id
-      end
-
-    Phoenix.PubSub.broadcast(
-      Octopus.PubSub,
-      @pubsub_topic,
-      {:mixer, {:selected_app, selected}}
-    )
-  end
-
-  defp broadcast_rendered_app(%State{selected_app: {_, _}} = state), do: state
-
-  defp broadcast_rendered_app(%State{} = state) do
-    do_stop_audio_playback()
-    AppSupervisor.send_event(state.selected_app, %ControlEvent{type: :APP_SELECTED})
-    AppSupervisor.send_event(state.last_selected_app, %ControlEvent{type: :APP_DESELECTED})
-
-    state
   end
 
   defp handle_new_canvas(state, canvas, offset) do
