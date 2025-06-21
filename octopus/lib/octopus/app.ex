@@ -22,9 +22,10 @@ defmodule Octopus.App do
     AudioFrame,
     ControlEvent,
     SynthFrame,
-    SoundToLightControlEvent,
-    ProximityEvent
+    SoundToLightControlEvent
   }
+
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
 
   alias Octopus.Events.Event.Controller, as: ControllerEvent
 

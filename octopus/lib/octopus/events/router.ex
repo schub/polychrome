@@ -11,8 +11,8 @@ defmodule Octopus.Events.Router do
   require Logger
 
   alias Octopus.{AppSupervisor, AppManager, KioskModeManager}
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
-  alias Octopus.Protobuf.{ProximityEvent, SoundToLightControlEvent}
+  alias Octopus.Events.Event.{Controller, Proximity}
+  alias Octopus.Protobuf.SoundToLightControlEvent
 
   @pubsub_topic "events_router"
 
@@ -40,7 +40,7 @@ defmodule Octopus.Events.Router do
     {:ok, %{}}
   end
 
-  def handle_cast({:route_event, %ControllerEvent{} = controller_event}, state) do
+  def handle_cast({:route_event, %Controller{} = controller_event}, state) do
     # Route controller events to selected app and kiosk mode manager
     selected_app = AppManager.get_selected_app()
     AppSupervisor.send_event(selected_app, controller_event)
@@ -71,7 +71,7 @@ defmodule Octopus.Events.Router do
     {:noreply, state}
   end
 
-  def handle_cast({:route_event, %ProximityEvent{} = proximity_event}, state) do
+  def handle_cast({:route_event, %Proximity{} = proximity_event}, state) do
     # Route proximity events to selected app
     selected_app = AppManager.get_selected_app()
     AppSupervisor.send_event(selected_app, proximity_event)

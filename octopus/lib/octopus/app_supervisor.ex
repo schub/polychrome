@@ -3,7 +3,8 @@ defmodule Octopus.AppSupervisor do
   require Logger
 
   alias Octopus.{AppManager, App}
-  alias Octopus.Protobuf.{ControlEvent, ProximityEvent, SoundToLightControlEvent}
+  alias Octopus.Protobuf.{ControlEvent, SoundToLightControlEvent}
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
   alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @topic "apps"

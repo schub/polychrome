@@ -2,7 +2,7 @@ defmodule Octopus.Apps.ProximityTest do
   use Octopus.App, category: :test
   require Logger
 
-  alias Octopus.Protobuf.ProximityEvent
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
   alias Octopus.Canvas
 
   defmodule State do
@@ -60,8 +60,8 @@ defmodule Octopus.Apps.ProximityTest do
 
   def handle_proximity(
         %ProximityEvent{
-          panel_index: panel_index,
-          sensor_index: sensor_index,
+          panel: panel,
+          sensor: sensor,
           distance_mm: distance
         },
         %State{
@@ -73,10 +73,10 @@ defmodule Octopus.Apps.ProximityTest do
       )
       when distance >= min and distance <= max do
     Logger.info(
-      "Proximity measurement: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
+      "Proximity measurement: Panel #{panel}, Sensor #{sensor}, Distance #{round(distance)}mm"
     )
 
-    sensor_key = {panel_index, sensor_index}
+    sensor_key = {panel, sensor}
     measurements = Map.put(measurements, sensor_key, distance)
 
     # # Apply exponential moving average for smoothing
@@ -89,14 +89,14 @@ defmodule Octopus.Apps.ProximityTest do
 
   def handle_proximity(
         %ProximityEvent{
-          panel_index: panel_index,
-          sensor_index: sensor_index,
+          panel: panel,
+          sensor: sensor,
           distance_mm: distance
         },
         state
       ) do
     Logger.debug(
-      "Proximity measurement out of range: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
+      "Proximity measurement out of range: Panel #{panel}, Sensor #{sensor}, Distance #{round(distance)}mm"
     )
 
     {:noreply, state}
@@ -114,8 +114,7 @@ defmodule Octopus.Apps.ProximityTest do
        }) do
     canvas = Canvas.new(96, 8)
 
-    Enum.reduce(smoothed_measurements, canvas, fn {{panel_index, sensor_index}, distance},
-                                                  acc_canvas ->
+    Enum.reduce(smoothed_measurements, canvas, fn {{panel, sensor}, distance}, acc_canvas ->
       brightness_ratio = 1.0 - (distance - min) / (max - min)
       brightness_value = trunc(brightness_ratio * 100)
 
@@ -125,11 +124,11 @@ defmodule Octopus.Apps.ProximityTest do
 
       color = {r, g, b}
 
-      panel_start_x = (panel_index - 1) * 8
+      panel_start_x = (panel - 1) * 8
       side_width = 4
 
       # Sensor 0 = left side (x: 0-3), Sensor 1 = right side (x: 4-7)
-      x_start = panel_start_x + if sensor_index == 0, do: 0, else: 4
+      x_start = panel_start_x + if sensor == 0, do: 0, else: 4
       x_end = x_start + side_width - 1
 
       for x <- x_start..x_end,
