@@ -3,7 +3,7 @@ defmodule Octopus.InputAdapter do
   require Logger
 
   alias Octopus.Protobuf.SoundToLightControlEvent
-  alias Octopus.{Protobuf, Mixer}
+  alias Octopus.{Protobuf, Events}
   alias Octopus.Protobuf.{InputEvent, InputLightEvent}
   alias Octopus.ControllerEvent
 
@@ -53,11 +53,11 @@ defmodule Octopus.InputAdapter do
         # Convert protobuf input event to internal format
         internal_event = convert_to_internal_format(input_event)
         # Logger.debug("#{__MODULE__}: Received input event: #{inspect(internal_event)}")
-        Mixer.handle_event(internal_event)
+        Events.handle_event(internal_event)
 
       {:ok, %SoundToLightControlEvent{} = stl_event} ->
         # Logger.debug("#{__MODULE__}: Received stl event event: #{inspect(stl_event)}")
-        Mixer.handle_event(stl_event)
+        Events.handle_event(stl_event)
 
       {:ok, content} ->
         Logger.warning("#{__MODULE__}: Received unexpected packet: #{inspect(content)}")

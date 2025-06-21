@@ -36,6 +36,7 @@ defmodule Octopus.Application do
         {Registry, keys: :unique, name: Octopus.AppRegistry},
         Octopus.AppSupervisor,
         Octopus.AppManager,
+        Octopus.Events.Router,
         Octopus.InputAdapter,
         Octopus.PlaylistScheduler,
         Octopus.KioskModeManager,

@@ -2,16 +2,12 @@ defmodule Octopus.Mixer do
   use GenServer
   require Logger
 
-  alias Octopus.{Broadcaster, Protobuf, AppSupervisor, Canvas, KioskModeManager, AppManager}
+  alias Octopus.{Broadcaster, Protobuf, Canvas, AppManager}
 
   alias Octopus.Protobuf.{
     RGBFrame,
-    ProximityEvent,
-    SoundToLightControlEvent,
     AudioFrame
   }
-
-  alias Octopus.ControllerEvent
 
   @pubsub_topic "mixer"
   @pubsub_frames [RGBFrame]
@@ -22,8 +18,7 @@ defmodule Octopus.Mixer do
     defstruct rendered_app: nil,
               transition: nil,
               buffer_canvas: Canvas.new(80, 8),
-              max_luminance: 255,
-              last_input: 0
+              max_luminance: 255
   end
 
   def start_link(_) do
@@ -52,10 +47,6 @@ defmodule Octopus.Mixer do
     GenServer.cast(__MODULE__, {:new_frame, {app_id, binary, frame}})
   end
 
-  def handle_event(%{} = event) do
-    GenServer.cast(__MODULE__, {:event, event})
-  end
-
   @doc """
   Subscribes to the mixer topic.
 
@@ -72,11 +63,7 @@ defmodule Octopus.Mixer do
     # Subscribe to AppManager events to update visual rendering
     AppManager.subscribe()
 
-    state = %State{
-      last_input: System.os_time(:second)
-    }
-
-    {:ok, state}
+    {:ok, %State{}}
   end
 
   def handle_cast({:new_frame, {app_id, binary, f}}, %State{rendered_app: rendered_app} = state) do
@@ -105,26 +92,6 @@ defmodule Octopus.Mixer do
   end
 
   def handle_cast({:new_canvas, _}, state), do: {:noreply, state}
-
-  def handle_cast({:event, %ControllerEvent{} = controller_event}, %State{} = state) do
-    selected_app = AppManager.get_selected_app()
-    AppSupervisor.send_event(selected_app, controller_event)
-    KioskModeManager.handle_input(controller_event)
-
-    {:noreply, %State{state | last_input: System.os_time(:second)}}
-  end
-
-  def handle_cast({:event, %SoundToLightControlEvent{} = stl_event}, %State{} = state) do
-    selected_app = AppManager.get_selected_app()
-    AppSupervisor.send_event(selected_app, stl_event)
-    {:noreply, state}
-  end
-
-  def handle_cast({:event, %ProximityEvent{} = event}, %State{} = state) do
-    selected_app = AppManager.get_selected_app()
-    AppSupervisor.send_event(selected_app, event)
-    {:noreply, state}
-  end
 
   def handle_cast(:stop_audio_playback, state) do
     do_stop_audio_playback()
