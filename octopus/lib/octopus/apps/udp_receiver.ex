@@ -4,7 +4,7 @@ defmodule Octopus.Apps.UdpReceiver do
 
   alias Octopus.Protobuf
   alias Octopus.Protobuf.{Frame, RGBFrame, WFrame, InputEvent}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @supported_frames [Frame, WFrame, RGBFrame]
 
@@ -109,12 +109,6 @@ defmodule Octopus.Apps.UdpReceiver do
       end
 
     %InputEvent{type: button_type, value: value}
-  end
-
-  # Legacy support: Convert old joystick format back to protobuf
-  defp convert_to_protobuf_format(%ControllerEvent{type: type, value: value}) do
-    # Joystick events - pass through unchanged
-    %InputEvent{type: type, value: value}
   end
 
   # Convert semantic joystick direction back to protobuf axis events

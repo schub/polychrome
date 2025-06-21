@@ -4,7 +4,7 @@ defmodule Octopus.Apps.BeakTest do
 
   alias Octopus.Protobuf.{SynthFrame, SynthAdsrConfig, SynthConfig}
   alias Octopus.Canvas
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
     defstruct [:index, :color, :canvas]

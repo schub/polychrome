@@ -6,7 +6,7 @@ defmodule OctopusWeb.PixelsLive do
   alias Octopus.ColorPalette
   alias Octopus.{Events, Mixer}
   alias Octopus.Protobuf.{FirmwareConfig, Frame}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @default_config %FirmwareConfig{
     easing_mode: :LINEAR,

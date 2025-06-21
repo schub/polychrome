@@ -5,7 +5,7 @@ defmodule Octopus.Apps.Snake do
   alias Octopus.Sprite
   alias Octopus.Apps.Snake
   alias Octopus.ButtonState
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Snake.Game
 
   @frame_rate 60

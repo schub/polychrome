@@ -3,7 +3,7 @@ defmodule Octopus.Apps.SampleApp do
   require Logger
 
   alias Octopus.{Canvas, ColorPalette}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.VirtualMatrix
 
   defdelegate installation, to: Octopus

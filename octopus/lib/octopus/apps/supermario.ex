@@ -3,7 +3,7 @@ defmodule Octopus.Apps.Supermario do
   require Logger
 
   alias Octopus.Apps.Supermario.Game
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.{ButtonState, JoyState}
 
   @frame_rate 60

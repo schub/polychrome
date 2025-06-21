@@ -4,7 +4,7 @@ defmodule Octopus.Apps.FontTester do
 
   alias Octopus.Canvas
   alias Octopus.Font
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
     defstruct [:index, :variant, :current_font, :text, :easing_interval]

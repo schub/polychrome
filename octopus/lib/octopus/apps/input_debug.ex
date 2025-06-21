@@ -4,7 +4,7 @@ defmodule Octopus.Apps.InputDebug do
 
   alias Octopus.ColorPalette
   alias Octopus.Protobuf.Frame
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.{ButtonState, JoyState}
 
   @frame_rate 60

@@ -3,7 +3,7 @@ defmodule Octopus.Apps.SpaceInvaders do
 
   alias Octopus.Canvas
   alias Octopus.Protobuf.AudioFrame
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   require Logger
 

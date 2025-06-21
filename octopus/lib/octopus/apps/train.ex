@@ -2,7 +2,7 @@ defmodule Octopus.Apps.Train do
   use Octopus.App, category: :animation
 
   alias Octopus.{Canvas, Image}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @fps 60
 

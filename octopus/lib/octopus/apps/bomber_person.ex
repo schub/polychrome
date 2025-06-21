@@ -4,7 +4,7 @@ defmodule Octopus.Apps.BomberPerson do
 
   alias Octopus.Apps.BomberPerson.Maps
   alias Octopus.{Canvas, Util, Font}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
     defstruct [

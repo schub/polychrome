@@ -3,7 +3,7 @@ defmodule Octopus.Apps.Senso do
   require Logger
 
   alias Octopus.Canvas
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.Protobuf.{SynthFrame, ControlEvent, AudioFrame, SynthConfig, SynthAdsrConfig}
 
   @num_windows 10

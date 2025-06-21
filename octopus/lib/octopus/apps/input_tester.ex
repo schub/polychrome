@@ -4,7 +4,7 @@ defmodule Octopus.Apps.InputTester do
 
   alias Octopus.ColorPalette
   alias Octopus.Protobuf.Frame
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
     defstruct [:position, :color, :palette]

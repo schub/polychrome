@@ -3,7 +3,7 @@ defmodule Octopus.ButtonState do
 
   alias Octopus.JoyState
   alias Octopus.ButtonState
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defp button_map() do
     num_buttons = Octopus.installation().num_buttons()
@@ -74,21 +74,6 @@ defmodule Octopus.ButtonState do
     updated_joy = JoyState.handle_event(current_joy, button_type, value)
 
     Map.put(bs, joy_state_key, updated_joy)
-  end
-
-  # Legacy support for old joystick format (for backward compatibility)
-  def handle_event(%ButtonState{} = bs, %ControllerEvent{type: type, value: value}) do
-    case type do
-      type when type in [:AXIS_X_1, :AXIS_Y_1, :BUTTON_A_1, :BUTTON_B_1] ->
-        %ButtonState{bs | joy1: bs.joy1 |> JoyState.handle_event(type, value)}
-
-      type when type in [:AXIS_X_2, :AXIS_Y_2, :BUTTON_A_2, :BUTTON_B_2] ->
-        %ButtonState{bs | joy2: bs.joy2 |> JoyState.handle_event(type, value)}
-
-      _ ->
-        # Unknown joystick event type, ignore
-        bs
-    end
   end
 
   def button_to_index(button_num) when is_integer(button_num) do

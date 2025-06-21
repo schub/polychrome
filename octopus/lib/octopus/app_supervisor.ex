@@ -4,7 +4,7 @@ defmodule Octopus.AppSupervisor do
 
   alias Octopus.{AppManager, App}
   alias Octopus.Protobuf.{ControlEvent, ProximityEvent, SoundToLightControlEvent}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @topic "apps"
 

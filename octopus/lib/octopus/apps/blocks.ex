@@ -3,7 +3,7 @@ defmodule Octopus.Apps.Blocks do
   require Logger
 
   alias Octopus.Apps.Blocks
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.ButtonState
   alias Octopus.Canvas
   alias Octopus.Font

@@ -5,7 +5,7 @@ defmodule Octopus.InputAdapter do
   alias Octopus.Protobuf.SoundToLightControlEvent
   alias Octopus.{Protobuf, Events}
   alias Octopus.Protobuf.{InputEvent, InputLightEvent}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @local_port 4423
 

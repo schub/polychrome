@@ -3,7 +3,7 @@ defmodule Octopus.Apps.Lemmings do
   require Logger
 
   alias Octopus.{Sprite, Canvas}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Lemming
 
   @default_block_time 10

@@ -3,7 +3,7 @@ defmodule Octopus.KioskModeManager do
   require Logger
 
   alias Octopus.{AppSupervisor, AppManager, PlaylistScheduler, InputAdapter}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.PlaylistScheduler.Playlist
 
   @game Octopus.Apps.Whackamole

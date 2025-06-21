@@ -2,7 +2,7 @@ defmodule Octopus.Apps.Whackamole do
   use Octopus.App, category: :game
   require Logger
 
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.Canvas
   alias Octopus.Font
   alias Octopus.Apps.Whackamole.Game

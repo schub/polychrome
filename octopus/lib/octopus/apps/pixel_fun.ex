@@ -5,7 +5,7 @@ defmodule Octopus.Apps.PixelFun do
   require Logger
   alias Octopus.Canvas
   alias Octopus.Protobuf.SoundToLightControlEvent
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.Apps.PixelFun.Program
 
   @fps 60

@@ -3,7 +3,7 @@ defmodule Octopus.Apps.SpritesTester do
   require Logger
 
   alias Octopus.{Sprite, Canvas}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
     defstruct [:index]

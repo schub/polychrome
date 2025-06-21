@@ -11,7 +11,7 @@ defmodule Octopus.Events.Router do
   require Logger
 
   alias Octopus.{AppSupervisor, AppManager, KioskModeManager}
-  alias Octopus.ControllerEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.Protobuf.{ProximityEvent, SoundToLightControlEvent}
 
   @pubsub_topic "events_router"
