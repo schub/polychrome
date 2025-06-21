@@ -7,8 +7,8 @@ defmodule Octopus.Events.Factory do
   out of the domain event modules themselves.
   """
 
-  alias Octopus.Events.Event.{Controller, Proximity}
-  alias Octopus.Protobuf.{InputEvent, ProximityEvent}
+  alias Octopus.Events.Event.{Controller, Proximity, Audio}
+  alias Octopus.Protobuf.{InputEvent, ProximityEvent, SoundToLightControlEvent}
 
   @doc """
   Creates a Controller domain event from a protobuf InputEvent.
@@ -123,6 +123,21 @@ defmodule Octopus.Events.Factory do
       panel: panel_index,
       sensor: sensor_index,
       distance_mm: distance_mm,
+      timestamp: System.os_time(:millisecond)
+    }
+  end
+
+  @doc """
+  Creates an Audio domain event from a protobuf SoundToLightControlEvent.
+
+  Converts the protobuf audio analysis data to a clean domain event with
+  timestamp for audio-reactive lighting effects.
+  """
+  def create_audio_event(%SoundToLightControlEvent{bass: bass, mid: mid, high: high}) do
+    %Audio{
+      bass: bass,
+      mid: mid,
+      high: high,
       timestamp: System.os_time(:millisecond)
     }
   end

@@ -4,7 +4,7 @@ defmodule Octopus.Apps.PixelFun do
 
   require Logger
   alias Octopus.Canvas
-  alias Octopus.Protobuf.SoundToLightControlEvent
+  alias Octopus.Events.Event.Audio
   alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.Apps.PixelFun.Program
 
@@ -190,7 +190,7 @@ defmodule Octopus.Apps.PixelFun do
     {:noreply, state}
   end
 
-  def handle_input(%SoundToLightControlEvent{bass: low, mid: mid, high: high}, state) do
+  def handle_input(%Audio{bass: low, mid: mid, high: high}, state) do
     {:noreply, %State{state | audio_input: %{low: low, mid: mid, high: high}}}
   end
 

@@ -11,8 +11,7 @@ defmodule Octopus.Events.Router do
   require Logger
 
   alias Octopus.{AppSupervisor, AppManager, KioskModeManager}
-  alias Octopus.Events.Event.{Controller, Proximity}
-  alias Octopus.Protobuf.SoundToLightControlEvent
+  alias Octopus.Events.Event.{Controller, Proximity, Audio}
 
   @pubsub_topic "events_router"
 
@@ -56,16 +55,16 @@ defmodule Octopus.Events.Router do
     {:noreply, state}
   end
 
-  def handle_cast({:route_event, %SoundToLightControlEvent{} = stl_event}, state) do
-    # Route sound-to-light events to selected app
+  def handle_cast({:route_event, %Audio{} = audio_event}, state) do
+    # Route audio events to selected app
     selected_app = AppManager.get_selected_app()
-    AppSupervisor.send_event(selected_app, stl_event)
+    AppSupervisor.send_event(selected_app, audio_event)
 
     # Broadcast event for monitoring/debugging
     Phoenix.PubSub.broadcast(
       Octopus.PubSub,
       @pubsub_topic,
-      {:events_router, {:stl_event, stl_event}}
+      {:events_router, {:audio_event, audio_event}}
     )
 
     {:noreply, state}
