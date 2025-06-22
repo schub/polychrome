@@ -14,7 +14,7 @@ defmodule Octopus.Apps.ProximityTest do
 
   # Smoothing factor for exponential moving average (0.0 to 1.0)
   # Lower values = more smoothing, higher values = more responsive
-  @smoothing_factor 0.1
+  # @smoothing_factor 0.1
 
   def name(), do: "Proximity Test"
 
@@ -66,7 +66,7 @@ defmodule Octopus.Apps.ProximityTest do
         },
         %State{
           measurements: measurements,
-          smoothed_measurements: smoothed,
+          smoothed_measurements: _smoothed,
           min_distance: min,
           max_distance: max
         } = state
