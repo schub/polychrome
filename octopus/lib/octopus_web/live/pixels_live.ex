@@ -215,7 +215,7 @@ defmodule OctopusWeb.PixelsLive do
       key_value = key_map[key]
 
       case key_value do
-        # Screen buttons (numbered 1-12)
+        # Screen buttons (numbered based on installation)
         button_num when is_integer(button_num) ->
           socket =
             socket
@@ -310,7 +310,7 @@ defmodule OctopusWeb.PixelsLive do
       key_value = key_map[key]
 
       case key_value do
-        # Screen buttons (numbered 1-12)
+        # Screen buttons (numbered based on installation)
         button_num when is_integer(button_num) ->
           socket =
             socket
