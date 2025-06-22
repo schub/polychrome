@@ -329,7 +329,6 @@ defmodule Octopus.Apps.BomberPerson do
     end
   end
 
-  # New joystick format - works for any joystick/player!
   def handle_input(
         %ControllerEvent{type: :joystick, joystick: joystick, joy_button: :a, action: :press},
         state
@@ -362,7 +361,6 @@ defmodule Octopus.Apps.BomberPerson do
     {:noreply, state}
   end
 
-  # New helper function for semantic direction movement
   defp move_player(state, player_index, direction) do
     player = state.players[player_index]
     %Player{position: {player_x, player_y}} = player

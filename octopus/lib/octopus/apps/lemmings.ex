@@ -186,7 +186,6 @@ defmodule Octopus.Apps.Lemmings do
     handle_number_button_press(state, button_index)
   end
 
-  # New joystick format - much cleaner!
   def handle_input(
         %ControllerEvent{type: :joystick, joystick: _joystick, direction: :right},
         state

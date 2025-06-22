@@ -54,7 +54,7 @@ defmodule Joystick.EventHandler do
   defp parse_event(_, {:ev_abs, :abs_z, _}), do: nil
   defp parse_event(_, {:ev_msc, _, _}), do: nil
 
-  # Parse joystick buttons - convert to new format
+  # Parse joystick buttons
   defp parse_event(device, {:ev_key, button, value} = event) when button in @supported_buttons do
     Logger.debug("Button event: #{inspect(event)} #{inspect(device)}}")
 
@@ -67,8 +67,7 @@ defmodule Joystick.EventHandler do
         }
 
       {:joystick_button, joystick_num, joy_button} ->
-        # Generate new joystick button format - but we need to convert to protobuf for now
-        # This will be handled by InputAdapter conversion
+        # Generate protobuf for network transmission
         %Protobuf.InputEvent{
           type: joystick_button_to_protobuf(joystick_num, joy_button),
           value: value
@@ -85,13 +84,13 @@ defmodule Joystick.EventHandler do
     end
   end
 
-  # Parse joystick axis - convert to new format
+  # Parse joystick axis
   defp parse_event(device, {:ev_abs, axis, value} = event) when axis in @supported_axis do
     Logger.debug("Axis event: #{inspect(event)} #{inspect(device)}}")
 
     case joystick_axis_mapping(device, axis) do
       {joystick_num, axis_type} ->
-        # Generate protobuf format for now - InputAdapter will convert to new format
+        # Generate protobuf for network transmission
         %Protobuf.InputEvent{
           type: axis_to_protobuf(joystick_num, axis_type),
           value: direction_value(value, axis)
@@ -135,7 +134,7 @@ defmodule Joystick.EventHandler do
   defp joystick_axis_mapping("/dev/input/event1", :abs_y), do: {2, :y}
   defp joystick_axis_mapping(_, _), do: nil
 
-  # Convert to protobuf format (temporary - until we update the whole pipeline)
+  # Convert joystick buttons to protobuf format for network transmission
   defp joystick_button_to_protobuf(1, :a), do: :BUTTON_A_1
   defp joystick_button_to_protobuf(2, :a), do: :BUTTON_A_2
   defp joystick_button_to_protobuf(1, :b), do: :BUTTON_B_1

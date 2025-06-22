@@ -194,7 +194,6 @@ defmodule Octopus.Apps.PixelFun do
     {:noreply, %State{state | audio_input: %{low: low, mid: mid, high: high}}}
   end
 
-  # New joystick format - much cleaner!
   def handle_input(
         %ControllerEvent{type: :joystick, joystick: _joystick, direction: :left},
         %State{move: {_, y}, input: true} = state

@@ -10,7 +10,6 @@ defmodule Octopus.Events.Event.Controller do
   - Joystick events: Analog stick movement and action buttons
   """
 
-  # Remove the legacy :value field as it's no longer used
   defstruct [:type, :button, :action, :joystick, :direction, :joy_button]
 
   @type t ::

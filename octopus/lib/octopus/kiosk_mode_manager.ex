@@ -100,7 +100,7 @@ defmodule Octopus.KioskModeManager do
     {:noreply, %State{state | status: :off}}
   end
 
-  # Handle new button format - any button press starts the game
+  # Any button press starts the game
   def handle_cast(
         {:input_event, %ControllerEvent{type: :button, action: :press}},
         %State{status: :playlist} = state

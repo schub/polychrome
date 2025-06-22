@@ -40,7 +40,7 @@ defmodule Octopus.ButtonState do
     end
   end
 
-  # Handle new joystick format - convert to JoyState events
+  # Handle joystick direction events and convert to axis events for JoyState compatibility
   def handle_event(%ButtonState{} = bs, %ControllerEvent{
         type: :joystick,
         joystick: joystick,
@@ -51,7 +51,7 @@ defmodule Octopus.ButtonState do
     joy_state_key = if joystick == 1, do: :joy1, else: :joy2
     current_joy = Map.get(bs, joy_state_key)
 
-    # Convert direction to old format for JoyState
+    # Convert direction to axis events for JoyState compatibility
     {axis_type, value} = direction_to_axis_event(joystick, direction)
     updated_joy = JoyState.handle_event(current_joy, axis_type, value)
 
@@ -69,7 +69,7 @@ defmodule Octopus.ButtonState do
     joy_state_key = if joystick == 1, do: :joy1, else: :joy2
     current_joy = Map.get(bs, joy_state_key)
 
-    # Convert joy_button to old format for JoyState
+    # Convert joy_button to button events for JoyState compatibility
     {button_type, value} = joy_button_to_button_event(joystick, joy_button, action)
     updated_joy = JoyState.handle_event(current_joy, button_type, value)
 

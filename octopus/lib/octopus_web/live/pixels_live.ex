@@ -146,7 +146,7 @@ defmodule OctopusWeb.PixelsLive do
           src={@pixel_layout.pixel_image}
           class="absolute left-0 top-0 w-full h-full object-contain mix-blend-multiply pointer-events-none"
         /> --%>
-        
+
     <!-- Button UI Panel - Bottom -->
         <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
           <div class="flex gap-2 justify-center">
@@ -215,7 +215,7 @@ defmodule OctopusWeb.PixelsLive do
       key_value = key_map[key]
 
       case key_value do
-        # Screen buttons - use new format
+        # Screen buttons (numbered 1-12)
         button_num when is_integer(button_num) ->
           socket =
             socket
@@ -226,7 +226,6 @@ defmodule OctopusWeb.PixelsLive do
 
           {:noreply, socket}
 
-        # New joystick mappings
         :JOYSTICK_1_LEFT ->
           %ControllerEvent{type: :joystick, joystick: 1, direction: :left}
           |> Events.handle_event()
@@ -311,7 +310,7 @@ defmodule OctopusWeb.PixelsLive do
       key_value = key_map[key]
 
       case key_value do
-        # Screen buttons - use new format
+        # Screen buttons (numbered 1-12)
         button_num when is_integer(button_num) ->
           socket =
             socket
@@ -322,7 +321,7 @@ defmodule OctopusWeb.PixelsLive do
 
           {:noreply, socket}
 
-        # New joystick mappings - return to center on keyup
+        # Joystick directions - return to center on keyup
         joystick_direction
         when joystick_direction in [
                :JOYSTICK_1_LEFT,
@@ -379,23 +378,20 @@ defmodule OctopusWeb.PixelsLive do
   def handle_event("button-click", %{"button" => button_string}, socket) do
     {button_num, _} = Integer.parse(button_string)
 
-    # Update visual state - add to pressed buttons
     socket =
       socket
       |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button_num))
 
-    # Send button press event
     %ControllerEvent{type: :button, button: button_num, action: :press}
     |> Events.handle_event()
 
-    # Send button release event after a short delay to simulate a button press
+    # Simulate button press with automatic release after delay
     Process.send_after(self(), {:button_release, button_num}, 100)
 
     {:noreply, socket}
   end
 
   def handle_info({:button_release, button_num}, socket) do
-    # Update visual state - remove from pressed buttons
     socket =
       socket
       |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button_num))

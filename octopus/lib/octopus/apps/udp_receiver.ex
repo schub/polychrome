@@ -81,7 +81,7 @@ defmodule Octopus.Apps.UdpReceiver do
     %InputEvent{type: button_type, value: value}
   end
 
-  # Convert new joystick movement events back to protobuf format
+  # Convert joystick movement events back to protobuf format
   defp convert_to_protobuf_format(%ControllerEvent{
          type: :joystick,
          joystick: joystick,
@@ -92,7 +92,7 @@ defmodule Octopus.Apps.UdpReceiver do
     %InputEvent{type: axis_type, value: value}
   end
 
-  # Convert new joystick button events back to protobuf format
+  # Convert joystick button events back to protobuf format
   defp convert_to_protobuf_format(%ControllerEvent{
          type: :joystick,
          joystick: joystick,
