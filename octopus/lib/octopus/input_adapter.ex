@@ -6,8 +6,6 @@ defmodule Octopus.InputAdapter do
   alias Octopus.Protobuf.{InputEvent, InputLightEvent, SoundToLightControlEvent}
   alias Octopus.Events.Factory
 
-  @local_port 4423
-
   defmodule State do
     defstruct [:udp, :from_ip, :from_port]
   end
@@ -32,8 +30,10 @@ defmodule Octopus.InputAdapter do
   end
 
   def init(:ok) do
-    Logger.info("Starting input adapter. Listening on port #{@local_port}")
-    {:ok, udp} = :gen_udp.open(@local_port, [:binary, active: true])
+    # Configuration is centralized in config.exs
+    local_port = Application.fetch_env!(:octopus, :controller_interface_port)
+    Logger.info("Starting input adapter. Listening on port #{local_port}")
+    {:ok, udp} = :gen_udp.open(local_port, [:binary, active: true])
 
     {:ok, %State{udp: udp}}
   end

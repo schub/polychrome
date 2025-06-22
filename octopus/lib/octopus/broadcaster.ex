@@ -14,15 +14,12 @@ defmodule Octopus.Broadcaster do
   }
 
   defmodule State do
-    defstruct [:udp, :config, :remote_ip, firmware_stats: %{}]
+    defstruct [:udp, :config, :remote_ip, :remote_port, firmware_stats: %{}]
   end
 
   defmodule FirmwareInfoMeta do
     defstruct [:last_seen, :firmware_info, :from_ip]
   end
-
-  @remote_port 1337
-  @local_port 4422
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
@@ -45,20 +42,25 @@ defmodule Octopus.Broadcaster do
   end
 
   def init(:ok) do
+    # Configuration is centralized in config.exs
     target_ip =
-      case Application.get_env(:octopus, :broadcast) do
+      case Application.fetch_env!(:octopus, :enable_broadcast) do
         true -> get_broadcast_ip()
-        false -> {127, 0, 0, 1}
+        false -> Application.fetch_env!(:octopus, :localhost_ip)
       end
 
-    Logger.info("Broadcasting to #{inspect(target_ip)}. Port #{@remote_port}")
+    remote_port = Application.fetch_env!(:octopus, :firmware_broadcaster_remote_port)
+    local_port = Application.fetch_env!(:octopus, :firmware_broadcaster_local_port)
 
-    {:ok, udp} = :gen_udp.open(@local_port, [:binary, active: true, broadcast: true])
+    Logger.info("Broadcasting to #{inspect(target_ip)}. Port #{remote_port}")
+
+    {:ok, udp} = :gen_udp.open(local_port, [:binary, active: true, broadcast: true])
 
     state = %State{
       udp: udp,
       config: @default_config,
-      remote_ip: target_ip
+      remote_ip: target_ip,
+      remote_port: remote_port
     }
 
     state = send_config(@default_config, state)
@@ -142,7 +144,7 @@ defmodule Octopus.Broadcaster do
 
   defp send_binary(binary, %State{} = state) do
     # Logger.debug("Sending UDP Packet: #{inspect(binary)}")
-    :gen_udp.send(state.udp, state.remote_ip, @remote_port, binary)
+    :gen_udp.send(state.udp, state.remote_ip, state.remote_port, binary)
   end
 
   defp handle_firmware_packet(%RemoteLog{message: message}, from_ip, %State{} = state) do
@@ -187,11 +189,11 @@ defmodule Octopus.Broadcaster do
   end
 
   def get_broadcast_ip() do
-    case Application.fetch_env(:octopus, :broadcast_ip) do
-      {:ok, ip} ->
+    case Application.fetch_env!(:octopus, :broadcast_ip) do
+      ip when is_tuple(ip) ->
         ip
 
-      :error ->
+      _ ->
         {:ok, ifaddrs} = :inet.getifaddrs()
 
         ifaddrs

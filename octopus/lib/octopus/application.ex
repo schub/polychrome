@@ -48,7 +48,7 @@ defmodule Octopus.Application do
         OctopusWeb.Endpoint,
 
         # OSC
-        {Octopus.Osc.Server, 8000}
+        Octopus.Osc.Server
       ] ++
         case System.get_env("TELEGRAM_BOT_SECRET") do
           nil -> []

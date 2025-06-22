@@ -1,4 +1,4 @@
-defmodule Octopus.Apps.UdpReceiver do
+defmodule Octopus.Apps.FrameRelay do
   use Octopus.App
   require Logger
 
@@ -9,23 +9,28 @@ defmodule Octopus.Apps.UdpReceiver do
   @supported_frames [Frame, WFrame, RGBFrame]
 
   @moduledoc """
-  Will open a UDP port and listen for protobuf packets. All valid frames will be forwarded to the mixer.
+  Frame Relay - receives frames from external sources and forwards them to the mixer.
 
-  Any input events will be forwarded to the last IP address that sent a packet.
+  Opens a UDP port and listens for protobuf packets. All valid frames (Frame, WFrame, RGBFrame)
+  will be relayed to the mixer for processing.
+
+  Any input events will be forwarded back to the last IP address that sent a packet.
   """
 
   defmodule State do
     defstruct [:udp, :remote_ip, :remote_port]
   end
 
-  @port 2342
-
-  def name(), do: "UDP Receiver (Port: #{@port})"
+  def name() do
+    port = Application.fetch_env!(:octopus, :frame_relay_port)
+    "Frame Relay (Port: #{port})"
+  end
 
   def app_init(_args) do
-    Logger.info("#{__MODULE__}: Listening on UDP port #{inspect(@port)} for protobuf packets.")
+    port = Application.fetch_env!(:octopus, :frame_relay_port)
+    Logger.info("#{__MODULE__}: Listening on UDP port #{inspect(port)} for protobuf packets.")
 
-    {:ok, udp} = :gen_udp.open(@port, [:binary, active: true, ip: bind_address()])
+    {:ok, udp} = :gen_udp.open(port, [:binary, active: true, ip: bind_address()])
 
     state = %State{
       udp: udp
