@@ -54,11 +54,43 @@ defmodule Octopus.Mixer do
         panel_range: fn(...), panel_at_coord: fn(...)
       },
       
-      # Existing fields
-      transition: nil,
+      # Existing transition system (adapted for multi-app)
+      transition: nil,  # {:out, time_left} | {:in, time_left} | nil
       max_luminance: 255
     ]
   end
+end
+```
+
+#### Transition System Adaptation
+The existing luminance-based transition system works seamlessly with multi-app mixing:
+
+```elixir
+# Current: Single app transitions
+case selected_app do
+  {_, _} -> no_transition()     # Dual apps
+  _ -> start_transition()       # Single apps  
+end
+
+# New: Multi-app transition support
+case get_selected_apps() do
+  [_single] -> start_transition()      # Single app gets transitions
+  [_multiple | _] -> no_transition()   # Multiple apps render immediately
+end
+
+# Transition application works with mixed content
+defp apply_transition_luminance(mixed_frame, transition_state) do
+  case transition_state do
+    {:out, time} -> 
+      luminance = Easing.cubic_in(time / @transition_duration) * max_luminance
+      Broadcaster.set_luminance(trunc(luminance))
+    {:in, time} ->
+      luminance = (1 - Easing.cubic_out(time / @transition_duration)) * max_luminance  
+      Broadcaster.set_luminance(trunc(luminance))
+    nil -> 
+      Broadcaster.set_luminance(max_luminance)
+  end
+  mixed_frame  # Frame content unchanged, only hardware brightness affected
 end
 ```
 
@@ -169,27 +201,76 @@ Move VirtualMatrix functions to mixer:
 
 ### 3.1 App Selection and Transparency
 ```elixir
-# Apps can set their own transparency
+# Apps can set their own transparency and blend mode
 Octopus.App.set_transparency(0.7)  # 70% opacity
+Octopus.App.set_blend_mode(:screen)  # Use screen blending for bright overlays
 
 # Manager can control which apps are active
 AppManager.set_selected_apps([:app1, :app2])  # Multiple apps can be active
 
-# Manager can override app transparency
+# Manager can override app settings
 ManagerLive.set_app_transparency(:app1, 0.5)
+ManagerLive.set_app_blend_mode(:app1, :multiply)  # Override app's blend mode
 ```
 
 ### 3.2 Visual Mixing Engine
+
+#### Panel-Level Mixing Strategy
+The mixer performs **panel-by-panel blending** to handle different display layouts efficiently:
+
 ```elixir
 defp mixdown_displays(state) do
-  state.selected_apps
-  |> Enum.filter(&has_display_buffer?/1)
-  |> Enum.map(&get_display_with_transparency/1)
-  |> blend_displays()  # Alpha blending with transparency
-  |> extract_panel_pixels(state.display_info)  # Only pixels that map to actual panels
+  selected_apps = get_selected_apps_with_transparency(state)
+  panel_count = state.display_info.panel_count
+  
+  # Mix each physical panel separately (handles different layout modes)
+  for panel_id <- 0..(panel_count - 1) do
+    # Extract 8x8 panel pixels from each app's display buffer
+    panel_canvases = 
+      for {app_id, transparency} <- selected_apps do
+        display_buffer = state.app_displays[app_id]
+        extract_panel_pixels(display_buffer, panel_id)  # Returns 8x8 Canvas
+      end
+    
+    # Blend all 8x8 panel canvases with transparency
+    blend_panel_canvases(panel_canvases, transparencies)
+  end
+  |> join_panels_to_frame()  # Combine all panels into final frame
   |> generate_network_frame(state.output_mode)
 end
+
+# Panel extraction works regardless of display layout:
+# - App A (gapped_panels): Extract pixels (24-31, 0-7) for panel 1  
+# - App B (adjacent_panels): Extract pixels (8-15, 0-7) for panel 1
+# - Both produce same 8x8 canvas that can be blended normally
 ```
+
+#### Blending Modes Support
+Leverages Canvas's existing professional blending capabilities:
+
+```elixir
+defp blend_panel_canvases(panel_canvases, blend_configs) do
+  Enum.reduce(panel_canvases, Canvas.new(8, 8), fn {canvas, config}, acc ->
+    %{mode: mode, transparency: alpha} = config
+    Canvas.blend(acc, canvas, mode, alpha)
+  end)
+end
+```
+
+**Available blend modes** (from Canvas module):
+- **`:add`** (default) - Natural LED light mixing, good for most cases
+- **`:screen`** - Bright overlays without overexposure, excellent for text
+- **`:multiply`** - Darkening effects, shadows, atmospheric effects
+- **`:lighten`** - Highlighting, sparkle effects, bright accents
+- **`:overlay`** - Dynamic mixing based on base brightness
+- **`:darken`** - Takes darker colors, good for masking
+- **`:subtract`** - Darkening by subtraction, special effects
+
+#### Performance Analysis
+- **Scale**: 12 panels × 64 pixels = 768 total pixels
+- **Operations per frame**: ~6,144 simple operations (map lookups + arithmetic)
+- **Target**: 60 FPS (16.67ms budget)
+- **Assessment**: ✅ **Fast enough** - much simpler than existing app computations
 
 ### 3.3 Manager Live Integration
 - Display running apps with transparency sliders
