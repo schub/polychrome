@@ -26,7 +26,7 @@ defmodule OctopusWeb.AppLive do
   def render(assigns) do
     ~H"""
     <div class="container mx-auto flex flex-col items-center">
-      <h1 class="text-2xl font-semibold leading-loose"><%= @name %></h1>
+      <h1 class="text-2xl font-semibold leading-loose">{@name}</h1>
       <.live_component
         id={"app-config-#{@app_id}"}
         module={OctopusWeb.AppConfigComponent}
@@ -35,7 +35,7 @@ defmodule OctopusWeb.AppLive do
       />
       <h2 class="text-2xl font-semibold leading-loose">Config for Playlist</h2>
       <code>
-        <%= @playlist_config %>
+        {@playlist_config}
       </code>
     </div>
     """

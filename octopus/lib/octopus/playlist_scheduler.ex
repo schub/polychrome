@@ -2,7 +2,7 @@ defmodule Octopus.PlaylistScheduler do
   use GenServer
   require Logger
 
-  alias Octopus.{AppSupervisor, Mixer, Repo}
+  alias Octopus.{AppSupervisor, AppManager, Repo}
   alias Octopus.PlaylistScheduler.Playlist
   alias Octopus.PlaylistScheduler.Playlist.Animation
 
@@ -183,7 +183,7 @@ defmodule Octopus.PlaylistScheduler do
 
     case AppSupervisor.start_app(module, config: config) do
       {:ok, next_app_id} ->
-        Mixer.select_app(next_app_id)
+        AppManager.select_app(next_app_id)
         AppSupervisor.stop_app(state.app_id)
 
         :timer.send_after(animation.timeout, self(), {:next, run_id})

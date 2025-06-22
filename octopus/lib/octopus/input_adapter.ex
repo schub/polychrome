@@ -2,9 +2,9 @@ defmodule Octopus.InputAdapter do
   use GenServer
   require Logger
 
-  alias Octopus.Protobuf.SoundToLightControlEvent
-  alias Octopus.{Protobuf, Mixer}
-  alias Octopus.Protobuf.{InputEvent, InputLightEvent}
+  alias Octopus.{Protobuf, Events}
+  alias Octopus.Protobuf.{InputEvent, InputLightEvent, SoundToLightControlEvent}
+  alias Octopus.Events.Factory
 
   @local_port 4423
 
@@ -49,12 +49,16 @@ defmodule Octopus.InputAdapter do
   def handle_info({:udp, _socket, from_ip, from_port, packet}, state = %State{}) do
     case Protobuf.decode_packet(packet) do
       {:ok, %InputEvent{} = input_event} ->
-        # Logger.debug("#{__MODULE__}: Received input event: #{inspect(input_event)}")
-        Mixer.handle_event(input_event)
+        # Convert protobuf input event to domain event
+        domain_event = Factory.create_controller_event(input_event)
+        # Logger.debug("#{__MODULE__}: Received input event: #{inspect(domain_event)}")
+        Events.handle_event(domain_event)
 
       {:ok, %SoundToLightControlEvent{} = stl_event} ->
-        # Logger.debug("#{__MODULE__}: Received stl event event: #{inspect(stl_event)}")
-        Mixer.handle_event(stl_event)
+        # Convert protobuf audio event to domain event
+        domain_event = Factory.create_audio_event(stl_event)
+        # Logger.debug("#{__MODULE__}: Received audio event: #{inspect(domain_event)}")
+        Events.handle_event(domain_event)
 
       {:ok, content} ->
         Logger.warning("#{__MODULE__}: Received unexpected packet: #{inspect(content)}")

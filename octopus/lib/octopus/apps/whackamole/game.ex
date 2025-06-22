@@ -1,7 +1,7 @@
 defmodule Octopus.Apps.Whackamole.Game do
   use Octopus.Params, prefix: :whackamole
   require Logger
-  alias Octopus.{Canvas, Font, App, Animator, Transitions, Sprite, EventScheduler, InputAdapter}
+  alias Octopus.{Canvas, Font, App, Animator, Transitions, Sprite, KioskModeManager, InputAdapter}
   alias Octopus.Apps.Whackamole.Mole
 
   defstruct [
@@ -135,7 +135,7 @@ defmodule Octopus.Apps.Whackamole.Game do
         next_tick(game)
 
       70 ->
-        EventScheduler.game_finished()
+        KioskModeManager.game_finished()
         next_tick(game)
 
       _ ->

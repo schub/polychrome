@@ -2,8 +2,11 @@ defmodule Octopus.AppSupervisor do
   use DynamicSupervisor
   require Logger
 
-  alias Octopus.{Mixer, App}
-  alias Octopus.Protobuf.{InputEvent, ControlEvent, ProximityEvent, SoundToLightControlEvent}
+  alias Octopus.{AppManager, App}
+  alias Octopus.Protobuf.ControlEvent
+  alias Octopus.Events.Event.{Audio}
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @topic "apps"
 
@@ -64,9 +67,9 @@ defmodule Octopus.AppSupervisor do
     app_id = generate_app_id()
     name = {:via, Registry, {Octopus.AppRegistry, app_id, module}}
 
-    # select app in mixer if there is no other app running
+    # select app in AppManager if there is no other app running
     if running_apps() == [] do
-      Mixer.select_app(app_id)
+      AppManager.select_app(app_id)
     end
 
     case DynamicSupervisor.start_child(__MODULE__, {module, {config, name: name}}) do
@@ -95,8 +98,8 @@ defmodule Octopus.AppSupervisor do
   Stops an specific instance of an app.
   """
   def stop_app(app_id) do
-    if app_id == Mixer.get_selected_app() do
-      Mixer.stop_audio_playback()
+    if app_id == AppManager.get_selected_app() do
+      GenServer.cast(Octopus.Mixer, :stop_audio_playback)
     end
 
     Phoenix.PubSub.broadcast(Octopus.PubSub, @topic, {:apps, {:stopped, app_id}})
@@ -172,7 +175,7 @@ defmodule Octopus.AppSupervisor do
   Sends an event to an app. Ignores the event if the app is not running.
   """
   def send_event(app_id, %event_type{} = event)
-      when event_type in [InputEvent, ControlEvent, SoundToLightControlEvent, ProximityEvent] do
+      when event_type in [ControllerEvent, ControlEvent, Audio, ProximityEvent] do
     case Registry.lookup(Octopus.AppRegistry, app_id) do
       [{pid, _}] -> send(pid, {:event, event})
       [] -> :noop

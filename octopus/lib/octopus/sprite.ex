@@ -11,10 +11,12 @@ defmodule Octopus.Sprite do
     |> Enum.map(fn file_name -> String.replace(file_name, ".png", "") end)
   end
 
-  defp path(sprite_sheet), do: Path.join([:code.priv_dir(:octopus), "sprites", "#{sprite_sheet}.png"])
+  defp path(sprite_sheet),
+    do: Path.join([:code.priv_dir(:octopus), "sprites", "#{sprite_sheet}.png"])
 
   def load(sprite_sheet) do
     path = path(sprite_sheet)
+
     if File.exists?(path) do
       {:ok, %ExPng.Image{} = image} = ExPng.Image.from_file(path)
 

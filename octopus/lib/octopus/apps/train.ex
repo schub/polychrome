@@ -2,7 +2,7 @@ defmodule Octopus.Apps.Train do
   use Octopus.App, category: :animation
 
   alias Octopus.{Canvas, Image}
-  alias Octopus.Protobuf.InputEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @fps 60
 
@@ -68,12 +68,34 @@ defmodule Octopus.Apps.Train do
     {:noreply, %State{state | acceleration: 0}}
   end
 
-  def handle_input(%InputEvent{type: :AXIS_X_1, value: value}, state) do
-    state = %State{state | acceleration: -0.1 * value}
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :left},
+        state
+      ) do
+    # Go forward (left moves landscape right)
+    state = %State{state | acceleration: 0.1}
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{type: _, value: _}, state) do
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :right},
+        state
+      ) do
+    # Go backward (right moves landscape left)
+    state = %State{state | acceleration: -0.1}
+    {:noreply, state}
+  end
+
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :center},
+        state
+      ) do
+    # Stop accelerating
+    state = %State{state | acceleration: 0}
+    {:noreply, state}
+  end
+
+  def handle_input(%ControllerEvent{}, state) do
     {:noreply, state}
   end
 

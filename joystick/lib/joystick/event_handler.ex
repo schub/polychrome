@@ -54,22 +54,51 @@ defmodule Joystick.EventHandler do
   defp parse_event(_, {:ev_abs, :abs_z, _}), do: nil
   defp parse_event(_, {:ev_msc, _, _}), do: nil
 
+  # Parse joystick buttons
   defp parse_event(device, {:ev_key, button, value} = event) when button in @supported_buttons do
     Logger.debug("Button event: #{inspect(event)} #{inspect(device)}}")
 
-    %Protobuf.InputEvent{
-      type: type_from_button(device, button),
-      value: value
-    }
+    case joystick_button_mapping(device, button) do
+      {:screen_button, button_num} ->
+        # Screen button mapping
+        %Protobuf.InputEvent{
+          type: String.to_existing_atom("BUTTON_#{button_num}"),
+          value: value
+        }
+
+      {:joystick_button, joystick_num, joy_button} ->
+        # Generate protobuf for network transmission
+        %Protobuf.InputEvent{
+          type: joystick_button_to_protobuf(joystick_num, joy_button),
+          value: value
+        }
+
+      :menu_button ->
+        %Protobuf.InputEvent{
+          type: :BUTTON_MENU,
+          value: value
+        }
+
+      nil ->
+        nil
+    end
   end
 
+  # Parse joystick axis
   defp parse_event(device, {:ev_abs, axis, value} = event) when axis in @supported_axis do
-    Logger.debug("Button event: #{inspect(event)} #{inspect(device)}}")
+    Logger.debug("Axis event: #{inspect(event)} #{inspect(device)}}")
 
-    %Protobuf.InputEvent{
-      type: type_from_direction(device, axis),
-      value: direction_value(value, axis)
-    }
+    case joystick_axis_mapping(device, axis) do
+      {joystick_num, axis_type} ->
+        # Generate protobuf for network transmission
+        %Protobuf.InputEvent{
+          type: axis_to_protobuf(joystick_num, axis_type),
+          value: direction_value(value, axis)
+        }
+
+      nil ->
+        nil
+    end
   end
 
   defp parse_event(device, event) do
@@ -77,29 +106,44 @@ defmodule Joystick.EventHandler do
     nil
   end
 
-  defp type_from_button("/dev/input/event0", :btn_trigger), do: :BUTTON_1
-  defp type_from_button("/dev/input/event0", :btn_thumb), do: :BUTTON_2
-  defp type_from_button("/dev/input/event0", :btn_top2), do: :BUTTON_3
-  defp type_from_button("/dev/input/event0", :btn_top), do: :BUTTON_4
-  defp type_from_button("/dev/input/event0", :btn_base), do: :BUTTON_5
+  # Map physical buttons to logical functions
+  defp joystick_button_mapping("/dev/input/event0", :btn_trigger), do: {:screen_button, 1}
+  defp joystick_button_mapping("/dev/input/event0", :btn_thumb), do: {:screen_button, 2}
+  defp joystick_button_mapping("/dev/input/event0", :btn_top2), do: {:screen_button, 3}
+  defp joystick_button_mapping("/dev/input/event0", :btn_top), do: {:screen_button, 4}
+  defp joystick_button_mapping("/dev/input/event0", :btn_base), do: {:screen_button, 5}
 
-  defp type_from_button("/dev/input/event1", :btn_thumb), do: :BUTTON_6
-  defp type_from_button("/dev/input/event1", :btn_trigger), do: :BUTTON_7
-  defp type_from_button("/dev/input/event1", :btn_base5), do: :BUTTON_8
-  defp type_from_button("/dev/input/event1", :btn_top), do: :BUTTON_9
-  defp type_from_button("/dev/input/event1", :btn_top2), do: :BUTTON_10
+  defp joystick_button_mapping("/dev/input/event1", :btn_thumb), do: {:screen_button, 6}
+  defp joystick_button_mapping("/dev/input/event1", :btn_trigger), do: {:screen_button, 7}
+  defp joystick_button_mapping("/dev/input/event1", :btn_base5), do: {:screen_button, 8}
+  defp joystick_button_mapping("/dev/input/event1", :btn_top), do: {:screen_button, 9}
+  defp joystick_button_mapping("/dev/input/event1", :btn_top2), do: {:screen_button, 10}
 
-  defp type_from_button("/dev/input/event0", :btn_base6), do: :BUTTON_A_1
-  defp type_from_button("/dev/input/event0", :btn_pinkie), do: :BUTTON_A_1
-  defp type_from_button("/dev/input/event1", :btn_base2), do: :BUTTON_A_2
-  defp type_from_button("/dev/input/event1", :btn_base6), do: :BUTTON_A_2
+  defp joystick_button_mapping("/dev/input/event0", :btn_base6), do: {:joystick_button, 1, :a}
+  defp joystick_button_mapping("/dev/input/event0", :btn_pinkie), do: {:joystick_button, 1, :a}
+  defp joystick_button_mapping("/dev/input/event1", :btn_base2), do: {:joystick_button, 2, :a}
+  defp joystick_button_mapping("/dev/input/event1", :btn_base6), do: {:joystick_button, 2, :a}
 
-  defp type_from_button("/dev/input/event1", :btn_base), do: :BUTTON_MENU
+  defp joystick_button_mapping("/dev/input/event1", :btn_base), do: :menu_button
+  defp joystick_button_mapping(_, _), do: nil
 
-  defp type_from_direction("/dev/input/event0", :abs_x), do: :AXIS_X_1
-  defp type_from_direction("/dev/input/event0", :abs_y), do: :AXIS_Y_1
-  defp type_from_direction("/dev/input/event1", :abs_x), do: :AXIS_X_2
-  defp type_from_direction("/dev/input/event1", :abs_y), do: :AXIS_Y_2
+  # Map physical axes to logical joysticks
+  defp joystick_axis_mapping("/dev/input/event0", :abs_x), do: {1, :x}
+  defp joystick_axis_mapping("/dev/input/event0", :abs_y), do: {1, :y}
+  defp joystick_axis_mapping("/dev/input/event1", :abs_x), do: {2, :x}
+  defp joystick_axis_mapping("/dev/input/event1", :abs_y), do: {2, :y}
+  defp joystick_axis_mapping(_, _), do: nil
+
+  # Convert joystick buttons to protobuf format for network transmission
+  defp joystick_button_to_protobuf(1, :a), do: :BUTTON_A_1
+  defp joystick_button_to_protobuf(2, :a), do: :BUTTON_A_2
+  defp joystick_button_to_protobuf(1, :b), do: :BUTTON_B_1
+  defp joystick_button_to_protobuf(2, :b), do: :BUTTON_B_2
+
+  defp axis_to_protobuf(1, :x), do: :AXIS_X_1
+  defp axis_to_protobuf(1, :y), do: :AXIS_Y_1
+  defp axis_to_protobuf(2, :x), do: :AXIS_X_2
+  defp axis_to_protobuf(2, :y), do: :AXIS_Y_2
 
   defp direction_value(0, :abs_x), do: -1
   defp direction_value(127, :abs_x), do: 0

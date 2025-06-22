@@ -9,7 +9,7 @@ defmodule Octopus.App do
   See `Octopus.Apps.SampleApp` for an example.
 
   ## Inputs
-  An app can implement the `handle_input/2` callback to react to input events. It will receive an Octopus.Protobuf.InputEvent struct and the genserver state.
+  An app can implement the `handle_input/2` callback to react to input events. It will receive an Octopus.ControllerEvent struct and the genserver state.
 
   """
 
@@ -20,12 +20,13 @@ defmodule Octopus.App do
     WFrame,
     RGBFrame,
     AudioFrame,
-    InputEvent,
     ControlEvent,
-    SynthFrame,
-    SoundToLightControlEvent,
-    ProximityEvent
+    SynthFrame
   }
+
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
+  alias Octopus.Events.Event.Audio
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   alias Octopus.{Mixer, AppSupervisor}
 
@@ -54,7 +55,7 @@ defmodule Octopus.App do
   @doc """
   Optional callback to handle input events. An app will only receive input events if it is selected as active in the mixer.
   """
-  @callback handle_input(%InputEvent{} | %SoundToLightControlEvent{}, state :: any) ::
+  @callback handle_input(%ControllerEvent{} | %Audio{}, state :: any) ::
               {:noreply, state :: any}
 
   @type config_option ::
@@ -85,7 +86,7 @@ defmodule Octopus.App do
 
   @callback handle_proximity(%ProximityEvent{}, state :: any()) :: {:noreply, state :: any()}
 
-  @callback handle_slc(%SoundToLightControlEvent{}, state :: any()) :: {:noreply, state :: any()}
+  @callback handle_audio(%Audio{}, state :: any()) :: {:noreply, state :: any()}
 
   defmacro __using__(opts) do
     category = Keyword.get(opts, :category, :misc)
@@ -109,12 +110,12 @@ defmodule Octopus.App do
         {:ok, %{}}
       end
 
-      def handle_info({:event, %InputEvent{} = input_event}, state) do
-        handle_input(input_event, state)
+      def handle_info({:event, %ControllerEvent{} = controller_event}, state) do
+        handle_input(controller_event, state)
       end
 
-      def handle_info({:event, %SoundToLightControlEvent{} = slc_event}, state) do
-        handle_slc(slc_event, state)
+      def handle_info({:event, %Audio{} = audio_event}, state) do
+        handle_audio(audio_event, state)
       end
 
       def handle_info({:event, %ControlEvent{} = control_event}, state) do
@@ -152,7 +153,7 @@ defmodule Octopus.App do
         {:noreply, state}
       end
 
-      def handle_slc(_event, state) do
+      def handle_audio(_event, state) do
         {:noreply, state}
       end
 
@@ -173,7 +174,7 @@ defmodule Octopus.App do
       defoverridable handle_input: 2
       defoverridable handle_control_event: 2
       defoverridable handle_proximity: 2
-      defoverridable handle_slc: 2
+      defoverridable handle_audio: 2
       defoverridable config_schema: 0
       defoverridable handle_config: 2
       defoverridable get_config: 1
