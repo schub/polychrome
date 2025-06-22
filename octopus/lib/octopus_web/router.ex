@@ -29,8 +29,9 @@ defmodule OctopusWeb.Router do
   end
 
   import Phoenix.LiveDashboard.Router
+
   scope "/dev" do
-     pipe_through :browser
+    pipe_through :browser
 
     live_dashboard "/dashboard", metrics: OctopusWeb.Telemetry
   end
