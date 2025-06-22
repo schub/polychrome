@@ -47,7 +47,7 @@ defmodule OctopusWeb.ManagerLive do
     <div class="w-full" phx-window-keydown="keydown-event">
       <%= if @show_sim_preview do %>
         <div class="flex w-full h-full justify-center bg-black">
-          <%= live_render(@socket, PixelsLive, id: "main") %>
+          {live_render(@socket, PixelsLive, id: "main")}
         </div>
       <% end %>
 
@@ -74,19 +74,19 @@ defmodule OctopusWeb.ManagerLive do
                 <td class={"w-1/2 p-2 #{if playlist_id == @playlist_selected_id, do: "bg-slate-300 font-bold"}"}>
                   <%= if playlist_id == @playlist_selected_id do %>
                     <div class="flex flex-row flex-wrap gap-2">
-                      <%= name %>
+                      {name}
                       <div :if={playlist_id == @playlist_selected_id}>
                         <div class={
                           if @playlist_status && @playlist_status.status == :running,
                             do: "text-green-600",
                             else: "text-red-600"
                         }>
-                          <%= if @playlist_status, do: @playlist_status.status %>
+                          {if @playlist_status, do: @playlist_status.status}
                         </div>
                       </div>
                     </div>
                   <% else %>
-                    <%= name %>
+                    {name}
                   <% end %>
                 </td>
                 <td class="p-2 flex flex-row flex-wrap gap-2">
@@ -159,10 +159,10 @@ defmodule OctopusWeb.ManagerLive do
                   class={index != @playlist_status.index || "bg-slate-200 font-bold"}
                 >
                   <td class="w-1/4 p-2">
-                    <%= app %>
+                    {app}
                   </td>
-                  <td><%= timeout %></td>
-                  <td class="w-1/2 "><%= config |> Jason.encode!() %></td>
+                  <td>{timeout}</td>
+                  <td class="w-1/2 ">{config |> Jason.encode!()}</td>
                 </tr>
               </tbody>
             </table>
@@ -221,7 +221,7 @@ defmodule OctopusWeb.ManagerLive do
                   @running_apps
               }>
                 <td class={"w-1/2 p-2 #{if selected, do: ~c"bg-slate-300 font-bold"}"}>
-                  <%= name %>
+                  {name}
                 </td>
                 <td class="flex flex-row gap-2 p-1 pl-3">
                   <button
@@ -255,7 +255,7 @@ defmodule OctopusWeb.ManagerLive do
         <div :for={{category, apps} <- @available_apps}>
           <div class="flex flex-col m-2">
             <div class="p-2 font-bold">
-              <%= category |> to_string |> String.capitalize() %> Apps
+              {category |> to_string |> String.capitalize()} Apps
             </div>
             <div class="border p-2 flex flex-row flex-wrap">
               <div :for={%{module: module, name: name, icon: icon} <- apps} class="m-0 p-1">
@@ -266,10 +266,10 @@ defmodule OctopusWeb.ManagerLive do
                 >
                   <%= if icon do %>
                     <div class="w-5 h-5 inline-block rounded-sm overflow-hidden">
-                      <%= raw(icon) %>
+                      {raw(icon)}
                     </div>
                   <% end %>
-                  <%= name %>
+                  {name}
                 </button>
               </div>
             </div>
