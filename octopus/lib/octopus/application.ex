@@ -39,6 +39,7 @@ defmodule Octopus.Application do
         Octopus.PlaylistScheduler,
         Octopus.EventScheduler,
         Octopus.Mixer,
+        Octopus.ProximitySensor,
 
         # WebApp
         {Finch, name: Octopus.Finch},

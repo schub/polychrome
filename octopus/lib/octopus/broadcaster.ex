@@ -168,7 +168,7 @@ defmodule Octopus.Broadcaster do
   end
 
   defp handle_firmware_packet(%ProximityEvent{} = event, _from_ip, %State{} = state) do
-    Mixer.handle_event(event)
+    Octopus.ProximitySensor.handle_proximity_event(event)
     state
   end
 

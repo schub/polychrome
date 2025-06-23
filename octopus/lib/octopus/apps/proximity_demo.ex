@@ -1,12 +1,11 @@
-defmodule Octopus.Apps.ProximityTest do
+defmodule Octopus.Apps.ProximityDemo do
   use Octopus.App, category: :test
   require Logger
 
-  alias Octopus.Protobuf.ProximityEvent
   alias Octopus.Canvas
 
   defmodule State do
-    defstruct [:min_distance, :max_distance, :measurements, :smoothed_measurements]
+    defstruct [:min_distance, :max_distance]
   end
 
   @fps 30
@@ -16,7 +15,7 @@ defmodule Octopus.Apps.ProximityTest do
   # Lower values = more smoothing, higher values = more responsive
   @smoothing_factor 0.1
 
-  def name(), do: "Proximity Test"
+  def name(), do: "Proximity Demo"
 
   def config_schema() do
     %{
@@ -43,9 +42,7 @@ defmodule Octopus.Apps.ProximityTest do
     {:ok,
      %State{
        min_distance: config.min_distance,
-       max_distance: config.max_distance,
-       measurements: %{},
-       smoothed_measurements: %{}
+       max_distance: config.max_distance
      }}
   end
 
@@ -58,61 +55,11 @@ defmodule Octopus.Apps.ProximityTest do
     {:noreply, state}
   end
 
-  def handle_proximity(
-        %ProximityEvent{
-          panel_index: panel_index,
-          sensor_index: sensor_index,
-          distance_mm: distance
-        },
-        %State{
-          measurements: measurements,
-          smoothed_measurements: smoothed,
-          min_distance: min,
-          max_distance: max
-        } = state
-      )
-      when distance >= min and distance <= max do
-    Logger.info(
-      "Proximity measurement: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
-    )
-
-    sensor_key = {panel_index, sensor_index}
-    measurements = Map.put(measurements, sensor_key, distance)
-
-    # # Apply exponential moving average for smoothing
-    # current_smoothed = Map.get(smoothed, sensor_key, distance)
-    # new_smoothed = current_smoothed + @smoothing_factor * (distance - current_smoothed)
-    # smoothed_measurements = Map.put(smoothed, sensor_key, new_smoothed)
-
-    {:noreply, %State{state | measurements: measurements, smoothed_measurements: measurements}}
-  end
-
-  def handle_proximity(
-        %ProximityEvent{
-          panel_index: panel_index,
-          sensor_index: sensor_index,
-          distance_mm: distance
-        },
-        state
-      ) do
-    Logger.debug(
-      "Proximity measurement out of range: Panel #{panel_index}, Sensor #{sensor_index}, Distance #{round(distance)}mm"
-    )
-
-    {:noreply, state}
-  end
-
-  def handle_proximity(event, state) do
-    Logger.warning("Unhandled proximity event: #{inspect(event)}")
-    {:noreply, state}
-  end
-
-  defp render_proximity_data(%State{
-         smoothed_measurements: smoothed_measurements,
-         min_distance: min,
-         max_distance: max
-       }) do
+  defp render_proximity_data(%State{min_distance: min, max_distance: max}) do
     canvas = Canvas.new(96, 8)
+
+    # Get all smoothed readings from the ProximitySensor
+    smoothed_measurements = Octopus.ProximitySensor.get_smoothed_values()
 
     Enum.reduce(smoothed_measurements, canvas, fn {{panel_index, sensor_index}, distance},
                                                   acc_canvas ->

@@ -1,4 +1,4 @@
-defmodule OctopusWeb.StatsLive do
+defmodule OctopusWeb.FirmwareInfoLive do
   use OctopusWeb, :live_view
 
   @impl true

@@ -3,7 +3,7 @@ defmodule Octopus.AppSupervisor do
   require Logger
 
   alias Octopus.{Mixer, App}
-  alias Octopus.Protobuf.{InputEvent, ControlEvent, ProximityEvent, SoundToLightControlEvent}
+  alias Octopus.Protobuf.{InputEvent, ControlEvent, SoundToLightControlEvent}
 
   @topic "apps"
 
@@ -172,7 +172,7 @@ defmodule Octopus.AppSupervisor do
   Sends an event to an app. Ignores the event if the app is not running.
   """
   def send_event(app_id, %event_type{} = event)
-      when event_type in [InputEvent, ControlEvent, SoundToLightControlEvent, ProximityEvent] do
+      when event_type in [InputEvent, ControlEvent, SoundToLightControlEvent] do
     case Registry.lookup(Octopus.AppRegistry, app_id) do
       [{pid, _}] -> send(pid, {:event, event})
       [] -> :noop

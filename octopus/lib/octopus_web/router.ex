@@ -24,13 +24,15 @@ defmodule OctopusWeb.Router do
       live "/", ManagerLive
       live "/playlist/:id", PlaylistLive
       live "/presence", PresenceLive
-      live "/stats", StatsLive
+      live "/firmware-info", FirmwareInfoLive
+      live "/proximity", ProximityLive
     end
   end
 
   import Phoenix.LiveDashboard.Router
+
   scope "/dev" do
-     pipe_through :browser
+    pipe_through :browser
 
     live_dashboard "/dashboard", metrics: OctopusWeb.Telemetry
   end

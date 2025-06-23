@@ -8,7 +8,6 @@ defmodule Octopus.Mixer do
     RGBFrame,
     InputEvent,
     ControlEvent,
-    ProximityEvent,
     SoundToLightControlEvent,
     AudioFrame
   }
@@ -136,11 +135,6 @@ defmodule Octopus.Mixer do
 
   def handle_cast({:event, %SoundToLightControlEvent{} = stl_event}, %State{} = state) do
     AppSupervisor.send_event(state.selected_app, stl_event)
-    {:noreply, state}
-  end
-
-  def handle_cast({:event, %ProximityEvent{} = event}, %State{} = state) do
-    AppSupervisor.send_event(state.selected_app, event)
     {:noreply, state}
   end
 
