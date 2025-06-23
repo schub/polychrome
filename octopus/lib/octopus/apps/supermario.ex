@@ -3,8 +3,8 @@ defmodule Octopus.Apps.Supermario do
   require Logger
 
   alias Octopus.Apps.Supermario.Game
-  alias Octopus.Protobuf.InputEvent
-  alias Octopus.Apps.Input.{ButtonState, JoyState}
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.{ButtonState, JoyState}
 
   @frame_rate 60
   @frame_time_ms trunc(1000 / @frame_rate)
@@ -60,17 +60,17 @@ defmodule Octopus.Apps.Supermario do
       do: {:noreply, %State{state | button_state: nil}}
 
   def handle_input(
-        %InputEvent{} = event,
+        %ControllerEvent{} = event,
         %State{button_state: nil} = state
       ) do
     handle_input(event, %{state | button_state: ButtonState.new()})
   end
 
   def handle_input(
-        %InputEvent{type: type, value: value},
+        %ControllerEvent{} = event,
         %State{button_state: button_state} = state
       ) do
-    new_button_state = ButtonState.handle_event(button_state, type, value)
+    new_button_state = ButtonState.handle_event(button_state, event)
 
     state =
       if JoyState.button?(joybutton(state.side, new_button_state), :a) do

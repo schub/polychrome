@@ -3,7 +3,8 @@ defmodule Octopus.Apps.InputTester do
   require Logger
 
   alias Octopus.ColorPalette
-  alias Octopus.Protobuf.{Frame, InputEvent}
+  alias Octopus.Protobuf.Frame
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
     defstruct [:position, :color, :palette]
@@ -25,39 +26,61 @@ defmodule Octopus.Apps.InputTester do
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{type: :BUTTON_1, value: 1}, state) do
-    state = %State{state | color: rem(state.color + 1, 16)}
-    render_frame(state)
+  def handle_input(%ControllerEvent{type: :button, action: :press, button: button}, state) do
+    Logger.info("Button #{button} pressed")
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{type: :BUTTON_2, value: 1}, state) do
-    state =
-      case state.color do
-        0 -> %State{state | color: 15}
-        _ -> %State{state | color: state.color - 1}
-      end
-
-    render_frame(state)
-
+  def handle_input(%ControllerEvent{type: :button, action: :release, button: button}, state) do
+    Logger.info("Button #{button} released")
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{type: :AXIS_X_1, value: value}, state) do
-    state = %State{state | position: max(0, state.position + value * -1)}
-    render_frame(state)
+  # New joystick movement events
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: joystick, direction: direction},
+        state
+      ) do
+    Logger.info("Joystick #{joystick} moved #{direction}")
     {:noreply, state}
   end
 
-  def handle_input(_event, state) do
-    # Logger.info("Unhandled input event: #{inspect(event)}")
+  # New joystick button events
+  def handle_input(
+        %ControllerEvent{
+          type: :joystick,
+          joystick: joystick,
+          joy_button: joy_button,
+          action: action
+        },
+        state
+      ) do
+    Logger.info("Joystick #{joystick} button #{joy_button} #{action}")
+    {:noreply, state}
+  end
+
+  # Catch-all for any other events
+  def handle_input(%ControllerEvent{} = event, state) do
+    Logger.info("Other input: #{inspect(event)}")
+    {:noreply, state}
+  end
+
+  def handle_input(event, state) do
+    Logger.info("Non-ControllerEvent: #{inspect(event)}")
     {:noreply, state}
   end
 
   defp render_frame(%State{} = state) do
+    installation = Octopus.installation()
+    num_buttons = installation.num_buttons()
+    panel_size = installation.panel_size()
+
+    # Use dynamic number of pixels based on installation
+    total_pixels = panel_size * num_buttons
+
     data =
-      List.duplicate(0, 640)
-      |> List.update_at(state.position, fn _ -> state.color end)
+      List.duplicate(0, total_pixels)
+      |> List.update_at(rem(state.position, total_pixels), fn _ -> state.color end)
 
     %Frame{
       data: data,

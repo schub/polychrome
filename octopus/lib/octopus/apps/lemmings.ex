@@ -3,7 +3,7 @@ defmodule Octopus.Apps.Lemmings do
   require Logger
 
   alias Octopus.{Sprite, Canvas}
-  alias Octopus.Protobuf.InputEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Lemming
 
   @default_block_time 10
@@ -180,44 +180,35 @@ defmodule Octopus.Apps.Lemmings do
     {:noreply, tick(state)}
   end
 
-  def handle_input(%InputEvent{type: type, value: 1}, state) do
-    case state.button_map[type] do
-      nil -> {:noreply, state}
-      number -> handle_number_button_press(state, number)
-    end
+  def handle_input(%ControllerEvent{type: :button, action: :press, button: button}, state) do
+    # Convert to 0-based indexing for button_map
+    button_index = button - 1
+    handle_number_button_press(state, button_index)
   end
 
-  def handle_input(%InputEvent{type: :AXIS_X_1, value: 1}, state) do
-    state = add_left(state)
-    {:noreply, state}
-  end
-
-  def handle_input(%InputEvent{type: :AXIS_X_1, value: -1}, state) do
-    state = add_right(state)
-    {:noreply, state}
-  end
-
-  def handle_input(%InputEvent{type: :AXIS_X_2, value: -1}, state) do
-    state = add_right(state)
-    {:noreply, state}
-  end
-
-  def handle_input(%InputEvent{type: :AXIS_X_2, value: 1}, state) do
+  def handle_input(
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :right},
+        state
+      ) do
+    # Right direction adds left-walking lemming
     state = add_left(state)
     {:noreply, state}
   end
 
   def handle_input(
-        %InputEvent{type: :AXIS_Y_1, value: 1},
-        %State{} = state
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :left},
+        state
       ) do
-    handle_kill(state)
+    # Left direction adds right-walking lemming
+    state = add_right(state)
+    {:noreply, state}
   end
 
   def handle_input(
-        %InputEvent{type: :AXIS_Y_2, value: 1},
-        %State{} = state
+        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :down},
+        state
       ) do
+    # Down direction explodes a lemming
     handle_kill(state)
   end
 

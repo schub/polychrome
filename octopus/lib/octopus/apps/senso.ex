@@ -2,38 +2,14 @@ defmodule Octopus.Apps.Senso do
   use Octopus.App, category: :game
   require Logger
 
-  alias Telegram.Bot.ChatBot.Chat.Session.Server.State
   alias Octopus.Canvas
-
-  alias Octopus.Protobuf.{
-    InputEvent,
-    ControlEvent,
-    SynthConfig,
-    SynthAdsrConfig,
-    SynthFrame,
-    AudioFrame
-  }
-
-  defmodule State do
-    defstruct [:expected_sequence, :index, :successes, :input_blocked]
-  end
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Protobuf.{SynthFrame, ControlEvent, AudioFrame, SynthConfig, SynthAdsrConfig}
 
   @num_windows 10
-  @first_squence_len 2
-  @time_between_elements_ms 800
-  @supported_buttons [
-    :BUTTON_1,
-    :BUTTON_2,
-    :BUTTON_3,
-    :BUTTON_4,
-    :BUTTON_5,
-    :BUTTON_6,
-    :BUTTON_7,
-    :BUTTON_8,
-    :BUTTON_9,
-    :BUTTON_10
-  ]
-  @state_time_delta 400
+  @first_squence_len 3
+  @state_time_delta 100
+  @time_between_elements_ms 500
 
   @synth_config %SynthConfig{
     wave_form: :SQUARE,
@@ -41,21 +17,17 @@ defmodule Octopus.Apps.Senso do
     adsr_config: %SynthAdsrConfig{
       attack: 0.01,
       decay: 0,
-      sustain: 0.8,
+      sustain: 1,
       release: 0.2
-    },
-    filter_adsr_config: %SynthAdsrConfig{
-      attack: 0.02,
-      decay: 0.1,
-      sustain: 0.2,
-      release: 0.4
-    },
-    filter_type: :LOWPASS,
-    resonance: 2,
-    cutoff: 5000
+    }
   }
 
-  @velocity 1
+  defmodule State do
+    defstruct expected_sequence: [],
+              index: 0,
+              successes: 0,
+              input_blocked: true
+  end
 
   def name(), do: "Senso"
 
@@ -67,21 +39,19 @@ defmodule Octopus.Apps.Senso do
       input_blocked: true
     }
 
+    send(self(), :run)
+
     {:ok, state}
   end
 
-  defp generate_sequence(len) when len > 0 do
-    random_number = Enum.random(1..@num_windows)
-    rest_of_list = generate_sequence(len - 1)
-    [random_number | rest_of_list]
+  defp generate_sequence(len) do
+    for _ <- 1..len, do: Enum.random(1..@num_windows)
   end
 
-  defp generate_sequence(_len) do
-    []
-  end
+  def handle_info(:run, %State{expected_sequence: expected_sequence, index: index} = state)
+      when index < length(expected_sequence) do
+    window = Enum.at(expected_sequence, index)
 
-  def handle_info(:run, %State{} = state) when state.index < length(state.expected_sequence) do
-    window = Enum.at(state.expected_sequence, state.index) |> trunc()
     top_left = {(window - 1) * 8, 0}
     bottom_right = {elem(top_left, 0) + 7, 7}
 
@@ -95,8 +65,8 @@ defmodule Octopus.Apps.Senso do
       channel: window,
       note: 60 + window - 1,
       config: @synth_config,
-      duration_ms: 1000,
-      velocity: @velocity
+      duration_ms: @time_between_elements_ms,
+      velocity: 1
     }
     |> send_frame()
 
@@ -156,9 +126,12 @@ defmodule Octopus.Apps.Senso do
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{type: button, value: 1}, %State{} = state)
-      when button in @supported_buttons do
-    btn_num = btn_to_int(button)
+  def handle_input(
+        %ControllerEvent{type: :button, action: :press, button: button},
+        %State{} = state
+      )
+      when button >= 1 and button <= @num_windows do
+    btn_num = button
 
     top_left = {(btn_num - 1) * 8, 0}
     bottom_right = {elem(top_left, 0) + 7, 7}
@@ -181,9 +154,9 @@ defmodule Octopus.Apps.Senso do
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{type: button, value: 0}, state)
-      when button in @supported_buttons do
-    btn_num = btn_to_int(button)
+  def handle_input(%ControllerEvent{type: :button, action: :release, button: button}, state)
+      when button >= 1 and button <= @num_windows do
+    btn_num = button
 
     top_left = {(btn_num - 1) * 8, 0}
     bottom_right = {elem(top_left, 0) + 7, 7}
@@ -241,11 +214,6 @@ defmodule Octopus.Apps.Senso do
 
     send(self(), :run)
     {:noreply, %State{state | input_blocked: true}}
-  end
-
-  defp btn_to_int(button) do
-    "BUTTON_" <> btn_number = button |> to_string()
-    String.to_integer(btn_number)
   end
 
   defp get_color(num) do

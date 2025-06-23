@@ -2,11 +2,9 @@ defmodule Octopus.InputAdapter do
   use GenServer
   require Logger
 
-  alias Octopus.Protobuf.SoundToLightControlEvent
-  alias Octopus.{Protobuf, Mixer}
-  alias Octopus.Protobuf.{InputEvent, InputLightEvent}
-
-  @local_port 4423
+  alias Octopus.{Protobuf, Events}
+  alias Octopus.Protobuf.{InputEvent, InputLightEvent, SoundToLightControlEvent}
+  alias Octopus.Events.Factory
 
   defmodule State do
     defstruct [:udp, :from_ip, :from_port]
@@ -16,20 +14,26 @@ defmodule Octopus.InputAdapter do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
-  def send_light_event(button, duration) when button in 1..10 do
-    binary =
-      %InputLightEvent{
-        type: "BUTTON_#{button}" |> String.to_existing_atom(),
-        duration: duration
-      }
-      |> Protobuf.encode()
+  def send_light_event(button, duration) when is_integer(button) and button >= 1 do
+    max_buttons = Octopus.installation().num_buttons()
 
-    GenServer.cast(__MODULE__, {:send_binary, binary})
+    if button <= max_buttons do
+      binary =
+        %InputLightEvent{
+          type: "BUTTON_#{button}" |> String.to_existing_atom(),
+          duration: duration
+        }
+        |> Protobuf.encode()
+
+      GenServer.cast(__MODULE__, {:send_binary, binary})
+    end
   end
 
   def init(:ok) do
-    Logger.info("Starting input adapter. Listening on port #{@local_port}")
-    {:ok, udp} = :gen_udp.open(@local_port, [:binary, active: true])
+    # Configuration is centralized in config.exs
+    local_port = Application.fetch_env!(:octopus, :controller_interface_port)
+    Logger.info("Starting input adapter. Listening on port #{local_port}")
+    {:ok, udp} = :gen_udp.open(local_port, [:binary, active: true])
 
     {:ok, %State{udp: udp}}
   end
@@ -45,12 +49,16 @@ defmodule Octopus.InputAdapter do
   def handle_info({:udp, _socket, from_ip, from_port, packet}, state = %State{}) do
     case Protobuf.decode_packet(packet) do
       {:ok, %InputEvent{} = input_event} ->
-        # Logger.debug("#{__MODULE__}: Received input event: #{inspect(input_event)}")
-        Mixer.handle_event(input_event)
+        # Convert protobuf input event to domain event
+        domain_event = Factory.create_controller_event(input_event)
+        # Logger.debug("#{__MODULE__}: Received input event: #{inspect(domain_event)}")
+        Events.handle_event(domain_event)
 
       {:ok, %SoundToLightControlEvent{} = stl_event} ->
-        # Logger.debug("#{__MODULE__}: Received stl event event: #{inspect(stl_event)}")
-        Mixer.handle_event(stl_event)
+        # Convert protobuf audio event to domain event
+        domain_event = Factory.create_audio_event(stl_event)
+        # Logger.debug("#{__MODULE__}: Received audio event: #{inspect(domain_event)}")
+        Events.handle_event(domain_event)
 
       {:ok, content} ->
         Logger.warning("#{__MODULE__}: Received unexpected packet: #{inspect(content)}")

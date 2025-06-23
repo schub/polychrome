@@ -2,7 +2,7 @@ defmodule Octopus.Apps.Ocean do
   use Octopus.App, category: :animation
 
   alias Octopus.{Canvas, WebP, VirtualMatrix}
-  alias Octopus.Protobuf.InputEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   require Logger
 
   # Add delegate to access installation metadata
@@ -127,46 +127,31 @@ defmodule Octopus.Apps.Ocean do
   end
 
   # Handle button press events - create interaction wave
-  def handle_input(%InputEvent{type: type, value: 1}, %State{} = state) do
-    # Logger.info("Ocean: Button pressed: \\#{inspect(type)}")
+  def handle_input(
+        %ControllerEvent{type: :button, action: :press, button: button_number},
+        %State{} = state
+      ) do
+    # Logger.info("Ocean: Button pressed: #{button_number}")
 
-    # Map button types to button numbers (0-based)
-    button_number =
-      case type do
-        :BUTTON_1 -> 0
-        :BUTTON_2 -> 1
-        :BUTTON_3 -> 2
-        :BUTTON_4 -> 3
-        :BUTTON_5 -> 4
-        :BUTTON_6 -> 5
-        :BUTTON_7 -> 6
-        :BUTTON_8 -> 7
-        :BUTTON_9 -> 8
-        :BUTTON_10 -> 9
-        _ -> nil
-      end
+    # Convert to 0-based indexing
+    button_index = button_number - 1
 
-    if button_number != nil do
-      # Logger.info("Ocean: Creating interaction wave for button \\#{button_number}")
+    # Logger.info("Ocean: Creating interaction wave for button #{button_index}")
 
-      # Cancel existing inactivity timer if it exists
-      if state.inactivity_timer_ref do
-        :timer.cancel(state.inactivity_timer_ref)
-      end
-
-      # Update last activity time
-      current_time = :os.system_time(:millisecond)
-
-      state = create_interaction_wave(state, button_number)
-      {:noreply, %{state | last_activity_time: current_time, inactivity_timer_ref: nil}}
-    else
-      # Logger.debug("Ocean: Ignoring unknown button type: #{inspect(type)}")
-      {:noreply, state}
+    # Cancel existing inactivity timer if it exists
+    if state.inactivity_timer_ref do
+      :timer.cancel(state.inactivity_timer_ref)
     end
+
+    # Update last activity time
+    current_time = :os.system_time(:millisecond)
+
+    state = create_interaction_wave(state, button_index)
+    {:noreply, %{state | last_activity_time: current_time, inactivity_timer_ref: nil}}
   end
 
-  def handle_input(%InputEvent{type: _type, value: _value}, %State{} = state) do
-    # Logger.debug("Ocean: Ignoring input event - type: \\#{inspect(type)}, value: \\#{value}")
+  def handle_input(%ControllerEvent{}, %State{} = state) do
+    # Logger.debug("Ocean: Ignoring input event")
     {:noreply, state}
   end
 

@@ -13,7 +13,7 @@ defmodule Octopus.Apps.ProximityDemo do
 
   # Smoothing factor for exponential moving average (0.0 to 1.0)
   # Lower values = more smoothing, higher values = more responsive
-  @smoothing_factor 0.1
+  # @smoothing_factor 0.1
 
   def name(), do: "Proximity Demo"
 
@@ -72,11 +72,11 @@ defmodule Octopus.Apps.ProximityDemo do
 
       color = {r, g, b}
 
-      panel_start_x = (panel_index - 1) * 8
+      panel_start_x = (panel - 1) * 8
       side_width = 4
 
       # Sensor 0 = left side (x: 0-3), Sensor 1 = right side (x: 4-7)
-      x_start = panel_start_x + if sensor_index == 0, do: 0, else: 4
+      x_start = panel_start_x + if sensor == 0, do: 0, else: 4
       x_end = x_start + side_width - 1
 
       for x <- x_start..x_end,

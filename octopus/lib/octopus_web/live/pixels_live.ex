@@ -4,8 +4,9 @@ defmodule OctopusWeb.PixelsLive do
   import Phoenix.LiveView, only: [push_event: 3, connected?: 1]
 
   alias Octopus.ColorPalette
-  alias Octopus.Mixer
-  alias Octopus.Protobuf.{FirmwareConfig, Frame, InputEvent}
+  alias Octopus.{Events, Mixer}
+  alias Octopus.Protobuf.{FirmwareConfig, Frame}
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   @default_config %FirmwareConfig{
     easing_mode: :LINEAR,
@@ -23,6 +24,46 @@ defmodule OctopusWeb.PixelsLive do
   end
 
   @default_view "default"
+
+  defp get_key_map() do
+    num_buttons = Octopus.installation().num_buttons()
+
+    # Base button mappings for number keys and function keys
+    button_mappings =
+      for i <- 1..min(num_buttons, 10) do
+        key = if i == 10, do: "0", else: to_string(i)
+        {key, i}
+      end ++
+        for i <- 1..min(num_buttons, 12) do
+          key = "F#{i}"
+          {key, i}
+        end
+
+    # Joystick mappings
+    joystick_mappings = [
+      # Joystick 1 directions: A,S,D,F = left,down,up,right
+      {"a", :JOYSTICK_1_LEFT},
+      {"s", :JOYSTICK_1_DOWN},
+      {"d", :JOYSTICK_1_UP},
+      {"f", :JOYSTICK_1_RIGHT},
+
+      # Joystick 1 buttons: X,C = a,b
+      {"x", :JOYSTICK_1_A},
+      {"c", :JOYSTICK_1_B},
+
+      # Joystick 2 directions: H,J,K,L = left,down,up,right
+      {"h", :JOYSTICK_2_LEFT},
+      {"j", :JOYSTICK_2_DOWN},
+      {"k", :JOYSTICK_2_UP},
+      {"l", :JOYSTICK_2_RIGHT},
+
+      # Joystick 2 buttons: N,M = a,b
+      {"n", :JOYSTICK_2_A},
+      {"m", :JOYSTICK_2_B}
+    ]
+
+    (button_mappings ++ joystick_mappings) |> Enum.into(%{})
+  end
 
   def mount(_params, _session, socket) do
     views = get_views()
@@ -48,6 +89,7 @@ defmodule OctopusWeb.PixelsLive do
 
     view_options = Enum.map(views, fn {k, v} -> [key: v.name, value: k] end)
     max_windows = length(Octopus.installation().panels())
+    num_buttons = Octopus.installation().num_buttons()
 
     {:ok,
      socket
@@ -59,7 +101,10 @@ defmodule OctopusWeb.PixelsLive do
        view_options: view_options,
        views: views,
        max_windows: max_windows,
-       window: 1
+       window: 1,
+       num_buttons: num_buttons,
+       key_map: get_key_map(),
+       pressed_buttons: MapSet.new()
      )}
   end
 
@@ -70,7 +115,8 @@ defmodule OctopusWeb.PixelsLive do
       phx-window-keydown="keydown"
       phx-window-keyup="keyup"
     >
-      <div class="absolute top-4 flex flex-col gap-2 z-10">
+      <div class="absolute top-4 flex flex-col gap-3 z-10">
+        <!-- Playlist Information -->
         <form id="view-form" phx-change="view-changed">
           <.input type="select" name="view" options={@view_options} value={@view} />
         </form>
@@ -88,6 +134,7 @@ defmodule OctopusWeb.PixelsLive do
           </button>
         </div>
       </div>
+
       <div class="w-full h-full float-left relative">
         <canvas
           id={"#{@id_prefix}-#{@id}"}
@@ -99,6 +146,28 @@ defmodule OctopusWeb.PixelsLive do
           src={@pixel_layout.pixel_image}
           class="absolute left-0 top-0 w-full h-full object-contain mix-blend-multiply pointer-events-none"
         /> --%>
+
+    <!-- Button UI Panel - Bottom -->
+        <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+          <div class="flex gap-2 justify-center">
+            <button
+              :for={i <- 1..@num_buttons}
+              phx-click="button-click"
+              phx-value-button={i}
+              class={[
+                "rounded px-3 py-2 text-sm font-mono border shadow transition-colors select-none min-w-[2.5rem] cursor-pointer",
+                if MapSet.member?(@pressed_buttons, i) do
+                  "bg-green-600 hover:bg-green-500 border-green-400 text-white"
+                else
+                  "bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-500 text-neutral-100 border-neutral-500"
+                end
+              ]}
+              type="button"
+            >
+              {i}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     """
@@ -139,91 +208,197 @@ defmodule OctopusWeb.PixelsLive do
     {:noreply, socket}
   end
 
-  @key_map %{
-    "1" => :BUTTON_1,
-    "2" => :BUTTON_2,
-    "3" => :BUTTON_3,
-    "4" => :BUTTON_4,
-    "5" => :BUTTON_5,
-    "6" => :BUTTON_6,
-    "7" => :BUTTON_7,
-    "8" => :BUTTON_8,
-    "9" => :BUTTON_9,
-    "0" => :BUTTON_10,
-    "F1" => :BUTTON_1,
-    "F2" => :BUTTON_2,
-    "F3" => :BUTTON_3,
-    "F4" => :BUTTON_4,
-    "F5" => :BUTTON_5,
-    "F6" => :BUTTON_6,
-    "F7" => :BUTTON_7,
-    "F8" => :BUTTON_8,
-    "F9" => :BUTTON_9,
-    "F10" => :BUTTON_10,
-    "F11" => :BUTTON_11,
-    "F12" => :BUTTON_12,
-    "w" => :DIRECTION_1_UP,
-    "a" => :DIRECTION_1_LEFT,
-    "s" => :DIRECTION_1_DOWN,
-    "d" => :DIRECTION_1_RIGHT,
-    "q" => :BUTTON_A_1,
-    "i" => :DIRECTION_2_UP,
-    "j" => :DIRECTION_2_LEFT,
-    "k" => :DIRECTION_2_DOWN,
-    "l" => :DIRECTION_2_RIGHT,
-    "u" => :BUTTON_A_2,
-    "m" => :BUTTON_MENU
-  }
+  def handle_event("keydown", %{"key" => key}, socket) do
+    key_map = socket.assigns.key_map
 
-  def handle_event("keydown", %{"key" => key}, socket) when is_map_key(@key_map, key) do
-    button = @key_map[key]
+    if Map.has_key?(key_map, key) do
+      key_value = key_map[key]
 
-    {button, value} =
-      case button do
-        :DIRECTION_1_LEFT -> {:AXIS_X_1, -1}
-        :DIRECTION_1_RIGHT -> {:AXIS_X_1, 1}
-        :DIRECTION_1_DOWN -> {:AXIS_Y_1, 1}
-        :DIRECTION_1_UP -> {:AXIS_Y_1, -1}
-        :DIRECTION_2_LEFT -> {:AXIS_X_2, -1}
-        :DIRECTION_2_RIGHT -> {:AXIS_X_2, 1}
-        :DIRECTION_2_DOWN -> {:AXIS_Y_2, 1}
-        :DIRECTION_2_UP -> {:AXIS_Y_2, -1}
-        _ -> {button, 1}
+      case key_value do
+        # Screen buttons (numbered based on installation)
+        button_num when is_integer(button_num) ->
+          socket =
+            socket
+            |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button_num))
+
+          %ControllerEvent{type: :button, button: button_num, action: :press}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_LEFT ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :left}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_DOWN ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :down}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_UP ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :up}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_RIGHT ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :right}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_A ->
+          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :a, action: :press}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_B ->
+          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :b, action: :press}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_LEFT ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :left}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_DOWN ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :down}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_UP ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :up}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_RIGHT ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :right}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_A ->
+          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :a, action: :press}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_B ->
+          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :b, action: :press}
+          |> Events.handle_event()
+
+          {:noreply, socket}
       end
-
-    %InputEvent{type: button, value: value}
-    |> Mixer.handle_event()
-
-    {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
-  def handle_event("keyup", %{"key" => key}, socket) when is_map_key(@key_map, key) do
-    button = @key_map[key]
+  def handle_event("keyup", %{"key" => key}, socket) do
+    key_map = socket.assigns.key_map
 
-    {button, _} =
-      case button do
-        :DIRECTION_1_LEFT -> {:AXIS_X_1, 0}
-        :DIRECTION_1_RIGHT -> {:AXIS_X_1, 0}
-        :DIRECTION_1_UP -> {:AXIS_Y_1, 0}
-        :DIRECTION_1_DOWN -> {:AXIS_Y_1, 0}
-        :DIRECTION_2_LEFT -> {:AXIS_X_2, 0}
-        :DIRECTION_2_RIGHT -> {:AXIS_X_2, 0}
-        :DIRECTION_2_UP -> {:AXIS_Y_2, 0}
-        :DIRECTION_2_DOWN -> {:AXIS_Y_2, 0}
-        _ -> {button, 0}
+    if Map.has_key?(key_map, key) do
+      key_value = key_map[key]
+
+      case key_value do
+        # Screen buttons (numbered based on installation)
+        button_num when is_integer(button_num) ->
+          socket =
+            socket
+            |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button_num))
+
+          %ControllerEvent{type: :button, button: button_num, action: :release}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        # Joystick directions - return to center on keyup
+        joystick_direction
+        when joystick_direction in [
+               :JOYSTICK_1_LEFT,
+               :JOYSTICK_1_DOWN,
+               :JOYSTICK_1_UP,
+               :JOYSTICK_1_RIGHT
+             ] ->
+          %ControllerEvent{type: :joystick, joystick: 1, direction: :center}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        joystick_direction
+        when joystick_direction in [
+               :JOYSTICK_2_LEFT,
+               :JOYSTICK_2_DOWN,
+               :JOYSTICK_2_UP,
+               :JOYSTICK_2_RIGHT
+             ] ->
+          %ControllerEvent{type: :joystick, joystick: 2, direction: :center}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_A ->
+          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :a, action: :release}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_1_B ->
+          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :b, action: :release}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_A ->
+          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :a, action: :release}
+          |> Events.handle_event()
+
+          {:noreply, socket}
+
+        :JOYSTICK_2_B ->
+          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :b, action: :release}
+          |> Events.handle_event()
+
+          {:noreply, socket}
       end
+    else
+      {:noreply, socket}
+    end
+  end
 
-    %InputEvent{type: button, value: 0}
-    |> Mixer.handle_event()
+  def handle_event("button-click", %{"button" => button_string}, socket) do
+    {button_num, _} = Integer.parse(button_string)
+
+    socket =
+      socket
+      |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button_num))
+
+    %ControllerEvent{type: :button, button: button_num, action: :press}
+    |> Events.handle_event()
+
+    # Simulate button press with automatic release after delay
+    Process.send_after(self(), {:button_release, button_num}, 100)
 
     {:noreply, socket}
   end
 
-  def handle_event("keydown", _msg, socket) do
-    {:noreply, socket}
-  end
+  def handle_info({:button_release, button_num}, socket) do
+    socket =
+      socket
+      |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button_num))
 
-  def handle_event("keyup", _, socket) do
+    %ControllerEvent{type: :button, button: button_num, action: :release}
+    |> Events.handle_event()
+
     {:noreply, socket}
   end
 

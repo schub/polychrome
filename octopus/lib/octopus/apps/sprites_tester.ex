@@ -3,7 +3,7 @@ defmodule Octopus.Apps.SpritesTester do
   require Logger
 
   alias Octopus.{Sprite, Canvas}
-  alias Octopus.Protobuf.{InputEvent}
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
     defstruct [:index]
@@ -33,13 +33,17 @@ defmodule Octopus.Apps.SpritesTester do
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{type: :BUTTON_1, value: 1}, state) do
+  def handle_input(%ControllerEvent{type: :button, action: :press, button: 1}, state) do
     state = %State{state | index: rem(state.index + 1, 256)}
     {:noreply, state}
   end
 
-  def handle_input(%InputEvent{type: :BUTTON_2, value: 1}, state) do
+  def handle_input(%ControllerEvent{type: :button, action: :press, button: 2}, state) do
     state = %State{state | index: max(state.index - 1, 0)}
+    {:noreply, state}
+  end
+
+  def handle_input(%ControllerEvent{}, state) do
     {:noreply, state}
   end
 end

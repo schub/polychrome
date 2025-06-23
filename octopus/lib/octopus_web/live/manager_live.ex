@@ -3,17 +3,18 @@ defmodule OctopusWeb.ManagerLive do
 
   alias Octopus.Canvas
   alias Octopus.Layout.Mildenberg
-  alias Octopus.{Mixer, AppSupervisor, PlaylistScheduler}
+  alias Octopus.{AppManager, AppSupervisor, PlaylistScheduler}
   alias Octopus.PlaylistScheduler.Playlist
   alias Octopus.PlaylistScheduler.Playlist.Animation
-  alias Octopus.EventScheduler
+  alias Octopus.KioskModeManager
   alias OctopusWeb.PixelsLive
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
       AppSupervisor.subscribe()
       PlaylistScheduler.subscribe()
-      EventScheduler.subscribe()
+      KioskModeManager.subscribe()
+      AppManager.subscribe()
     end
 
     socket =
@@ -22,14 +23,14 @@ defmodule OctopusWeb.ManagerLive do
       |> assign_apps()
       |> assign(playlist_status: nil)
       |> assign(playlist_selected_id: nil)
-      |> assign(event_scheduler_started: EventScheduler.is_started?())
+      |> assign(event_scheduler_started: KioskModeManager.is_started?())
       |> assign_playlists()
 
     {:ok, socket, temporary_assigns: [pixel_layout: nil]}
   end
 
   defp setup_preview(socket, true) do
-    Mixer.subscribe()
+    Octopus.Mixer.subscribe()
 
     socket
     |> assign(pixel_layout: Mildenberg.layout())
@@ -293,7 +294,7 @@ defmodule OctopusWeb.ManagerLive do
   def handle_event("start", %{"module" => module_string}, socket) do
     module = String.to_existing_atom(module_string)
     {:ok, app_id} = AppSupervisor.start_app(module)
-    Mixer.select_app(app_id)
+    AppManager.select_app(app_id)
     {:noreply, socket}
   end
 
@@ -304,7 +305,7 @@ defmodule OctopusWeb.ManagerLive do
   end
 
   def handle_event("select", %{"app-id" => app_id}, socket) do
-    Mixer.select_app(app_id)
+    AppManager.select_app(app_id)
     {:noreply, socket}
   end
 
@@ -362,12 +363,12 @@ defmodule OctopusWeb.ManagerLive do
   end
 
   def handle_event("toggle_event_scheduler", %{"val" => "true"}, socket) do
-    EventScheduler.start()
+    KioskModeManager.start()
     {:noreply, socket}
   end
 
   def handle_event("toggle_event_scheduler", %{"val" => "false"}, socket) do
-    EventScheduler.stop()
+    KioskModeManager.stop()
     {:noreply, socket}
   end
 
@@ -375,8 +376,13 @@ defmodule OctopusWeb.ManagerLive do
     {:noreply, socket |> assign_apps()}
   end
 
-  def handle_info({:mixer, {:selected_app, _selected_app_id}}, socket) do
+  def handle_info({:app_manager, {:selected_app, _selected_app_id}}, socket) do
     {:noreply, socket |> assign_apps()}
+  end
+
+  def handle_info({:app_manager, {:app_lifecycle, _app_id, _event}}, socket) do
+    # App lifecycle events (selected/deselected) - no UI action needed
+    {:noreply, socket}
   end
 
   def handle_info({:mixer, {:frame, _frame}}, socket) do
@@ -402,12 +408,12 @@ defmodule OctopusWeb.ManagerLive do
     {:noreply, socket}
   end
 
-  def handle_info({:event_scheduler, :started}, socket) do
+  def handle_info({:kiosk_mode_manager, :started}, socket) do
     socket = assign(socket, :event_scheduler_started, true)
     {:noreply, socket}
   end
 
-  def handle_info({:event_scheduler, :stopped}, socket) do
+  def handle_info({:kiosk_mode_manager, :stopped}, socket) do
     socket = assign(socket, :event_scheduler_started, false)
     {:noreply, socket}
   end
@@ -432,7 +438,7 @@ defmodule OctopusWeb.ManagerLive do
         Map.get(%{animation: 0, game: 1, test: 2, misc: 3}, category, 99)
       end)
 
-    selected_app = Mixer.get_selected_app()
+    selected_app = AppManager.get_selected_app()
 
     running_apps =
       for {module, app_id} <- AppSupervisor.running_apps() do

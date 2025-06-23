@@ -1,5 +1,5 @@
 defmodule Octopus.Apps.MarioRun do
-  alias Octopus.Protobuf.InputEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.Canvas
   alias Octopus.Sprite
   alias Octopus.WebP
@@ -309,7 +309,7 @@ defmodule Octopus.Apps.MarioRun do
     {:noreply, %State{state | speed: speed, look_speed: look_speed}}
   end
 
-  def handle_input(%InputEvent{type: :BUTTON_1, value: 1}, state) do
+  def handle_input(%ControllerEvent{type: :button, action: :press, button: 1}, state) do
     # Cancel any pending look animation and return to run immediately
     if state.look_timer_ref do
       Process.cancel_timer(state.look_timer_ref)
@@ -332,11 +332,17 @@ defmodule Octopus.Apps.MarioRun do
      }}
   end
 
-  def handle_input(%InputEvent{type: :BUTTON_10, value: 1}, %State{character: :mario} = state) do
+  def handle_input(
+        %ControllerEvent{type: :button, action: :press, button: 10},
+        %State{character: :mario} = state
+      ) do
     {:noreply, %State{state | character: :luigi}}
   end
 
-  def handle_input(%InputEvent{type: :BUTTON_10, value: 1}, %State{character: :luigi} = state) do
+  def handle_input(
+        %ControllerEvent{type: :button, action: :press, button: 10},
+        %State{character: :luigi} = state
+      ) do
     {:noreply, %State{state | character: :mario}}
   end
 

@@ -35,9 +35,11 @@ defmodule Octopus.Application do
         Octopus.Broadcaster,
         {Registry, keys: :unique, name: Octopus.AppRegistry},
         Octopus.AppSupervisor,
+        Octopus.AppManager,
+        Octopus.Events.Router,
         Octopus.InputAdapter,
         Octopus.PlaylistScheduler,
-        Octopus.EventScheduler,
+        Octopus.KioskModeManager,
         Octopus.Mixer,
         Octopus.ProximitySensor,
 
@@ -47,7 +49,7 @@ defmodule Octopus.Application do
         OctopusWeb.Endpoint,
 
         # OSC
-        {Octopus.Osc.Server, 8000}
+        Octopus.Osc.Server
       ] ++
         case System.get_env("TELEGRAM_BOT_SECRET") do
           nil -> []

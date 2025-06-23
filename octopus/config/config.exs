@@ -19,9 +19,33 @@ config :octopus,
   show_sim_preview: true,
   enable_event_mode: false
 
+# =============================================================================
+# UDP NETWORK CONFIGURATION
+# =============================================================================
+
+# Used by Octopus.Apps.FrameRelay - receives frames from external sources
+config :octopus, :frame_relay_port, 2342
+
+# Used by Octopus.InputAdapter - bidirectional controller communication
+config :octopus, :controller_interface_port, 4423
+
+# Used by Octopus.Broadcaster - communicates with ESP32/hardware devices
+config :octopus, :firmware_broadcaster_local_port, 4422
+config :octopus, :firmware_broadcaster_remote_port, 1337
+
+# Used by Octopus.Osc.Server - Open Sound Control for audio/visual applications
+config :octopus, :osc_server_port, 8000
+
+# Network addresses configuration
+config :octopus, :enable_broadcast, true
+# Default broadcast, can be overridden per environment
+config :octopus, :broadcast_ip, {255, 255, 255, 255}
+config :octopus, :localhost_ip, {127, 0, 0, 1}
+
 # Configures the endpoint
 config :octopus, OctopusWeb.Endpoint,
   url: [host: "localhost"],
+  adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [html: OctopusWeb.ErrorHTML, json: OctopusWeb.ErrorJSON],
     layout: false
@@ -44,6 +68,7 @@ config :mdns_lite,
       id: :osc,
       protocol: "osc",
       transport: "udp",
+      # Note: Keep in sync with :osc_server_port above
       port: 8000
     }
   ]

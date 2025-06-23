@@ -9,11 +9,13 @@ defmodule Octopus.Osc.Server do
   @client_timeout 60_000
   @client_timeout_check_interval 10_000
 
-  def start_link(port \\ 8000) do
-    GenServer.start_link(__MODULE__, port)
+  def start_link(_args) do
+    GenServer.start_link(__MODULE__, [])
   end
 
-  def init(port) do
+  def init([]) do
+    # Configuration is centralized in config.exs
+    port = Application.fetch_env!(:octopus, :osc_server_port)
     Logger.info("Starting OSC server on port #{port}")
     {:ok, socket} = :gen_udp.open(port, [:binary])
     {:ok, _} = :timer.send_interval(@client_timeout_check_interval, :check_client_timeouts)

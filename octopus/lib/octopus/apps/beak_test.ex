@@ -4,7 +4,7 @@ defmodule Octopus.Apps.BeakTest do
 
   alias Octopus.Protobuf.{SynthFrame, SynthAdsrConfig, SynthConfig}
   alias Octopus.Canvas
-  alias Octopus.Protobuf.InputEvent
+  alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
     defstruct [:index, :color, :canvas]
@@ -12,27 +12,16 @@ defmodule Octopus.Apps.BeakTest do
 
   def name(), do: "Beak"
 
-  @supported_buttons [
-    :BUTTON_1,
-    :BUTTON_2,
-    :BUTTON_3,
-    :BUTTON_4,
-    :BUTTON_5,
-    :BUTTON_6,
-    :BUTTON_7,
-    :BUTTON_8,
-    :BUTTON_9,
-    :BUTTON_10
-  ]
-
   def app_init(_args) do
     {:ok, %State{canvas: Canvas.new(80, 8)}}
   end
 
-  def handle_input(%InputEvent{type: button, value: 1}, %State{} = state)
-      when button in @supported_buttons do
-    "BUTTON_" <> btn_number = button |> to_string()
-    channel = String.to_integer(btn_number)
+  def handle_input(
+        %ControllerEvent{type: :button, action: :press, button: button},
+        %State{} = state
+      )
+      when button >= 1 and button <= 10 do
+    channel = button
 
     send_frame(%SynthFrame{
       event_type: :NOTE_ON,
@@ -72,11 +61,9 @@ defmodule Octopus.Apps.BeakTest do
     {:noreply, %State{state | canvas: canvas}}
   end
 
-  def handle_input(%InputEvent{type: button, value: 0}, state)
-      when button in @supported_buttons do
-    "BUTTON_" <> btn_number = button |> to_string()
-
-    channel = String.to_integer(btn_number)
+  def handle_input(%ControllerEvent{type: :button, action: :release, button: button}, state)
+      when button >= 1 and button <= 10 do
+    channel = button
 
     top_left = {(channel - 1) * 8, 0}
     bottom_right = {elem(top_left, 0) + 7, 7}
