@@ -4,7 +4,7 @@ defmodule Octopus.Apps.BeakTest do
 
   alias Octopus.Protobuf.{SynthFrame, SynthAdsrConfig, SynthConfig}
   alias Octopus.Canvas
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   defmodule State do
     defstruct [:index, :color, :canvas]
@@ -16,8 +16,8 @@ defmodule Octopus.Apps.BeakTest do
     {:ok, %State{canvas: Canvas.new(80, 8)}}
   end
 
-  def handle_input(
-        %ControllerEvent{type: :button, action: :press, button: button},
+  def handle_event(
+        %InputEvent{type: :button, action: :press, button: button},
         %State{} = state
       )
       when button >= 1 and button <= 10 do
@@ -61,7 +61,7 @@ defmodule Octopus.Apps.BeakTest do
     {:noreply, %State{state | canvas: canvas}}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :release, button: button}, state)
+  def handle_event(%InputEvent{type: :button, action: :release, button: button}, state)
       when button >= 1 and button <= 10 do
     channel = button
 
@@ -76,11 +76,7 @@ defmodule Octopus.Apps.BeakTest do
     {:noreply, %State{state | canvas: canvas}}
   end
 
-  def handle_input(_input_event, state) do
-    {:noreply, state}
-  end
-
-  def handle_control_event(_event, state) do
+  def handle_event(_event, state) do
     {:noreply, state}
   end
 end

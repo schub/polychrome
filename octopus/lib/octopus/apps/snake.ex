@@ -5,7 +5,7 @@ defmodule Octopus.Apps.Snake do
   alias Octopus.Sprite
   alias Octopus.Apps.Snake
   alias Octopus.ButtonState
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
   alias Snake.Game
 
   @frame_rate 60
@@ -35,11 +35,15 @@ defmodule Octopus.Apps.Snake do
     {:noreply, tick(state)}
   end
 
-  def handle_input(
-        %ControllerEvent{} = event,
+  def handle_event(
+        %InputEvent{} = event,
         %State{button_state: bs} = state
       ) do
     {:noreply, %State{state | button_state: bs |> ButtonState.handle_event(event)}}
+  end
+
+  def handle_event(_event, state) do
+    {:noreply, state}
   end
 
   defp tick(%State{t: t, button_state: %ButtonState{} = bs, side: side} = state) do

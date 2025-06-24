@@ -6,7 +6,7 @@ defmodule OctopusWeb.PixelsLive do
   alias Octopus.ColorPalette
   alias Octopus.{Events, Mixer}
   alias Octopus.Protobuf.{FirmwareConfig, Frame}
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   @default_config %FirmwareConfig{
     easing_mode: :LINEAR,
@@ -146,7 +146,7 @@ defmodule OctopusWeb.PixelsLive do
           src={@pixel_layout.pixel_image}
           class="absolute left-0 top-0 w-full h-full object-contain mix-blend-multiply pointer-events-none"
         /> --%>
-
+        
     <!-- Button UI Panel - Bottom -->
         <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
           <div class="flex gap-2 justify-center">
@@ -221,79 +221,79 @@ defmodule OctopusWeb.PixelsLive do
             socket
             |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button_num))
 
-          %ControllerEvent{type: :button, button: button_num, action: :press}
+          %InputEvent{type: :button, button: button_num, action: :press}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_1_LEFT ->
-          %ControllerEvent{type: :joystick, joystick: 1, direction: :left}
+          %InputEvent{type: :joystick, joystick: 1, direction: :left}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_1_DOWN ->
-          %ControllerEvent{type: :joystick, joystick: 1, direction: :down}
+          %InputEvent{type: :joystick, joystick: 1, direction: :down}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_1_UP ->
-          %ControllerEvent{type: :joystick, joystick: 1, direction: :up}
+          %InputEvent{type: :joystick, joystick: 1, direction: :up}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_1_RIGHT ->
-          %ControllerEvent{type: :joystick, joystick: 1, direction: :right}
+          %InputEvent{type: :joystick, joystick: 1, direction: :right}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_1_A ->
-          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :a, action: :press}
+          %InputEvent{type: :joystick, joystick: 1, joy_button: :a, action: :press}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_1_B ->
-          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :b, action: :press}
+          %InputEvent{type: :joystick, joystick: 1, joy_button: :b, action: :press}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_2_LEFT ->
-          %ControllerEvent{type: :joystick, joystick: 2, direction: :left}
+          %InputEvent{type: :joystick, joystick: 2, direction: :left}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_2_DOWN ->
-          %ControllerEvent{type: :joystick, joystick: 2, direction: :down}
+          %InputEvent{type: :joystick, joystick: 2, direction: :down}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_2_UP ->
-          %ControllerEvent{type: :joystick, joystick: 2, direction: :up}
+          %InputEvent{type: :joystick, joystick: 2, direction: :up}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_2_RIGHT ->
-          %ControllerEvent{type: :joystick, joystick: 2, direction: :right}
+          %InputEvent{type: :joystick, joystick: 2, direction: :right}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_2_A ->
-          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :a, action: :press}
+          %InputEvent{type: :joystick, joystick: 2, joy_button: :a, action: :press}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_2_B ->
-          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :b, action: :press}
+          %InputEvent{type: :joystick, joystick: 2, joy_button: :b, action: :press}
           |> Events.handle_event()
 
           {:noreply, socket}
@@ -316,7 +316,7 @@ defmodule OctopusWeb.PixelsLive do
             socket
             |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button_num))
 
-          %ControllerEvent{type: :button, button: button_num, action: :release}
+          %InputEvent{type: :button, button: button_num, action: :release}
           |> Events.handle_event()
 
           {:noreply, socket}
@@ -329,7 +329,7 @@ defmodule OctopusWeb.PixelsLive do
                :JOYSTICK_1_UP,
                :JOYSTICK_1_RIGHT
              ] ->
-          %ControllerEvent{type: :joystick, joystick: 1, direction: :center}
+          %InputEvent{type: :joystick, joystick: 1, direction: :center}
           |> Events.handle_event()
 
           {:noreply, socket}
@@ -341,31 +341,31 @@ defmodule OctopusWeb.PixelsLive do
                :JOYSTICK_2_UP,
                :JOYSTICK_2_RIGHT
              ] ->
-          %ControllerEvent{type: :joystick, joystick: 2, direction: :center}
+          %InputEvent{type: :joystick, joystick: 2, direction: :center}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_1_A ->
-          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :a, action: :release}
+          %InputEvent{type: :joystick, joystick: 1, joy_button: :a, action: :release}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_1_B ->
-          %ControllerEvent{type: :joystick, joystick: 1, joy_button: :b, action: :release}
+          %InputEvent{type: :joystick, joystick: 1, joy_button: :b, action: :release}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_2_A ->
-          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :a, action: :release}
+          %InputEvent{type: :joystick, joystick: 2, joy_button: :a, action: :release}
           |> Events.handle_event()
 
           {:noreply, socket}
 
         :JOYSTICK_2_B ->
-          %ControllerEvent{type: :joystick, joystick: 2, joy_button: :b, action: :release}
+          %InputEvent{type: :joystick, joystick: 2, joy_button: :b, action: :release}
           |> Events.handle_event()
 
           {:noreply, socket}
@@ -382,7 +382,7 @@ defmodule OctopusWeb.PixelsLive do
       socket
       |> assign(pressed_buttons: MapSet.put(socket.assigns.pressed_buttons, button_num))
 
-    %ControllerEvent{type: :button, button: button_num, action: :press}
+    %InputEvent{type: :button, button: button_num, action: :press}
     |> Events.handle_event()
 
     # Simulate button press with automatic release after delay
@@ -396,7 +396,7 @@ defmodule OctopusWeb.PixelsLive do
       socket
       |> assign(pressed_buttons: MapSet.delete(socket.assigns.pressed_buttons, button_num))
 
-    %ControllerEvent{type: :button, button: button_num, action: :release}
+    %InputEvent{type: :button, button: button_num, action: :release}
     |> Events.handle_event()
 
     {:noreply, socket}

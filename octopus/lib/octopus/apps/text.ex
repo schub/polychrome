@@ -30,12 +30,12 @@ defmodule Octopus.Apps.Text do
     {:ok, state}
   end
 
-  def handle_control_event(%ControlEvent{type: :APP_SELECTED}, state) do
+  def handle_event(%ControlEvent{type: :APP_SELECTED}, state) do
     send(self(), :tick)
     {:noreply, state}
   end
 
-  def handle_control_event(_, state), do: {:noreply, state}
+  def handle_event(_, state), do: {:noreply, state}
 
   def config_schema() do
     %{

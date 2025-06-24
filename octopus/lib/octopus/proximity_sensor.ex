@@ -36,7 +36,7 @@ defmodule Octopus.ProximitySensor do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
 
-  def handle_proximity_event(%ProximityEvent{} = event) do
+  def handle_event(%ProximityEvent{} = event) do
     GenServer.cast(__MODULE__, {:proximity_event, event})
   end
 

@@ -190,9 +190,13 @@ defmodule Octopus.Apps.Encounter do
     {:noreply, %{state | canvas: canvas}}
   end
 
-  def handle_control_event(%ControlEvent{type: :APP_SELECTED}, state) do
+  def handle_event(%ControlEvent{type: :APP_SELECTED}, state) do
     Logger.info("handle control event")
     play()
+    {:noreply, state}
+  end
+
+  def handle_event(_event, state) do
     {:noreply, state}
   end
 end

@@ -4,7 +4,7 @@ defmodule Octopus.Apps.BomberPerson do
 
   alias Octopus.Apps.BomberPerson.Maps
   alias Octopus.{Canvas, Util, Font}
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   defmodule State do
     defstruct [
@@ -329,16 +329,16 @@ defmodule Octopus.Apps.BomberPerson do
     end
   end
 
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: joystick, joy_button: :a, action: :press},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: joystick, joy_button: :a, action: :press},
         state
       ) do
     # Convert to 0-based player index
     place_bomb(state, joystick - 1)
   end
 
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: joystick, direction: direction},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: joystick, direction: direction},
         state
       )
       when direction in [:left, :right, :up, :down] do
@@ -349,15 +349,15 @@ defmodule Octopus.Apps.BomberPerson do
     end
   end
 
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :center},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: _joystick, direction: :center},
         state
       ) do
     # Joystick returned to center - no movement needed
     {:noreply, state}
   end
 
-  def handle_input(_input_event, state) do
+  def handle_event(_event, state) do
     {:noreply, state}
   end
 
@@ -395,8 +395,4 @@ defmodule Octopus.Apps.BomberPerson do
   defp direction_to_delta(:right), do: {1, 0}
   defp direction_to_delta(:up), do: {0, -1}
   defp direction_to_delta(:down), do: {0, 1}
-
-  def handle_control_event(_event, state) do
-    {:noreply, state}
-  end
 end

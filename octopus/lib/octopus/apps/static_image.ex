@@ -27,13 +27,13 @@ defmodule Octopus.Apps.StaticImage do
     {:noreply, state}
   end
 
-  def handle_control_event(%ControlEvent{type: type}, state)
+  def handle_event(%ControlEvent{type: type}, state)
       when type in [:APP_SELECTED, :APP_STARTED] do
     display(state)
     {:noreply, state}
   end
 
-  def handle_control_event(_, state) do
+  def handle_event(_, state) do
     {:noreply, state}
   end
 
