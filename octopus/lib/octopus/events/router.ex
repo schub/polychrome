@@ -11,7 +11,7 @@ defmodule Octopus.Events.Router do
   require Logger
 
   alias Octopus.{AppSupervisor, AppManager, KioskModeManager}
-  alias Octopus.Events.Event.{Controller, Proximity, Audio}
+  alias Octopus.Events.Event.{Input, Proximity, Audio}
 
   @pubsub_topic "events_router"
 
@@ -39,17 +39,17 @@ defmodule Octopus.Events.Router do
     {:ok, %{}}
   end
 
-  def handle_cast({:route_event, %Controller{} = controller_event}, state) do
-    # Route controller events to selected app and kiosk mode manager
+  def handle_cast({:route_event, %Input{} = input_event}, state) do
+    # Route input events to selected app and kiosk mode manager
     selected_app = AppManager.get_selected_app()
-    AppSupervisor.send_event(selected_app, controller_event)
-    KioskModeManager.handle_input(controller_event)
+    AppSupervisor.send_event(selected_app, input_event)
+    KioskModeManager.handle_event(input_event)
 
     # Broadcast event for monitoring/debugging
     Phoenix.PubSub.broadcast(
       Octopus.PubSub,
       @pubsub_topic,
-      {:events_router, {:controller_event, controller_event}}
+      {:events_router, {:input_event, input_event}}
     )
 
     {:noreply, state}

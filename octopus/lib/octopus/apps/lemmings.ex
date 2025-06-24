@@ -3,7 +3,7 @@ defmodule Octopus.Apps.Lemmings do
   require Logger
 
   alias Octopus.{Sprite, Canvas}
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
   alias Lemming
 
   @default_block_time 10
@@ -180,14 +180,14 @@ defmodule Octopus.Apps.Lemmings do
     {:noreply, tick(state)}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :press, button: button}, state) do
+  def handle_event(%InputEvent{type: :button, action: :press, button: button}, state) do
     # Convert to 0-based indexing for button_map
     button_index = button - 1
     handle_number_button_press(state, button_index)
   end
 
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :right},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: _joystick, direction: :right},
         state
       ) do
     # Right direction adds left-walking lemming
@@ -195,8 +195,8 @@ defmodule Octopus.Apps.Lemmings do
     {:noreply, state}
   end
 
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :left},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: _joystick, direction: :left},
         state
       ) do
     # Left direction adds right-walking lemming
@@ -204,15 +204,15 @@ defmodule Octopus.Apps.Lemmings do
     {:noreply, state}
   end
 
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :down},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: _joystick, direction: :down},
         state
       ) do
     # Down direction explodes a lemming
     handle_kill(state)
   end
 
-  def handle_input(_, state) do
+  def handle_event(_, state) do
     {:noreply, state}
   end
 

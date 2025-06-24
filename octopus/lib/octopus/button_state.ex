@@ -3,7 +3,7 @@ defmodule Octopus.ButtonState do
 
   alias Octopus.JoyState
   alias Octopus.ButtonState
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   defp button_map() do
     num_buttons = Octopus.installation().num_buttons()
@@ -29,7 +29,7 @@ defmodule Octopus.ButtonState do
     %ButtonState{bs | buttons: buttons |> MapSet.delete(button)}
   end
 
-  def handle_event(%ButtonState{} = bs, %ControllerEvent{
+  def handle_event(%ButtonState{} = bs, %InputEvent{
         type: :button,
         button: button_num,
         action: action
@@ -41,7 +41,7 @@ defmodule Octopus.ButtonState do
   end
 
   # Handle joystick direction events and convert to axis events for JoyState compatibility
-  def handle_event(%ButtonState{} = bs, %ControllerEvent{
+  def handle_event(%ButtonState{} = bs, %InputEvent{
         type: :joystick,
         joystick: joystick,
         direction: direction
@@ -58,7 +58,7 @@ defmodule Octopus.ButtonState do
     Map.put(bs, joy_state_key, updated_joy)
   end
 
-  def handle_event(%ButtonState{} = bs, %ControllerEvent{
+  def handle_event(%ButtonState{} = bs, %InputEvent{
         type: :joystick,
         joystick: joystick,
         joy_button: joy_button,

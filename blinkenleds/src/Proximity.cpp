@@ -10,7 +10,7 @@
 #define ECHO2_PIN 35
 
 // PWM TRIGGER
-#define TRIGGER_FREQ_HZ 50
+#define TRIGGER_FREQ_HZ 20
 
 // ECHO MEASUREMENT
 static unsigned long echoStartTime = 0;

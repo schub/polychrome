@@ -4,7 +4,7 @@ defmodule Octopus.Apps.InputDebug do
 
   alias Octopus.ColorPalette
   alias Octopus.Protobuf.Frame
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
   alias Octopus.{ButtonState, JoyState}
 
   @frame_rate 60
@@ -83,8 +83,8 @@ defmodule Octopus.Apps.InputDebug do
     {:noreply, state}
   end
 
-  def handle_input(
-        %ControllerEvent{} = event,
+  def handle_event(
+        %InputEvent{} = event,
         %State{button_state: bs} = state
       ) do
     Logger.info("Input Debug: #{inspect(event)}")
@@ -92,6 +92,10 @@ defmodule Octopus.Apps.InputDebug do
     new_bs = bs |> ButtonState.handle_event(event) |> IO.inspect()
 
     {:noreply, %State{state | button_state: new_bs}}
+  end
+
+  def handle_event(_event, state) do
+    {:noreply, state}
   end
 
   defp screen_button_color(6), do: 3

@@ -4,7 +4,7 @@ defmodule Octopus.Apps.InputTester do
 
   alias Octopus.ColorPalette
   alias Octopus.Protobuf.Frame
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   defmodule State do
     defstruct [:position, :color, :palette]
@@ -26,19 +26,19 @@ defmodule Octopus.Apps.InputTester do
     {:noreply, state}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :press, button: button}, state) do
+  def handle_event(%InputEvent{type: :button, action: :press, button: button}, state) do
     Logger.info("Button #{button} pressed")
     {:noreply, state}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :release, button: button}, state) do
+  def handle_event(%InputEvent{type: :button, action: :release, button: button}, state) do
     Logger.info("Button #{button} released")
     {:noreply, state}
   end
 
   # New joystick movement events
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: joystick, direction: direction},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: joystick, direction: direction},
         state
       ) do
     Logger.info("Joystick #{joystick} moved #{direction}")
@@ -46,8 +46,8 @@ defmodule Octopus.Apps.InputTester do
   end
 
   # New joystick button events
-  def handle_input(
-        %ControllerEvent{
+  def handle_event(
+        %InputEvent{
           type: :joystick,
           joystick: joystick,
           joy_button: joy_button,
@@ -60,13 +60,12 @@ defmodule Octopus.Apps.InputTester do
   end
 
   # Catch-all for any other events
-  def handle_input(%ControllerEvent{} = event, state) do
+  def handle_event(%InputEvent{} = event, state) do
     Logger.info("Other input: #{inspect(event)}")
     {:noreply, state}
   end
 
-  def handle_input(event, state) do
-    Logger.info("Non-ControllerEvent: #{inspect(event)}")
+  def handle_event(_event, state) do
     {:noreply, state}
   end
 

@@ -3,8 +3,9 @@ defmodule Octopus.Apps.FrameRelay do
   require Logger
 
   alias Octopus.Protobuf
-  alias Octopus.Protobuf.{Frame, RGBFrame, WFrame, InputEvent}
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Protobuf.{Frame, RGBFrame, WFrame, ControlEvent}
+  alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Protobuf.InputEvent, as: ProtobufInputEvent
 
   @supported_frames [Frame, WFrame, RGBFrame]
 
@@ -61,20 +62,31 @@ defmodule Octopus.Apps.FrameRelay do
     {:noreply, %State{state | remote_ip: ip, remote_port: port}}
   end
 
-  def handle_input(%ControllerEvent{}, %State{remote_ip: nil} = state) do
+  def handle_event(%InputEvent{}, %State{remote_ip: nil} = state) do
     {:noreply, state}
   end
 
-  def handle_input(%ControllerEvent{} = controller_event, %State{} = state) do
-    # Convert ControllerEvent back to protobuf InputEvent for forwarding
-    protobuf_event = convert_to_protobuf_format(controller_event)
+  def handle_event(%InputEvent{} = input_event, %State{} = state) do
+    # Convert InputEvent back to protobuf InputEvent for forwarding
+    protobuf_event = convert_to_protobuf_format(input_event)
     binary = Protobuf.encode(protobuf_event)
     :gen_udp.send(state.udp, state.remote_ip, state.remote_port, binary)
     {:noreply, state}
   end
 
-  # Convert internal ControllerEvent back to protobuf InputEvent format
-  defp convert_to_protobuf_format(%ControllerEvent{type: :button, button: button, action: action}) do
+  def handle_event(%ControlEvent{} = event, state) do
+    binary = Protobuf.encode(event)
+    :gen_udp.send(state.udp, state.remote_ip, state.remote_port, binary)
+    Logger.info("UDP: Control event received. #{inspect(event)}}")
+    {:noreply, state}
+  end
+
+  def handle_event(_event, state) do
+    {:noreply, state}
+  end
+
+  # Convert internal InputEvent back to protobuf InputEvent format
+  defp convert_to_protobuf_format(%InputEvent{type: :button, button: button, action: action}) do
     button_type = String.to_existing_atom("BUTTON_#{button}")
 
     value =
@@ -83,22 +95,22 @@ defmodule Octopus.Apps.FrameRelay do
         :release -> 0
       end
 
-    %InputEvent{type: button_type, value: value}
+    %ProtobufInputEvent{type: button_type, value: value}
   end
 
   # Convert joystick movement events back to protobuf format
-  defp convert_to_protobuf_format(%ControllerEvent{
+  defp convert_to_protobuf_format(%InputEvent{
          type: :joystick,
          joystick: joystick,
          direction: direction
        })
        when direction != nil do
     {axis_type, value} = joystick_direction_to_protobuf(joystick, direction)
-    %InputEvent{type: axis_type, value: value}
+    %ProtobufInputEvent{type: axis_type, value: value}
   end
 
   # Convert joystick button events back to protobuf format
-  defp convert_to_protobuf_format(%ControllerEvent{
+  defp convert_to_protobuf_format(%InputEvent{
          type: :joystick,
          joystick: joystick,
          joy_button: joy_button,
@@ -113,7 +125,7 @@ defmodule Octopus.Apps.FrameRelay do
         :release -> 0
       end
 
-    %InputEvent{type: button_type, value: value}
+    %ProtobufInputEvent{type: button_type, value: value}
   end
 
   # Convert semantic joystick direction back to protobuf axis events
@@ -143,13 +155,6 @@ defmodule Octopus.Apps.FrameRelay do
       {2, :b} -> :BUTTON_B_2
       {_, :menu} -> :BUTTON_MENU
     end
-  end
-
-  def handle_control_event(event, state) do
-    binary = Protobuf.encode(event)
-    :gen_udp.send(state.udp, state.remote_ip, state.remote_port, binary)
-    Logger.info("UDP: Control event received. #{inspect(event)}}")
-    {:noreply, state}
   end
 
   # special case for fly.io

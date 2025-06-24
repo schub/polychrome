@@ -52,6 +52,41 @@ defmodule OctopusWeb.ManagerLive do
       <% end %>
 
       <div class="container mx-auto">
+        <div class="border rounded m-2 p-2 flex flex-row justify-end gap-2">
+          <a href="/proximity">
+            <button
+              class="text-slate-800 background-transparent font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
+              type="button"
+            >
+              Proximity Charts
+            </button>
+          </a>
+          <a href="/firmware-info">
+            <button
+              class="text-slate-800 background-transparent font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
+              type="button"
+            >
+              Firmware Info
+            </button>
+          </a>
+          <a href="/sim">
+            <button
+              class="text-slate-800 background-transparent font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
+              type="button"
+            >
+              Open Sim
+            </button>
+          </a>
+          <a href="/sim3d">
+            <button
+              class="text-slate-800 background-transparent font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
+              type="button"
+            >
+              Open 3D Sim
+            </button>
+          </a>
+        </div>
+
         <%!-- Playlists --%>
         <div class="border rounded m-2 p-0">
           <div class="flex flex-row">
@@ -177,7 +212,7 @@ defmodule OctopusWeb.ManagerLive do
             </div>
             <div>
               <button
-                class="text-slate-800 rounded bg-slate-200 my-2 font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1"
+                class="text-slate-800 background-transparent font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
                 phx-click="toggle_event_scheduler"
                 phx-value-val={to_string(!@event_scheduler_started)}
               >
@@ -188,30 +223,6 @@ defmodule OctopusWeb.ManagerLive do
                 <% end %>
                 Event Scheduler
               </button>
-              <a href="/stats">
-                <button
-                  class="text-slate-800 background-transparent font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
-                  type="button"
-                >
-                  Open Stats
-                </button>
-              </a>
-              <a href="/sim">
-                <button
-                  class="text-slate-800 background-transparent font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
-                  type="button"
-                >
-                  Open Sim
-                </button>
-              </a>
-              <a href="/sim3d">
-                <button
-                  class="text-slate-800 background-transparent font-bold uppercase px-3 py-1 text-xs outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-150"
-                  type="button"
-                >
-                  Open 3D Sim
-                </button>
-              </a>
             </div>
           </div>
           <table class="w-full text-left m-0">

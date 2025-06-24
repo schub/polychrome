@@ -4,9 +4,7 @@ defmodule Octopus.AppSupervisor do
 
   alias Octopus.{AppManager, App}
   alias Octopus.Protobuf.ControlEvent
-  alias Octopus.Events.Event.{Audio}
-  alias Octopus.Events.Event.Proximity, as: ProximityEvent
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.{Audio, Proximity, Input}
 
   @topic "apps"
 
@@ -175,7 +173,7 @@ defmodule Octopus.AppSupervisor do
   Sends an event to an app. Ignores the event if the app is not running.
   """
   def send_event(app_id, %event_type{} = event)
-      when event_type in [ControllerEvent, ControlEvent, Audio, ProximityEvent] do
+      when event_type in [Input, ControlEvent, Proximity, Audio] do
     case Registry.lookup(Octopus.AppRegistry, app_id) do
       [{pid, _}] -> send(pid, {:event, event})
       [] -> :noop

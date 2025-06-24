@@ -2,7 +2,7 @@ defmodule Octopus.Apps.Ocean do
   use Octopus.App, category: :animation
 
   alias Octopus.{Canvas, WebP, VirtualMatrix}
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
   require Logger
 
   # Add delegate to access installation metadata
@@ -127,8 +127,8 @@ defmodule Octopus.Apps.Ocean do
   end
 
   # Handle button press events - create interaction wave
-  def handle_input(
-        %ControllerEvent{type: :button, action: :press, button: button_number},
+  def handle_event(
+        %InputEvent{type: :button, action: :press, button: button_number},
         %State{} = state
       ) do
     # Logger.info("Ocean: Button pressed: #{button_number}")
@@ -150,8 +150,12 @@ defmodule Octopus.Apps.Ocean do
     {:noreply, %{state | last_activity_time: current_time, inactivity_timer_ref: nil}}
   end
 
-  def handle_input(%ControllerEvent{}, %State{} = state) do
+  def handle_event(%InputEvent{}, %State{} = state) do
     # Logger.debug("Ocean: Ignoring input event")
+    {:noreply, state}
+  end
+
+  def handle_event(_event, state) do
     {:noreply, state}
   end
 

@@ -16,7 +16,7 @@ uart:
 	$(pio_binary) run --target upload -e uart
 	
 upload: 
-	$(pio_binary) run --target upload -e panel_11
+	$(pio_binary) run --target upload -e panel_1
 
 upload_prototype: 
 	$(pio_binary) run --target upload -e panel_prototype

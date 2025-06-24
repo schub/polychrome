@@ -1,8 +1,8 @@
-defmodule Octopus.Events.Event.Controller do
+defmodule Octopus.Events.Event.Input do
   @moduledoc """
   Domain event for user input in the Octopus system.
 
-  This represents controller input events in a clean, domain-focused format,
+  This represents input events in a clean, domain-focused format,
   abstracted from the underlying protobuf network protocol.
 
   Event Types:
@@ -42,7 +42,7 @@ defmodule Octopus.Events.Event.Controller do
             }
 
   @doc """
-  Validates a controller event structure.
+  Validates an input event structure.
   """
   def validate(%__MODULE__{type: :button, button: button, action: action})
       when button in 1..12 and action in [:press, :release] do
@@ -64,5 +64,5 @@ defmodule Octopus.Events.Event.Controller do
     :ok
   end
 
-  def validate(_), do: {:error, :invalid_controller_event}
+  def validate(_), do: {:error, :invalid_input_event}
 end

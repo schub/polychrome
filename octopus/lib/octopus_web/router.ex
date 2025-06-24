@@ -24,7 +24,8 @@ defmodule OctopusWeb.Router do
       live "/", ManagerLive
       live "/playlist/:id", PlaylistLive
       live "/presence", PresenceLive
-      live "/stats", StatsLive
+      live "/firmware-info", FirmwareInfoLive
+      live "/proximity", ProximityLive
     end
   end
 
