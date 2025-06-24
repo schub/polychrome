@@ -6,11 +6,12 @@ defmodule Octopus.Mixer do
 
   alias Octopus.Protobuf.{
     RGBFrame,
+    WFrame,
     AudioFrame
   }
 
   @pubsub_topic "mixer"
-  @pubsub_frames [RGBFrame]
+  @pubsub_frames [RGBFrame, WFrame]
   @transition_duration 300
   @transition_frame_time trunc(1000 / 60)
 
@@ -52,7 +53,7 @@ defmodule Octopus.Mixer do
 
   Published messages:
 
-  * `{:mixer, {:frame, %Octopus.Protobuf.Frame{} = frame}}` - a new frame was received from the selected app
+  * `{:mixer, {:frame, %Octopus.Protobuf.RGBFrame{} = frame}}` - a new RGB frame was received from the selected app
   * `{:mixer, {:config, config}}` - mixer configuration changed
   """
   def subscribe do

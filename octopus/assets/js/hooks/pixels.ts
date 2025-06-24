@@ -1,6 +1,6 @@
 import { Hook, makeHook } from "phoenix_typed_hook";
 
-type RGB = [number, number, number];
+import { Frame, RGB, rgbPixelsFromFrame } from "./shared/frame";
 
 interface Layout {
   imageSize: [number, number];
@@ -10,12 +10,6 @@ interface Layout {
 }
 
 interface Config {}
-
-type Frame =
-  | { kind: "indexed"; data: number[]; palette: RGB[] }
-  | { kind: "rgb"; data: number[] }
-  | { kind: "rgbw"; data: number[] }
-  | { kind: "audio"; uri: string; channel: number };
 
 function resize(canvas: HTMLCanvasElement) {
   const dpr = window.devicePixelRatio || 1;
@@ -90,33 +84,7 @@ class PixelsHook extends Hook {
 
     [`frame:${id}`, "frame:pixels-*"].forEach((event) => {
       this.handleEvent(event, ({ frame: frame }: { frame: Frame }) => {
-        switch (frame.kind) {
-          case "indexed": {
-            pixels = frame.data.map((pixel) => {
-              if (pixel < frame.palette.length) {
-                return frame.palette[pixel];
-              }
-              return frame.palette[0] || [0, 0, 0];
-            });
-            break;
-          }
-          case "rgb": {
-            const numPixels = frame.data.length / 3;
-            pixels = new Array(numPixels).fill([0, 0, 0]);
-            for (let i = 0; i < numPixels; i++) {
-              const pixelOffset = i * 3;
-              const r = frame.data[pixelOffset];
-              const g = frame.data[pixelOffset + 1];
-              const b = frame.data[pixelOffset + 2];
-
-              pixels[i] = [r, g, b];
-            }
-            break;
-          }
-          case "rgbw":
-          case "audio":
-            break;
-        }
+        pixels = rgbPixelsFromFrame(frame);
       });
     });
 
@@ -167,8 +135,9 @@ class PixelsHook extends Hook {
           desaturate(rgb, DESATURATION_AMOUNT),
           BRIGHTEN_AMOUNT
         );
-        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-        ctx.shadowColor = ctx.fillStyle;
+        const fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillStyle = fillStyle;
+        ctx.shadowColor = fillStyle;
         ctx.shadowBlur = layout.pixelSize[0] / 3;
 
         ctx.fillRect(

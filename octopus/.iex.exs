@@ -3,7 +3,6 @@ alias Octopus.{
   AppSupervisor,
   AppRegistry,
   Mixer,
-  ColorPalette,
   Apps,
   Font,
   Broadcaster,

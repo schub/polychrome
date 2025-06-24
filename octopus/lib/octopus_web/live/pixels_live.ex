@@ -3,9 +3,8 @@ defmodule OctopusWeb.PixelsLive do
 
   import Phoenix.LiveView, only: [push_event: 3, connected?: 1]
 
-  alias Octopus.ColorPalette
   alias Octopus.{Events, Mixer}
-  alias Octopus.Protobuf.{FirmwareConfig, Frame}
+  alias Octopus.Protobuf.{FirmwareConfig, RGBFrame}
   alias Octopus.Events.Event.Input, as: InputEvent
 
   @default_config %FirmwareConfig{
@@ -73,9 +72,11 @@ defmodule OctopusWeb.PixelsLive do
       if connected?(socket) do
         Mixer.subscribe()
 
-        frame = %Frame{
-          data: List.duplicate(0, pixel_layout.width * pixel_layout.height),
-          palette: ColorPalette.load("pico-8")
+        frame = %RGBFrame{
+          data:
+            [0, 0, 0]
+            |> List.duplicate(pixel_layout.width * pixel_layout.height)
+            |> IO.iodata_to_binary()
         }
 
         socket

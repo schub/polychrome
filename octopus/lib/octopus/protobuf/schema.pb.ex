@@ -95,7 +95,6 @@ defmodule Octopus.Protobuf.Packet do
 
   oneof :content, 0
 
-  field :frame, 2, type: Octopus.Protobuf.Frame, oneof: 0
   field :w_frame, 3, type: Octopus.Protobuf.WFrame, json_name: "wFrame", oneof: 0
   field :rgb_frame, 4, type: Octopus.Protobuf.RGBFrame, json_name: "rgbFrame", oneof: 0
   field :audio_frame, 5, type: Octopus.Protobuf.AudioFrame, json_name: "audioFrame", oneof: 0
@@ -126,36 +125,16 @@ defmodule Octopus.Protobuf.Packet do
     oneof: 0
 end
 
-defmodule Octopus.Protobuf.Frame do
-  @moduledoc false
-
-  use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.12.0"
-
-  field :data, 1, type: :bytes, deprecated: false
-  field :palette, 2, type: :bytes, deprecated: false
-  field :easing_interval, 3, type: :uint32, json_name: "easingInterval"
-end
-
 defmodule Octopus.Protobuf.WFrame do
   @moduledoc false
 
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.12.0"
 
   field :data, 1, type: :bytes, deprecated: false
-  field :palette, 2, type: :bytes, deprecated: false
   field :easing_interval, 3, type: :uint32, json_name: "easingInterval"
 end
 
 defmodule Octopus.Protobuf.RGBFrame do
-  @moduledoc false
-
-  use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.12.0"
-
-  field :data, 1, type: :bytes, deprecated: false
-  field :easing_interval, 2, type: :uint32, json_name: "easingInterval"
-end
-
-defmodule Octopus.Protobuf.RGBWFrame do
   @moduledoc false
 
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.12.0"

@@ -2,10 +2,9 @@ syntax = "proto3";
 import "nanopb.proto";
 
 // wrapper for all messages
-message Packet {    
+message Packet {
   oneof content {
     // Frames with pixel data.
-    Frame frame = 2;
     WFrame w_frame = 3;
     RGBFrame rgb_frame = 4;
 
@@ -21,37 +20,23 @@ message Packet {
     ControlEvent control_event = 9;
 
     // ** Internal use only **
-    FirmwareConfig firmware_config = 1; 
+    FirmwareConfig firmware_config = 1;
     RGBFrame rgb_frame_part1 = 7;
     RGBFrame rgb_frame_part2 = 8;
     SoundToLightControlEvent sound_to_light_control_event = 11;
   }
 }
 
-// Frame with one byte per pixel and an RGB palette that defines the colors.
-message Frame {
-  bytes data = 1 [(nanopb).max_size = 720]; // Selects pixel colors from the palette. First pixel is top left. One panel after the other.
-  bytes palette = 2 [(nanopb).max_size = 192]; // Series of RGB values. 8bit per color.
-  uint32 easing_interval = 3; // Optional. In milliseconds. Fade this frame over the previous one with an easing curve. Colors are blended in gamma corrected RGB space.
-}
-
-// The same as the frame but with access to the white component in the palette (RGBW).
+// Frame that uses only the white channel, 1 byte per pixel.
 message WFrame {
   bytes data = 1 [(nanopb).max_size = 720]; // Selects pixel colors from the palette. First pixel is top left. One panel after the other.
-  bytes palette = 2 [(nanopb).max_size = 256]; // Series of RGBW values. 8bit per color.
   uint32 easing_interval = 3; // Optional. In milliseconds. Fade this frame over the previous one with an easing curve. Colors are blended in gamma corrected RGB space.
 }
 
-// Frame with 3 bytes per pixel (RGB) and no color palette
-// not yet implemented
+// Frame with 3 bytes per pixel (RGB)
 message RGBFrame {
   bytes data = 1 [(nanopb).max_size = 2304]; // Series of RGB values. 8bit per color. First pixel is top left. One panel after the other.
   uint32 easing_interval = 2; // Optional. In milliseconds. Fade this frame over the previous one with an easing curve. Colors are blended in gamma corrected RGB space.
-}
-
-message RGBWFrame {
-  bytes data = 1 [(nanopb).max_size = 3072]; // Series of RGBW values. 8bit per color. First pixel is top left. One panel after the other.
-  uint32 easing_interval = 2; 
 }
 
 // AudioFrame with uri of the sample to be played and the channel number
@@ -140,13 +125,13 @@ enum InputType {
 
   AXIS_X_1 = 10;
   AXIS_Y_1 = 11;
-  
+
   AXIS_X_2 = 12;
   AXIS_Y_2 = 13;
-  
+
   BUTTON_A_1 = 14;
   BUTTON_A_2 = 15;
-  
+
   BUTTON_MENU = 16;
 }
 
