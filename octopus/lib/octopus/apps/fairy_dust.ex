@@ -1,15 +1,12 @@
 defmodule Octopus.Apps.FairyDust do
   use Octopus.App, category: :animation
 
-  alias Octopus.{Canvas, Image, WebP, VirtualMatrix}
-
-  # Add delegate to access installation metadata
-  defdelegate installation, to: Octopus
+  alias Octopus.{Canvas, Image, WebP}
 
   @fps 60
 
   defmodule State do
-    defstruct [:fairy_dust, :time, :particles, :speed, :virtual_matrix]
+    defstruct [:fairy_dust, :time, :particles, :speed]
   end
 
   defmodule Particle do
@@ -27,18 +24,19 @@ defmodule Octopus.Apps.FairyDust do
   end
 
   def app_init(%{speed: speed}) do
+    # Configure display using new unified API - gapped layout
+    Octopus.App.configure_display(layout: :gapped_panels)
+
     :timer.send_interval(trunc(1000 / @fps), :tick)
 
     fairy_dust = Image.load("fairy-dust")
-    virtual_matrix = VirtualMatrix.new(installation(), layout: :gapped_panels)
 
     {:ok,
      %State{
        fairy_dust: fairy_dust,
        time: 0,
        particles: [],
-       speed: speed,
-       virtual_matrix: virtual_matrix
+       speed: speed
      }}
   end
 
@@ -94,8 +92,9 @@ defmodule Octopus.Apps.FairyDust do
   def handle_info(:tick, %State{} = state) do
     dt = 1 / @fps * state.speed
 
-    # Create canvas using virtual matrix dimensions
-    canvas = Canvas.new(state.virtual_matrix.width, state.virtual_matrix.height)
+    # Get display info instead of virtual_matrix
+    display_info = Octopus.App.get_display_info()
+    canvas = Canvas.new(display_info.width, display_info.height)
 
     wrap_width = canvas.width + 100
     wrap_offset = -60
@@ -153,8 +152,8 @@ defmodule Octopus.Apps.FairyDust do
         offset: {trunc(rocket_x - fairy_dust.width / 2), trunc(rocket_y - fairy_dust.height / 2)}
       )
 
-    # Use VirtualMatrix to automatically handle panel cutting and joining
-    VirtualMatrix.send_frame(state.virtual_matrix, canvas)
+    # Use new unified display API
+    Octopus.App.update_display(canvas)
 
     {:noreply, %State{state | time: state.time + dt, particles: particles}}
   end
