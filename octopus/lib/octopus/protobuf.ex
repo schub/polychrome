@@ -75,6 +75,26 @@ defmodule Octopus.Protobuf do
     |> Packet.encode()
   end
 
+  def split_and_encode(%RGBFrame{data: <<part1::binary-size(960), part2::binary>>} = rgbframe) do
+    packet1 =
+      %Packet{content: {:rgb_frame_part1, %RGBFrame{rgbframe | data: part1}}}
+      |> Packet.encode()
+
+    packet2 =
+      %Packet{content: {:rgb_frame_part2, %RGBFrame{rgbframe | data: part2}}}
+      |> Packet.encode()
+
+    [packet1, packet2]
+  end
+
+  def split_and_encode(%RGBFrame{data: <<part1::binary>>} = rgbframe) do
+    packet1 =
+      %Packet{content: {:rgb_frame_part1, %RGBFrame{rgbframe | data: part1}}}
+      |> Packet.encode()
+
+    [packet1]
+  end
+
   def decode_firmware_packet(protobuf) when is_binary(protobuf) do
     {:ok, FirmwarePacket.decode(protobuf)}
   rescue

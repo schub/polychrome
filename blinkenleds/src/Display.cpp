@@ -67,6 +67,9 @@ void Display::handle_packet(Packet packet)
 {
   uint16_t first_pixel;
   uint16_t last_pixel;
+
+  Serial.printf("Received packet: %d\n", packet.which_content);
+
   switch (packet.which_content)
   {
   case Packet_firmware_config_tag:
@@ -109,6 +112,28 @@ void Display::handle_packet(Packet packet)
     last_pixel = first_pixel + PIXEL_COUNT - 1;
     apply_rgb_frame(packet.content.rgb_frame.data, first_pixel, last_pixel);
     Pixel::set_easing_interval(packet.content.rgb_frame.easing_interval);
+    break;
+
+  case Packet_rgb_frame_part1_tag:
+    if (PANEL_INDEX <= 5)
+    {
+      first_pixel = PIXEL_COUNT * (PANEL_INDEX - 1);
+      last_pixel = first_pixel + PIXEL_COUNT - 1;
+      apply_rgb_frame(packet.content.rgb_frame_part1.data, first_pixel, last_pixel);
+
+      Pixel::set_easing_interval(packet.content.rgb_frame_part1.easing_interval);
+    }
+    break;
+
+  case Packet_rgb_frame_part2_tag:
+    if (PANEL_INDEX > 5)
+    {
+      first_pixel = PIXEL_COUNT * (PANEL_INDEX - 6);
+      last_pixel = first_pixel + PIXEL_COUNT - 1;
+      apply_rgb_frame(packet.content.rgb_frame_part2.data, first_pixel, last_pixel);
+
+      Pixel::set_easing_interval(packet.content.rgb_frame_part2.easing_interval);
+    }
     break;
 
   default:
