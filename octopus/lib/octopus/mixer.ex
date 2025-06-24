@@ -489,6 +489,18 @@ defmodule Octopus.Mixer do
       end) || :not_found
     end
 
+    panel_to_global_coords_fn = fn panel_id, local_x, local_y ->
+      panel_count = installation.panel_count()
+
+      if panel_id >= 0 and panel_id < panel_count do
+        {x_offset, _} = panel_range_fn.(panel_id, :x)
+        {_, y_offset} = panel_range_fn.(panel_id, :y)
+        {x_offset + local_x, y_offset + local_y}
+      else
+        :invalid_panel
+      end
+    end
+
     %{
       layout: layout,
       width: width,
@@ -498,7 +510,8 @@ defmodule Octopus.Mixer do
       panel_count: installation.panel_count(),
       panel_gap: installation.panel_gap(),
       panel_range: panel_range_fn,
-      panel_at_coord: panel_at_coord_fn
+      panel_at_coord: panel_at_coord_fn,
+      panel_to_global_coords: panel_to_global_coords_fn
     }
   end
 
