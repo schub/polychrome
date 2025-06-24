@@ -6,7 +6,6 @@ defmodule Octopus.Apps.Senso do
   alias Octopus.Events.Event.Controller, as: ControllerEvent
   alias Octopus.Protobuf.{SynthFrame, ControlEvent, AudioFrame, SynthConfig, SynthAdsrConfig}
 
-  @num_windows 10
   @first_squence_len 3
   @state_time_delta 100
   @time_between_elements_ms 500
@@ -26,17 +25,32 @@ defmodule Octopus.Apps.Senso do
     defstruct expected_sequence: [],
               index: 0,
               successes: 0,
-              input_blocked: true
+              input_blocked: true,
+              display_info: nil
   end
 
   def name(), do: "Senso"
 
+  def compatible?() do
+    # Senso requires exactly one button per panel for proper gameplay
+    installation_info = Octopus.App.get_installation_info()
+
+    installation_info.num_buttons == installation_info.panel_count
+  end
+
   def app_init(_args) do
+    # Configure display using new unified API - adjacent layout
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
+    # Get display info once and store it
+    display_info = Octopus.App.get_display_info()
+
     state = %State{
-      expected_sequence: generate_sequence(@first_squence_len),
+      expected_sequence: generate_sequence(@first_squence_len, display_info.panel_count),
       index: 0,
       successes: 0,
-      input_blocked: true
+      input_blocked: true,
+      display_info: display_info
     }
 
     send(self(), :run)
@@ -44,21 +58,23 @@ defmodule Octopus.Apps.Senso do
     {:ok, state}
   end
 
-  defp generate_sequence(len) do
-    for _ <- 1..len, do: Enum.random(1..@num_windows)
+  defp generate_sequence(len, panel_count) do
+    for _ <- 1..len, do: Enum.random(1..panel_count)
   end
 
   def handle_info(:run, %State{expected_sequence: expected_sequence, index: index} = state)
       when index < length(expected_sequence) do
     window = Enum.at(expected_sequence, index)
 
-    top_left = {(window - 1) * 8, 0}
-    bottom_right = {elem(top_left, 0) + 7, 7}
+    # Calculate panel position dynamically
+    panel_width = state.display_info.panel_width
+    panel_height = state.display_info.panel_height
+    top_left = {(window - 1) * panel_width, 0}
+    bottom_right = {elem(top_left, 0) + panel_width - 1, panel_height - 1}
 
-    Canvas.new(80, 8)
-    |> Canvas.fill_rect(top_left, bottom_right, get_color(window))
-    |> Canvas.to_frame()
-    |> send_frame()
+    Canvas.new(state.display_info.width, state.display_info.height)
+    |> Canvas.fill_rect(top_left, bottom_right, get_color(window, state.display_info.panel_count))
+    |> Octopus.App.update_display()
 
     %SynthFrame{
       event_type: :NOTE_ON,
@@ -72,9 +88,8 @@ defmodule Octopus.Apps.Senso do
 
     :timer.sleep(@time_between_elements_ms)
 
-    Canvas.new(80, 8)
-    |> Canvas.to_frame()
-    |> send_frame()
+    Canvas.new(state.display_info.width, state.display_info.height)
+    |> Octopus.App.update_display()
 
     %SynthFrame{
       event_type: :NOTE_OFF,
@@ -94,12 +109,13 @@ defmodule Octopus.Apps.Senso do
     {:noreply, %State{state | index: 0, input_blocked: false}}
   end
 
-  def handle_info(:reset, _state) do
+  def handle_info(:reset, state) do
     newState = %State{
-      expected_sequence: generate_sequence(@first_squence_len),
+      expected_sequence: generate_sequence(@first_squence_len, state.display_info.panel_count),
       index: 0,
       successes: 0,
-      input_blocked: true
+      input_blocked: true,
+      display_info: state.display_info
     }
 
     send(self(), :run)
@@ -109,10 +125,12 @@ defmodule Octopus.Apps.Senso do
 
   def handle_info(:success, %State{} = state) do
     newState = %State{
-      expected_sequence: state.expected_sequence ++ generate_sequence(1),
+      expected_sequence:
+        state.expected_sequence ++ generate_sequence(1, state.display_info.panel_count),
       index: 0,
       successes: state.successes + 1,
-      input_blocked: true
+      input_blocked: true,
+      display_info: state.display_info
     }
 
     :timer.sleep(@time_between_elements_ms)
@@ -130,16 +148,22 @@ defmodule Octopus.Apps.Senso do
         %ControllerEvent{type: :button, action: :press, button: button},
         %State{} = state
       )
-      when button >= 1 and button <= @num_windows do
+      when button >= 1 and button <= state.display_info.panel_count do
     btn_num = button
 
-    top_left = {(btn_num - 1) * 8, 0}
-    bottom_right = {elem(top_left, 0) + 7, 7}
+    # Calculate panel position dynamically
+    panel_width = state.display_info.panel_width
+    panel_height = state.display_info.panel_height
+    top_left = {(btn_num - 1) * panel_width, 0}
+    bottom_right = {elem(top_left, 0) + panel_width - 1, panel_height - 1}
 
-    Canvas.new(80, 8)
-    |> Canvas.fill_rect(top_left, bottom_right, get_color(btn_num))
-    |> Canvas.to_frame()
-    |> send_frame()
+    Canvas.new(state.display_info.width, state.display_info.height)
+    |> Canvas.fill_rect(
+      top_left,
+      bottom_right,
+      get_color(btn_num, state.display_info.panel_count)
+    )
+    |> Octopus.App.update_display()
 
     %SynthFrame{
       event_type: :NOTE_ON,
@@ -155,16 +179,18 @@ defmodule Octopus.Apps.Senso do
   end
 
   def handle_input(%ControllerEvent{type: :button, action: :release, button: button}, state)
-      when button >= 1 and button <= @num_windows do
+      when button >= 1 and button <= state.display_info.panel_count do
     btn_num = button
 
-    top_left = {(btn_num - 1) * 8, 0}
-    bottom_right = {elem(top_left, 0) + 7, 7}
+    # Calculate panel position dynamically
+    panel_width = state.display_info.panel_width
+    panel_height = state.display_info.panel_height
+    top_left = {(btn_num - 1) * panel_width, 0}
+    bottom_right = {elem(top_left, 0) + panel_width - 1, panel_height - 1}
 
-    Canvas.new(80, 8)
+    Canvas.new(state.display_info.width, state.display_info.height)
     |> Canvas.clear_rect(top_left, bottom_right)
-    |> Canvas.to_frame()
-    |> send_frame()
+    |> Octopus.App.update_display()
 
     %SynthFrame{
       event_type: :NOTE_OFF,
@@ -177,7 +203,7 @@ defmodule Octopus.Apps.Senso do
 
     increment =
       if !success do
-        display_fail()
+        display_fail(state.display_info)
         send(self(), :reset)
         0
       else
@@ -187,7 +213,7 @@ defmodule Octopus.Apps.Senso do
     finished = state.index + increment >= length(state.expected_sequence)
 
     if finished do
-      display_success()
+      display_success(state.display_info)
       send(self(), :success)
     end
 
@@ -201,7 +227,7 @@ defmodule Octopus.Apps.Senso do
   end
 
   def handle_control_event(%ControlEvent{type: :APP_SELECTED}, state) do
-    Enum.map(1..@num_windows, fn channel ->
+    Enum.map(1..state.display_info.panel_count, fn channel ->
       %SynthFrame{
         event_type: :CONFIG,
         channel: channel,
@@ -216,14 +242,16 @@ defmodule Octopus.Apps.Senso do
     {:noreply, %State{state | input_blocked: true}}
   end
 
-  defp get_color(num) do
+  defp get_color(num, panel_count) do
+    # Use dynamic color calculation based on actual panel count
     %Chameleon.RGB{r: r, g: g, b: b} =
-      Chameleon.HSV.new((num / 10 * 100) |> trunc(), 100, 100) |> Chameleon.convert(Chameleon.RGB)
+      Chameleon.HSV.new((num / panel_count * 100) |> trunc(), 100, 100)
+      |> Chameleon.convert(Chameleon.RGB)
 
     {r, g, b}
   end
 
-  def display_fail() do
+  def display_fail(display_info) do
     :timer.sleep(200)
 
     %AudioFrame{
@@ -232,20 +260,26 @@ defmodule Octopus.Apps.Senso do
     }
     |> send_frame()
 
-    canvas =
-      Canvas.new(80, 8)
+    canvas = Canvas.new(display_info.width, display_info.height)
 
-    canvas |> Canvas.fill_rect({0, 0}, {79, 7}, {255, 0, 0}) |> Canvas.to_frame() |> send_frame()
+    canvas
+    |> Canvas.fill_rect({0, 0}, {display_info.width - 1, display_info.height - 1}, {255, 0, 0})
+    |> Octopus.App.update_display()
+
     :timer.sleep(@state_time_delta)
-    canvas |> Canvas.clear() |> Canvas.to_frame() |> send_frame()
+    canvas |> Canvas.clear() |> Octopus.App.update_display()
     :timer.sleep(@state_time_delta)
-    canvas |> Canvas.fill_rect({0, 0}, {79, 7}, {255, 0, 0}) |> Canvas.to_frame() |> send_frame()
+
+    canvas
+    |> Canvas.fill_rect({0, 0}, {display_info.width - 1, display_info.height - 1}, {255, 0, 0})
+    |> Octopus.App.update_display()
+
     :timer.sleep(@state_time_delta)
-    canvas |> Canvas.clear() |> Canvas.to_frame() |> send_frame()
+    canvas |> Canvas.clear() |> Octopus.App.update_display()
     :timer.sleep((@time_between_elements_ms / 2) |> trunc())
   end
 
-  def display_success() do
+  def display_success(display_info) do
     :timer.sleep(200)
 
     %AudioFrame{
@@ -254,16 +288,22 @@ defmodule Octopus.Apps.Senso do
     }
     |> send_frame()
 
-    canvas =
-      Canvas.new(80, 8)
+    canvas = Canvas.new(display_info.width, display_info.height)
 
-    canvas |> Canvas.fill_rect({0, 0}, {79, 7}, {0, 255, 0}) |> Canvas.to_frame() |> send_frame()
+    canvas
+    |> Canvas.fill_rect({0, 0}, {display_info.width - 1, display_info.height - 1}, {0, 255, 0})
+    |> Octopus.App.update_display()
+
     :timer.sleep(@state_time_delta)
-    canvas |> Canvas.clear() |> Canvas.to_frame() |> send_frame()
+    canvas |> Canvas.clear() |> Octopus.App.update_display()
     :timer.sleep(@state_time_delta)
-    canvas |> Canvas.fill_rect({0, 0}, {79, 7}, {0, 255, 0}) |> Canvas.to_frame() |> send_frame()
+
+    canvas
+    |> Canvas.fill_rect({0, 0}, {display_info.width - 1, display_info.height - 1}, {0, 255, 0})
+    |> Octopus.App.update_display()
+
     :timer.sleep(@state_time_delta)
-    canvas |> Canvas.clear() |> Canvas.to_frame() |> send_frame()
+    canvas |> Canvas.clear() |> Octopus.App.update_display()
     :timer.sleep((@time_between_elements_ms / 2) |> trunc())
   end
 end

@@ -37,6 +37,11 @@ defmodule Octopus.Apps.PixelFun do
 
   def name(), do: "Pixel Fun"
 
+  def compatible?() do
+    installation_info = Octopus.App.get_installation_info()
+    installation_info.panel_width == 8 and installation_info.panel_height == 8
+  end
+
   defdelegate installation, to: Octopus
 
   def config_schema() do
@@ -71,6 +76,9 @@ defmodule Octopus.Apps.PixelFun do
   end
 
   def app_init(config) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     {:ok, program} = config.program |> Program.parse()
 
     :timer.send_interval(@frame_time_ms, :tick)
@@ -183,9 +191,8 @@ defmodule Octopus.Apps.PixelFun do
 
     canvas = state |> render()
 
-    canvas
-    |> Canvas.to_frame(easing_interval: trunc(param(:easing_interval, 200)))
-    |> send_frame()
+    # Use new unified display API with dynamic easing_interval parameter
+    Octopus.App.update_display(canvas, :rgb, easing_interval: trunc(param(:easing_interval, 200)))
 
     {:noreply, state}
   end
@@ -261,8 +268,10 @@ defmodule Octopus.Apps.PixelFun do
     lerp_fn =
       if state.lerp_over_black, do: &interpolate_colors_with_black/3, else: &interpolate_colors/3
 
-    center_x = installation().center_x()
-    center_y = installation().center_y()
+    # Calculate center from display_info instead of installation
+    display_info = Octopus.App.get_display_info()
+    center_x = display_info.width / 2 - 0.5
+    center_y = display_info.height / 2 - 0.5
 
     installation().panels()
     |> Enum.map(fn panel ->

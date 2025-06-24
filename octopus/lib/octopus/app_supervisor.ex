@@ -48,18 +48,23 @@ defmodule Octopus.AppSupervisor do
 
   @doc """
   Starts an app and assigns a unique app_id. It is possible to start multiple instances of the same app.
+  Checks app compatibility before starting.
   """
   def start_app(module, opts \\ []) when is_atom(module) do
-    default_config = apply(module, :config_schema, []) |> App.default_config()
+    cond do
+      module not in available_apps() ->
+        Logger.error("App #{module} not found")
+        {:error, :app_not_found}
 
-    config = Keyword.get(opts, :config, %{})
-    config = Map.merge(default_config, config)
+      not apply(module, :compatible?, []) ->
+        Logger.info("App #{module} is not compatible with current installation")
+        {:error, :incompatible}
 
-    if module in available_apps() do
-      do_start_app(module, config)
-    else
-      Logger.error("App #{module} not found")
-      {:error, :app_not_found}
+      true ->
+        default_config = apply(module, :config_schema, []) |> App.default_config()
+        config = Keyword.get(opts, :config, %{})
+        config = Map.merge(default_config, config)
+        do_start_app(module, config)
     end
   end
 

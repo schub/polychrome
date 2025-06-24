@@ -1,6 +1,6 @@
 defmodule Octopus.AppTest do
   use ExUnit.Case, async: false
-  alias Octopus.{App, Mixer}
+  alias Octopus.Mixer
 
   setup do
     # Start the mixer if not already started
@@ -13,7 +13,8 @@ defmodule Octopus.AppTest do
   end
 
   test "get_display_info returns valid display information" do
-    display_info = App.get_display_info()
+    # Test the Mixer function directly since we're not in an app process
+    display_info = Mixer.get_display_info()
 
     assert is_integer(display_info.width)
     assert is_integer(display_info.height)
@@ -26,7 +27,7 @@ defmodule Octopus.AppTest do
   end
 
   test "display info contains reasonable values" do
-    display_info = App.get_display_info()
+    display_info = Mixer.get_display_info()
 
     # Basic sanity checks
     assert display_info.width > 0
@@ -38,7 +39,7 @@ defmodule Octopus.AppTest do
   end
 
   test "panel functions work as expected" do
-    display_info = App.get_display_info()
+    display_info = Mixer.get_display_info()
 
     # Test panel_range for first panel
     {start_x, end_x} = display_info.panel_range.(0, :x)
@@ -55,7 +56,7 @@ defmodule Octopus.AppTest do
   end
 
   test "derived center values can be calculated" do
-    display_info = App.get_display_info()
+    display_info = Mixer.get_display_info()
 
     # These are the values that PixelFun would calculate
     center_x = display_info.width / 2 - 0.5
@@ -65,5 +66,26 @@ defmodule Octopus.AppTest do
     assert is_float(center_y)
     assert center_x >= 0
     assert center_y >= 0
+  end
+
+  test "app-specific display info with different layouts" do
+    # Test that different layouts produce different display info
+
+    # Create display buffers for different layouts
+    Mixer.create_display_buffers(:test_app_gapped, %{layout: :gapped_panels})
+    Mixer.create_display_buffers(:test_app_adjacent, %{layout: :adjacent_panels})
+
+    gapped_info = Mixer.get_app_display_info(:test_app_gapped)
+    adjacent_info = Mixer.get_app_display_info(:test_app_adjacent)
+
+    # Different layouts should have different widths
+    assert gapped_info.width != adjacent_info.width
+    assert gapped_info.layout == :gapped_panels
+    assert adjacent_info.layout == :adjacent_panels
+
+    # Both should have same panel dimensions but different total widths
+    assert gapped_info.panel_width == adjacent_info.panel_width
+    assert gapped_info.panel_height == adjacent_info.panel_height
+    assert gapped_info.panel_count == adjacent_info.panel_count
   end
 end

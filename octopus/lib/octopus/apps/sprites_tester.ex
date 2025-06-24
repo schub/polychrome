@@ -2,7 +2,7 @@ defmodule Octopus.Apps.SpritesTester do
   use Octopus.App, category: :test
   require Logger
 
-  alias Octopus.{Sprite, Canvas}
+  alias Octopus.Sprite
   alias Octopus.Events.Event.Controller, as: ControllerEvent
 
   defmodule State do
@@ -14,6 +14,9 @@ defmodule Octopus.Apps.SpritesTester do
   def name(), do: "Sprite Tester"
 
   def app_init(_args) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     state = %State{
       index: 0
     }
@@ -27,8 +30,7 @@ defmodule Octopus.Apps.SpritesTester do
     #    IO.inspect(state.index)
 
     Sprite.load(@sprite_sheet, state.index)
-    |> Canvas.to_frame()
-    |> send_frame()
+    |> Octopus.App.update_display()
 
     {:noreply, state}
   end

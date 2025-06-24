@@ -12,7 +12,22 @@ defmodule Octopus.Apps.Train do
 
   def name(), do: "Train Simulator"
 
+  def compatible?() do
+    # Check if landscape image is compatible with current installation
+    installation = Octopus.App.get_installation_info()
+
+    gapped_width =
+      installation.panel_count * installation.panel_width +
+        (installation.panel_count - 1) * installation.panel_gap
+
+    # Landscape image is 263px wide - check if it fits in gapped layout
+    gapped_width >= 263
+  end
+
   def app_init(_args) do
+    # Configure for gapped panels layout (replaces Canvas.to_frame(drop: true))
+    Octopus.App.configure_display(layout: :gapped_panels)
+
     canvas = Image.load("landscape")
 
     :timer.send_interval(trunc(1000 / @fps), :tick)
@@ -22,14 +37,23 @@ defmodule Octopus.Apps.Train do
   end
 
   def add_window_corners(canvas) do
-    window_locations = for x <- 0..(9 * (8 + 18))//(8 + 18), do: {x, 0}
+    # Use dynamic panel layout instead of hardcoded gap calculation
+    display_info = Octopus.App.get_display_info()
+    panel_count = display_info.panel_count
+    panel_width = display_info.panel_width
+
+    window_locations =
+      for panel_id <- 0..(panel_count - 1) do
+        {start_x, _end_x} = display_info.panel_range.(panel_id, :x)
+        {start_x, 0}
+      end
 
     Enum.reduce(window_locations, canvas, fn {x, y}, canvas ->
       canvas
       |> Canvas.put_pixel({x, y}, {0, 0, 0})
-      |> Canvas.put_pixel({x + 7, y}, {0, 0, 0})
+      |> Canvas.put_pixel({x + panel_width - 1, y}, {0, 0, 0})
       |> Canvas.put_pixel({x, y + 7}, {0, 0, 0})
-      |> Canvas.put_pixel({x + 7, y + 7}, {0, 0, 0})
+      |> Canvas.put_pixel({x + panel_width - 1, y + 7}, {0, 0, 0})
     end)
   end
 
@@ -38,8 +62,7 @@ defmodule Octopus.Apps.Train do
 
     canvas2
     |> add_window_corners()
-    |> Canvas.to_frame(drop: true)
-    |> send_frame()
+    |> Octopus.App.update_display()
 
     speed = state.speed + state.acceleration / @fps
     # Limit speed

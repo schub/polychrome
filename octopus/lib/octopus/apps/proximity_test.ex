@@ -37,6 +37,9 @@ defmodule Octopus.Apps.ProximityTest do
   end
 
   def app_init(config) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     # Start the timer for rendering
     :timer.send_interval(@frame_time_ms, :tick)
 
@@ -52,8 +55,7 @@ defmodule Octopus.Apps.ProximityTest do
   def handle_info(:tick, %State{} = state) do
     state
     |> render_proximity_data()
-    |> Canvas.to_frame()
-    |> send_frame()
+    |> Octopus.App.update_display()
 
     {:noreply, state}
   end
@@ -112,7 +114,9 @@ defmodule Octopus.Apps.ProximityTest do
          min_distance: min,
          max_distance: max
        }) do
-    canvas = Canvas.new(96, 8)
+    # Get display info to calculate canvas size dynamically
+    display_info = Octopus.App.get_display_info()
+    canvas = Canvas.new(display_info.width, display_info.height)
 
     Enum.reduce(smoothed_measurements, canvas, fn {{panel, sensor}, distance}, acc_canvas ->
       brightness_ratio = 1.0 - (distance - min) / (max - min)
@@ -124,15 +128,16 @@ defmodule Octopus.Apps.ProximityTest do
 
       color = {r, g, b}
 
-      panel_start_x = (panel - 1) * 8
-      side_width = 4
+      # Calculate panel positioning dynamically based on display info
+      panel_start_x = (panel - 1) * display_info.panel_width
+      sensor_width = div(display_info.panel_width, 2)
 
-      # Sensor 0 = left side (x: 0-3), Sensor 1 = right side (x: 4-7)
-      x_start = panel_start_x + if sensor == 0, do: 0, else: 4
-      x_end = x_start + side_width - 1
+      # Sensor 0 = left side, Sensor 1 = right side of each panel
+      x_start = panel_start_x + if sensor == 0, do: 0, else: sensor_width
+      x_end = x_start + sensor_width - 1
 
       for x <- x_start..x_end,
-          y <- 0..7,
+          y <- 0..(display_info.panel_height - 1),
           reduce: acc_canvas do
         canvas -> Canvas.put_pixel(canvas, {x, y}, color)
       end

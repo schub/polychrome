@@ -1,16 +1,17 @@
 defmodule Octopus.Apps.Rickroll do
   use Octopus.App, category: :animation
 
-  alias Octopus.Canvas
-  alias Octopus.Protobuf.AudioFrame
-  alias Octopus.Protobuf.ControlEvent
   alias Octopus.WebP
+  alias Octopus.Protobuf.{AudioFrame, ControlEvent}
 
   require Logger
 
   def name, do: "Do Not Click"
 
-  def app_init(_) do
+  def app_init(_args) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     animation = WebP.load_animation("rickroll-fullwidth")
     send(self(), :tick)
     {:ok, %{animation: animation, index: 0}}
@@ -18,7 +19,8 @@ defmodule Octopus.Apps.Rickroll do
 
   def handle_info(:tick, %{animation: animation, index: index} = state) do
     {canvas, duration} = Enum.at(animation, index)
-    canvas |> Canvas.to_frame() |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
     index = rem(index + 1, length(animation))
     Process.send_after(self(), :tick, duration)
     {:noreply, %{state | index: index}}
