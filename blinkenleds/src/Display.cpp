@@ -104,30 +104,14 @@ void Display::handle_packet(Packet packet)
 
     break;
 
-  case Packet_rgb_frame_part1_tag:
-    if (PANEL_INDEX <= 5)
-    {
-      first_pixel = PIXEL_COUNT * (PANEL_INDEX - 1);
-      last_pixel = first_pixel + PIXEL_COUNT - 1;
-      apply_rgb_frame(packet.content.rgb_frame_part1.data, first_pixel, last_pixel);
-
-      Pixel::set_easing_interval(packet.content.rgb_frame_part1.easing_interval);
-    }
-    break;
-
-  case Packet_rgb_frame_part2_tag:
-    if (PANEL_INDEX > 5)
-    {
-      first_pixel = PIXEL_COUNT * (PANEL_INDEX - 6);
-      last_pixel = first_pixel + PIXEL_COUNT - 1;
-      apply_rgb_frame(packet.content.rgb_frame_part2.data, first_pixel, last_pixel);
-
-      Pixel::set_easing_interval(packet.content.rgb_frame_part2.easing_interval);
-    }
+  case Packet_rgb_frame_tag:
+    first_pixel = PIXEL_COUNT * (PANEL_INDEX - 1);
+    last_pixel = first_pixel + PIXEL_COUNT - 1;
+    apply_rgb_frame(packet.content.rgb_frame.data, first_pixel, last_pixel);
+    Pixel::set_easing_interval(packet.content.rgb_frame.easing_interval);
     break;
 
   default:
-
     // Ignore other packets
     break;
   }
