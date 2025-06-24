@@ -223,4 +223,62 @@ defmodule Octopus.App do
   def get_screen_count() do
     Application.get_env(:octopus, :installation).screens()
   end
+
+  # New unified Display API (Phase 1)
+
+  @doc """
+  Configures display buffers for the current app.
+
+  Options:
+  - `:layout` - Layout type (:gapped_panels, :adjacent_panels). Default: :gapped_panels
+  - `:supports_rgb` - Whether app will use RGB buffers. Default: true
+  - `:supports_grayscale` - Whether app will use grayscale buffers. Default: false
+  - `:default_transparency` - Default transparency value. Default: 1.0
+  """
+  def configure_display(opts \\ []) do
+    config = %{
+      layout: Keyword.get(opts, :layout, :gapped_panels),
+      supports_rgb: Keyword.get(opts, :supports_rgb, true),
+      supports_grayscale: Keyword.get(opts, :supports_grayscale, false),
+      default_transparency: Keyword.get(opts, :default_transparency, 1.0)
+    }
+
+    app_id = get_app_id()
+    Mixer.create_display_buffers(app_id, config)
+  end
+
+  @doc """
+  Returns display information for the current installation.
+
+  Replaces VirtualMatrix and direct installation access with a unified interface.
+
+  Returns:
+  %{
+    width: integer(),          # Total display width
+    height: integer(),         # Total display height
+    panel_width: integer(),    # Width of each panel
+    panel_height: integer(),   # Height of each panel
+    panel_count: integer(),    # Number of panels
+    panel_gap: integer(),      # Gap between panels
+    panel_range: function(),   # fn(panel_id, :x | :y) -> {start, end}
+    panel_at_coord: function() # fn(x, y) -> panel_id | :not_found
+  }
+  """
+  def get_display_info() do
+    Mixer.get_display_info()
+  end
+
+  @doc """
+  Updates the display with new canvas data.
+
+  Replaces send_frame() and send_canvas() with unified buffer updates.
+
+  Args:
+  - canvas: Canvas to display
+  - mode: :rgb | :grayscale (default: :rgb)
+  """
+  def update_display(canvas, mode \\ :rgb) do
+    app_id = get_app_id()
+    Mixer.update_app_display(app_id, canvas, mode)
+  end
 end

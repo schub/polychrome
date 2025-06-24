@@ -15,15 +15,67 @@ defmodule Octopus.Mixer do
   @transition_frame_time trunc(1000 / 60)
 
   defmodule State do
-    defstruct rendered_app: nil,
-              transition: nil,
-              buffer_canvas: Canvas.new(80, 8),
-              max_luminance: 255
+    defstruct [
+      # Enhanced display system
+      # %{app_id => %{rgb_buffer: canvas, grayscale_buffer: canvas, config: %{}}}
+      app_displays: %{},
+      # List of app_ids to include in mixdown
+      selected_apps: [],
+      # :rgb | :grayscale | :masked
+      output_mode: :rgb,
+      # Cached installation info for performance
+      display_info: nil,
+
+      # Existing fields (maintained for compatibility)
+      rendered_app: nil,
+      transition: nil,
+      buffer_canvas: Canvas.new(80, 8),
+      max_luminance: 255
+    ]
   end
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
   end
+
+  # New display buffer management functions
+
+  @doc """
+  Creates display buffers for an app with the given configuration.
+  """
+  def create_display_buffers(app_id, config) do
+    GenServer.call(__MODULE__, {:create_display_buffers, app_id, config})
+  end
+
+  @doc """
+  Updates an app's display buffer with new canvas data.
+  """
+  def update_app_display(app_id, canvas, mode \\ :rgb) do
+    GenServer.cast(__MODULE__, {:update_app_display, app_id, canvas, mode})
+  end
+
+  @doc """
+  Returns cached display information for apps to use.
+  """
+  def get_display_info() do
+    GenServer.call(__MODULE__, :get_display_info)
+  end
+
+  @doc """
+  Sets which apps should be included in the visual mixdown.
+  """
+  def set_selected_apps(app_ids) do
+    GenServer.cast(__MODULE__, {:set_selected_apps, app_ids})
+  end
+
+  @doc """
+  Sets the output mode for the mixer.
+  """
+  def set_output_mode(mode) when mode in [:rgb, :grayscale, :masked] do
+    GenServer.cast(__MODULE__, {:set_output_mode, mode})
+  end
+
+  # Existing frame handling functions (preserved for compatibility)
 
   def handle_frame(app_id, %RGBFrame{} = frame) do
     # Split RGB frames to avoid UPD fragmenting. Can be removed when we fix the fragmenting in the firmware
@@ -63,8 +115,78 @@ defmodule Octopus.Mixer do
     # Subscribe to AppManager events to update visual rendering
     AppManager.subscribe()
 
-    {:ok, %State{}}
+    # Initialize display info cache
+    display_info = build_display_info()
+
+    {:ok, %State{display_info: display_info}}
   end
+
+  # New display buffer management callbacks
+
+  def handle_call({:create_display_buffers, app_id, config}, _from, %State{} = state) do
+    width = state.display_info.width
+    height = state.display_info.height
+
+    # Create buffers based on app configuration
+    rgb_buffer = if Map.get(config, :supports_rgb, true), do: Canvas.new(width, height), else: nil
+
+    grayscale_buffer =
+      if Map.get(config, :supports_grayscale, false), do: Canvas.new(width, height), else: nil
+
+    app_display = %{
+      rgb_buffer: rgb_buffer,
+      grayscale_buffer: grayscale_buffer,
+      config: config
+    }
+
+    new_app_displays = Map.put(state.app_displays, app_id, app_display)
+    new_state = %State{state | app_displays: new_app_displays}
+
+    {:reply, :ok, new_state}
+  end
+
+  def handle_call(:get_display_info, _from, %State{display_info: display_info} = state) do
+    {:reply, display_info, state}
+  end
+
+  def handle_cast({:update_app_display, app_id, canvas, mode}, %State{} = state) do
+    case Map.get(state.app_displays, app_id) do
+      nil ->
+        # App not configured yet, ignore update
+        {:noreply, state}
+
+      app_display ->
+        updated_display =
+          case mode do
+            :rgb -> %{app_display | rgb_buffer: canvas}
+            :grayscale -> %{app_display | grayscale_buffer: canvas}
+          end
+
+        new_app_displays = Map.put(state.app_displays, app_id, updated_display)
+        new_state = %State{state | app_displays: new_app_displays}
+
+        # If this app is currently selected (single app mode), send frame immediately for compatibility
+        if state.rendered_app == app_id and mode == :rgb do
+          frame = canvas |> Canvas.to_frame()
+          binary = Protobuf.encode(frame)
+          send_frame(binary, frame)
+        end
+
+        {:noreply, new_state}
+    end
+  end
+
+  def handle_cast({:set_selected_apps, app_ids}, %State{} = state) do
+    new_state = %State{state | selected_apps: app_ids}
+    {:noreply, new_state}
+  end
+
+  def handle_cast({:set_output_mode, mode}, %State{} = state) do
+    new_state = %State{state | output_mode: mode}
+    {:noreply, new_state}
+  end
+
+  # Existing callbacks (preserved for compatibility)
 
   def handle_cast({:new_frame, {app_id, binary, f}}, %State{rendered_app: rendered_app} = state) do
     case rendered_app do
@@ -233,5 +355,53 @@ defmodule Octopus.Mixer do
       |> Protobuf.encode()
       |> Broadcaster.send_binary()
     end
+  end
+
+  # Display info and layout functions (replaces VirtualMatrix functionality)
+
+  defp build_display_info() do
+    installation = Octopus.installation()
+
+    # Build layout functions for gapped_panels (most common layout)
+    panel_range_fn = fn panel_id, axis ->
+      case axis do
+        :x ->
+          panel_width = installation.panel_width()
+          panel_gap = installation.panel_gap()
+          x_offset = panel_id * (panel_width + panel_gap)
+          {x_offset, x_offset + panel_width - 1}
+
+        :y ->
+          panel_height = installation.panel_height()
+          {0, panel_height - 1}
+      end
+    end
+
+    panel_at_coord_fn = fn x, y ->
+      panel_count = installation.panel_count()
+
+      Enum.find(0..(panel_count - 1), fn panel_id ->
+        {start_x, end_x} = panel_range_fn.(panel_id, :x)
+        {start_y, end_y} = panel_range_fn.(panel_id, :y)
+        x >= start_x and x <= end_x and y >= start_y and y <= end_y
+      end) || :not_found
+    end
+
+    # Calculate total width using gapped_panels layout
+    panel_count = installation.panel_count()
+    panel_width = installation.panel_width()
+    panel_gap = installation.panel_gap()
+    width = panel_count * panel_width + (panel_count - 1) * panel_gap
+
+    %{
+      width: width,
+      height: installation.panel_height(),
+      panel_width: panel_width,
+      panel_height: installation.panel_height(),
+      panel_count: panel_count,
+      panel_gap: panel_gap,
+      panel_range: panel_range_fn,
+      panel_at_coord: panel_at_coord_fn
+    }
   end
 end
