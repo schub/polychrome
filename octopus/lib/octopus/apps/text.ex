@@ -1,13 +1,13 @@
 defmodule Octopus.Apps.Text do
-  use Octopus.App, category: :animation
+  use Octopus.App, category: :media
   require Logger
 
-  alias Octopus.Protobuf.{AudioFrame, ControlEvent}
+  alias Octopus.Protobuf.AudioFrame
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
   alias Octopus.{Canvas, Font, Transitions}
 
   @animation_steps 150
   @animation_interval 5
-  @easing_interval 150
 
   defmodule State do
     defstruct [
@@ -15,7 +15,6 @@ defmodule Octopus.Apps.Text do
       :variant,
       :font,
       :animation,
-      :easing_interval,
       :letter_delay,
       :click,
       :transition
@@ -24,13 +23,25 @@ defmodule Octopus.Apps.Text do
 
   def name(), do: "Text"
 
+  def compatible?() do
+    # Text app requires 8x8 panels to properly display font characters
+    installation_info = Octopus.App.get_installation_info()
+
+    # Font rendering expects 8x8 pixel panels
+    installation_info.panel_width == 8 and installation_info.panel_height == 8
+  end
+
   def app_init(config) do
+    # Configure display using new unified API - adjacent layout for character joining
+    # Use smooth transitions for text readability (500ms easing)
+    Octopus.App.configure_display(layout: :adjacent_panels, easing_interval: 500)
+
     state = struct(State, config)
 
     {:ok, state}
   end
 
-  def handle_event(%ControlEvent{type: :APP_SELECTED}, state) do
+  def handle_event(%LifecycleEvent{type: :app_selected}, state) do
     send(self(), :tick)
     {:noreply, state}
   end
@@ -44,13 +55,12 @@ defmodule Octopus.Apps.Text do
       letter_delay: {"Letter Delay", :int, %{default: 5, min: 1, max: 100}},
       click: {"Click", :boolean, %{default: false}},
       variant: {"Variant", :int, %{default: 0}},
-      transition: {"Transition", :string, %{default: "push"}},
-      easing_interval: {"Easing Interval", :int, %{default: 500, min: 0, max: 3000}}
+      transition: {"Transition", :string, %{default: "push"}}
     }
   end
 
   def get_config(%State{} = state) do
-    Map.take(state, [:text, :font, :variant, :easing_interval, :letter_delay, :click, :transition])
+    Map.take(state, [:text, :font, :variant, :letter_delay, :click, :transition])
   end
 
   def handle_config(config, %State{} = state) do
@@ -60,10 +70,16 @@ defmodule Octopus.Apps.Text do
   def handle_info(:tick, %State{} = state) do
     font = Font.load(state.font)
 
-    empty_window = Canvas.new(8, 8)
+    # Get dynamic panel dimensions
+    display_info = Octopus.App.get_display_info()
+    empty_window = Canvas.new(display_info.panel_width, display_info.panel_height)
 
-    state.text
-    |> String.to_charlist()
+    text_chars = String.to_charlist(state.text)
+    max_chars = min(length(text_chars), display_info.panel_count)
+
+    text_chars
+    # Limit to available panels
+    |> Enum.take(max_chars)
     |> Enum.with_index()
     |> Enum.map(fn {char, index} ->
       final = Font.draw_char(font, char, state.variant, empty_window)
@@ -82,13 +98,13 @@ defmodule Octopus.Apps.Text do
               padding_start
             end
 
-          padding_end = List.duplicate(final, (9 - index) * state.letter_delay + 1)
+          padding_end = List.duplicate(final, (max_chars - 1 - index) * state.letter_delay + 1)
           transition = Transitions.flipdot(empty_window, final)
           Stream.concat([padding_start, transition, padding_end])
 
         "push" ->
           padding_start = List.duplicate(empty_window, index * state.letter_delay)
-          padding_end = List.duplicate(final, (9 - index) * state.letter_delay + 1)
+          padding_end = List.duplicate(final, (max_chars - 1 - index) * state.letter_delay + 1)
 
           padding_end =
             if state.click do
@@ -122,11 +138,10 @@ defmodule Octopus.Apps.Text do
             canvas
         end)
         |> Enum.reduce(&Canvas.join/2)
-        |> Canvas.to_frame(easing_interval: @easing_interval)
+        |> Octopus.App.update_display()
     end)
-    |> Stream.map(fn frame ->
+    |> Stream.map(fn _canvas ->
       :timer.sleep(@animation_interval)
-      send_frame(frame)
     end)
     |> Stream.run()
 

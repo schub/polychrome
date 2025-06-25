@@ -13,6 +13,9 @@ defmodule Octopus.Apps.BeakTest do
   def name(), do: "Beak"
 
   def app_init(_args) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     {:ok, %State{canvas: Canvas.new(80, 8)}}
   end
 
@@ -57,7 +60,8 @@ defmodule Octopus.Apps.BeakTest do
       state.canvas
       |> Canvas.fill_rect(top_left, bottom_right, {255, 255, 255})
 
-    canvas |> Canvas.to_frame() |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
     {:noreply, %State{state | canvas: canvas}}
   end
 
@@ -72,7 +76,8 @@ defmodule Octopus.Apps.BeakTest do
       state.canvas
       |> Canvas.clear_rect(top_left, bottom_right)
 
-    canvas |> Canvas.to_frame() |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
     {:noreply, %State{state | canvas: canvas}}
   end
 

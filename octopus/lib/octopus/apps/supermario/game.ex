@@ -382,7 +382,7 @@ defmodule Octopus.Apps.Supermario.Game do
 
     Font.pipe_draw_char(canvas, font, second, font_variant, {layout.score_base, 0})
     |> (fn c ->
-          unless first == ?0 do
+          if first != ?0 do
             c |> Font.pipe_draw_char(font, first, font_variant, {layout.score_base - 8, 0})
           else
             c

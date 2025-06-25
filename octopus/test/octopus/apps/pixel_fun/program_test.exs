@@ -11,13 +11,13 @@ defmodule Octopus.Apps.PixelFun.ProgramTest do
   end
 
   test "parse/1 parses function calls" do
-    assert {:ok, {:call, ['sin', 1.0]}} == Program.parse("sin(1)")
-    assert {:ok, {:call, ['sin', {:call, ['cos', 1.0]}]}} == Program.parse("sin(cos(1))")
+    assert {:ok, {:call, [~c"sin", 1.0]}} == Program.parse("sin(1)")
+    assert {:ok, {:call, [~c"sin", {:call, [~c"cos", 1.0]}]}} == Program.parse("sin(cos(1))")
   end
 
   test "parse/1 parses identifiers" do
-    assert {:ok, 'x'} == Program.parse("x")
-    assert {:ok, '_foo'} == Program.parse("_foo")
+    assert {:ok, ~c"x"} == Program.parse("x")
+    assert {:ok, ~c"_foo"} == Program.parse("_foo")
   end
 
   test "eval/2 evaluates basic mathematical expressions" do
@@ -88,8 +88,8 @@ defmodule Octopus.Apps.PixelFun.ProgramTest do
   end
 
   test "eval/2 evaluates identifiers" do
-    assert 1337.0 == eval("x", [%{'x' => 1337.0}])
-    assert 1337.0 == eval("x+1", [%{'x' => 1336.0}])
+    assert 1337.0 == eval("x", [%{~c"x" => 1337.0}])
+    assert 1337.0 == eval("x+1", [%{~c"x" => 1336.0}])
   end
 
   defp eval(program, env \\ []) do

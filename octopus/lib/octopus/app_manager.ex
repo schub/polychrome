@@ -13,7 +13,7 @@ defmodule Octopus.AppManager do
   require Logger
 
   alias Octopus.AppSupervisor
-  alias Octopus.Protobuf.ControlEvent
+  alias Octopus.Events.Event.Lifecycle
 
   @topic "app_manager"
 
@@ -128,7 +128,7 @@ defmodule Octopus.AppManager do
   defp send_lifecycle_events(%State{} = state) do
     # Send APP_SELECTED to the newly selected app
     if state.selected_app do
-      AppSupervisor.send_event(state.selected_app, %ControlEvent{type: :APP_SELECTED})
+      AppSupervisor.send_event(state.selected_app, Lifecycle.app_selected())
 
       Phoenix.PubSub.broadcast(
         Octopus.PubSub,
@@ -139,7 +139,7 @@ defmodule Octopus.AppManager do
 
     # Send APP_DESELECTED to the previously selected app
     if state.last_selected_app && state.last_selected_app != state.selected_app do
-      AppSupervisor.send_event(state.last_selected_app, %ControlEvent{type: :APP_DESELECTED})
+      AppSupervisor.send_event(state.last_selected_app, Lifecycle.app_deselected())
 
       Phoenix.PubSub.broadcast(
         Octopus.PubSub,

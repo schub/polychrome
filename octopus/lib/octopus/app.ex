@@ -8,8 +8,27 @@ defmodule Octopus.App do
 
   See `Octopus.Apps.SampleApp` for an example.
 
-  ## Inputs
-  An app can implement the `handle_event/2` callback to react to input events. It will receive an Octopus.Events.Event.Input struct and the genserver state.
+  ## App Compatibility
+
+  Apps can implement the `compatible?/0` callback to check if they're compatible with the current installation.
+  This is useful for apps that require specific panel counts, dimensions, or asset files.
+
+  ```elixir
+  def compatible?() do
+    installation = Octopus.App.get_installation_info()
+
+    # Example: App requires at least 10 panels
+    installation.panel_count >= 10
+
+    # Example: App requires one button per panel
+    installation.num_buttons == installation.panel_count
+  end
+  ```
+
+  If `compatible?/0` returns `false`, the app will not be started and will be visually marked as incompatible in the UI.
+
+  ## Events
+  An app can implement the `handle_event/2` callback to react to events. It will receive event structs and the genserver state.
 
   """
 
@@ -20,11 +39,14 @@ defmodule Octopus.App do
     WFrame,
     RGBFrame,
     AudioFrame,
-    ControlEvent,
     SynthFrame
   }
 
-  alias Octopus.Events.Event.{Audio, Input, Proximity}
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
+  alias Octopus.Events.Event.Audio, as: AudioEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
+
   alias Octopus.{Mixer, AppSupervisor}
 
   @supported_frames [Frame, RGBFrame, WFrame, AudioFrame, SynthFrame]
@@ -40,6 +62,13 @@ defmodule Octopus.App do
   @callback icon() :: Canvas.t() | nil
 
   @doc """
+  Optional callback to check if the app is compatible with the current installation.
+  Returns true if the app can run, false if it's incompatible.
+  Apps can check installation dimensions, panel count, or any other requirements.
+  """
+  @callback compatible?() :: boolean()
+
+  @doc """
   App-specific initialization callback. This is called by the framework's init/1 function.
   Apps should implement this instead of init/1 directly.
   """
@@ -50,9 +79,12 @@ defmodule Octopus.App do
               | {:stop, reason :: any()}
 
   @doc """
-  Optional callback to handle input events. An app will only receive input events if it is selected as active in the mixer.
+  Optional callback to handle events. An app will only receive events if it is selected as active in the mixer.
   """
-  @callback handle_event(%Input{} | %Proximity{} | %Audio{} | %ControlEvent{}, state :: any) ::
+  @callback handle_event(
+              %InputEvent{} | %AudioEvent{} | %ProximityEvent{} | %LifecycleEvent{},
+              state :: any
+            ) ::
               {:noreply, state :: any}
 
   @type config_option ::
@@ -120,6 +152,8 @@ defmodule Octopus.App do
 
       def category(), do: unquote(category)
 
+      def compatible?(), do: true
+
       def handle_event(_event, state) do
         {:noreply, state}
       end
@@ -138,6 +172,7 @@ defmodule Octopus.App do
 
       defoverridable icon: 0
       defoverridable app_init: 1
+      defoverridable compatible?: 0
       defoverridable handle_event: 2
       defoverridable config_schema: 0
       defoverridable handle_config: 2
@@ -186,5 +221,106 @@ defmodule Octopus.App do
 
   def get_screen_count() do
     Application.get_env(:octopus, :installation).screens()
+  end
+
+  @doc """
+  Returns installation information for compatibility checking.
+  Apps can use this in their compatible?/0 callback to check panel count,
+  dimensions, or other installation-specific requirements.
+  """
+  def get_installation_info() do
+    installation = Application.get_env(:octopus, :installation)
+
+    %{
+      panel_count: installation.panel_count(),
+      panel_width: installation.panel_width(),
+      panel_height: installation.panel_height(),
+      panel_gap: installation.panel_gap(),
+      width: installation.width(),
+      height: installation.height(),
+      num_buttons: installation.num_buttons()
+    }
+  end
+
+  # New unified Display API (Phase 1)
+
+  @doc """
+  Configures display buffers for the current app.
+
+  Options:
+  - `:layout` - Layout type (:gapped_panels, :adjacent_panels). Default: :gapped_panels
+  - `:supports_rgb` - Whether app will use RGB buffers. Default: true
+  - `:supports_grayscale` - Whether app will use grayscale buffers. Default: false
+  - `:default_transparency` - Default transparency value. Default: 1.0
+  - `:easing_interval` - Hardware transition smoothness in milliseconds. Default: 0 (instant)
+  """
+  def configure_display(opts \\ []) do
+    # Require explicit layout specification - no defaults
+    layout = Keyword.fetch!(opts, :layout)
+
+    config = %{
+      layout: layout,
+      supports_rgb: Keyword.get(opts, :supports_rgb, true),
+      supports_grayscale: Keyword.get(opts, :supports_grayscale, false),
+      default_transparency: Keyword.get(opts, :transparency, 1.0),
+      easing_interval: Keyword.get(opts, :easing_interval, 0)
+    }
+
+    # Creates buffers in mixer immediately
+    Mixer.create_display_buffers(get_app_id(), config)
+  end
+
+  @doc """
+  Returns display information for the current installation.
+
+  Replaces VirtualMatrix and direct installation access with a unified interface.
+
+  Returns:
+  %{
+    width: integer(),          # Total display width
+    height: integer(),         # Total display height
+    panel_width: integer(),    # Width of each panel
+    panel_height: integer(),   # Height of each panel
+    panel_count: integer(),    # Number of panels
+    panel_gap: integer(),      # Gap between panels
+    panel_range: function(),   # fn(panel_id, :x | :y) -> {start, end}
+    panel_at_coord: function() # fn(x, y) -> panel_id | :not_found
+  }
+  """
+  def get_display_info() do
+    # Get app-specific display info based on the app's layout configuration
+    app_id = get_app_id()
+
+    case Mixer.get_app_display_info(app_id) do
+      nil ->
+        # Fallback to global display info for backward compatibility
+        Mixer.get_display_info()
+
+      display_info ->
+        display_info
+    end
+  end
+
+  @doc """
+  Gets display information for a specific app (used internally).
+  """
+  def get_app_display_info(app_id) do
+    Mixer.get_app_display_info(app_id)
+  end
+
+  @doc """
+  Updates the display with new canvas data.
+
+  Replaces send_frame() and send_canvas() with unified buffer updates.
+
+  Args:
+  - canvas: Canvas to display
+  - mode: :rgb | :grayscale (default: :rgb)
+  - easing_interval: Hardware transition smoothness in milliseconds (optional, uses app default if not provided)
+  """
+  def update_display(canvas, mode \\ :rgb, opts \\ []) do
+    app_id = get_app_id()
+    easing_interval = Keyword.get(opts, :easing_interval, nil)
+    Mixer.update_app_display(app_id, canvas, mode, easing_interval)
   end
 end

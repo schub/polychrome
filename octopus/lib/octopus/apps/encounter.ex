@@ -1,11 +1,12 @@
 defmodule Octopus.Apps.Encounter do
-  use Octopus.App, category: :animation
+  use Octopus.App, category: :game
   require Logger
   alias Octopus.Canvas
-  alias Octopus.Protobuf.{SynthFrame, SynthConfig, SynthAdsrConfig, ControlEvent}
+  alias Octopus.Protobuf.{SynthFrame, SynthConfig, SynthAdsrConfig}
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
 
   defmodule State do
-    defstruct [:notes, :config, :canvas]
+    defstruct [:notes, :config, :canvas, :display_info]
   end
 
   def name(), do: "Encounter"
@@ -18,20 +19,34 @@ defmodule Octopus.Apps.Encounter do
     %{}
   end
 
-  @canvas_width 80
-  @canvas_height 8
-
   def app_init(_args) do
-    {:ok, %State{canvas: Canvas.new(80, 8)}}
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
+    # Get dynamic display dimensions
+    display_info = Octopus.App.get_display_info()
+    canvas = Canvas.new(display_info.width, display_info.height)
+
+    {:ok, %State{canvas: canvas, display_info: display_info}}
   end
 
-  def play() do
+  def play(%State{display_info: display_info} = _state) do
+    pid = self()
+
     data =
       :code.priv_dir(:octopus)
       |> Path.join("midi")
       |> Path.join("encounter.json")
       |> File.read!()
       |> Jason.decode!(keys: :atoms)
+
+    # Dynamically assign channels based on available panels
+    panel_count = display_info.panel_count
+    half_panels = div(panel_count, 2)
+
+    # Split channels across two tracks based on panel count
+    track1_channels = Enum.to_list(1..half_panels)
+    track2_channels = Enum.to_list((half_panels + 1)..panel_count)
 
     track_configs = %{
       1 =>
@@ -53,7 +68,7 @@ defmodule Octopus.Apps.Encounter do
            filter_type: :LOWPASS,
            resonance: 2,
            cutoff: 5000
-         }, [1, 2, 3, 4, 5]},
+         }, track1_channels},
       3 =>
         {%SynthConfig{
            wave_form: :SAW,
@@ -73,7 +88,7 @@ defmodule Octopus.Apps.Encounter do
            filter_type: :LOWPASS,
            resonance: 3,
            cutoff: 4000
-         }, [6, 7, 8, 9, 10]}
+         }, track2_channels}
     }
 
     # flatten and sort notes
@@ -126,10 +141,8 @@ defmodule Octopus.Apps.Encounter do
       end)
     end)
 
-    pid = self()
-
-    # clear canvas
-    Canvas.new(@canvas_width, @canvas_height) |> Canvas.to_frame() |> send_frame()
+    # clear canvas using new unified API
+    Canvas.new(display_info.width, display_info.height) |> Octopus.App.update_display()
 
     Task.start_link(fn ->
       Stream.map(notes, fn note ->
@@ -172,27 +185,36 @@ defmodule Octopus.Apps.Encounter do
       Chameleon.HSV.new(round((note - 20) / 100 * 360), 100, 100)
       |> Chameleon.convert(Chameleon.RGB)
 
-    top_left = {(channel - 1) * 8, 0}
+    # Calculate panel position dynamically based on panel dimensions
+    panel_width = state.display_info.panel_width
+    panel_height = state.display_info.panel_height
+    top_left = {(channel - 1) * panel_width, 0}
+    bottom_right = {elem(top_left, 0) + panel_width - 1, panel_height - 1}
 
-    bottom_right = {elem(top_left, 0) + 7, 7}
     canvas = state.canvas |> Canvas.fill_rect(top_left, bottom_right, {r, g, b})
-    canvas |> Canvas.to_frame() |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
 
     {:noreply, %{state | canvas: canvas}}
   end
 
   def handle_info({:NOTE_OFF, channel, _note}, %State{} = state) do
-    top_left = {(channel - 1) * 8, 0}
-    bottom_right = {elem(top_left, 0) + 7, 7}
+    # Calculate panel position dynamically based on panel dimensions
+    panel_width = state.display_info.panel_width
+    panel_height = state.display_info.panel_height
+    top_left = {(channel - 1) * panel_width, 0}
+    bottom_right = {elem(top_left, 0) + panel_width - 1, panel_height - 1}
+
     canvas = state.canvas |> Canvas.clear_rect(top_left, bottom_right)
-    canvas |> Canvas.to_frame() |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
 
     {:noreply, %{state | canvas: canvas}}
   end
 
-  def handle_event(%ControlEvent{type: :APP_SELECTED}, state) do
+  def handle_event(%LifecycleEvent{type: :app_selected}, state) do
     Logger.info("handle control event")
-    play()
+    play(state)
     {:noreply, state}
   end
 

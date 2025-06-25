@@ -42,6 +42,10 @@ defmodule Octopus.Apps.Whackamole do
     {:noreply, %State{state | game: game}}
   end
 
+  def handle_event(%InputEvent{}, %State{} = state) do
+    {:noreply, state}
+  end
+
   def handle_event(_event, state) do
     {:noreply, state}
   end

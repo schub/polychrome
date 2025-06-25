@@ -1,19 +1,15 @@
 defmodule Octopus.Apps.Ocean do
   use Octopus.App, category: :animation
 
-  alias Octopus.{Canvas, WebP, VirtualMatrix}
   alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.{Canvas, WebP}
   require Logger
-
-  # Add delegate to access installation metadata
-  defdelegate installation, to: Octopus
 
   @fps 30
 
   defmodule State do
     defstruct [
       :time,
-      :virtual_matrix,
       :wave_strength,
       :damping,
       :width,
@@ -70,14 +66,19 @@ defmodule Octopus.Apps.Ocean do
     }
   end
 
+  # Add delegate to access installation metadata
+  defdelegate installation, to: Octopus
+
   def app_init(%{wave_strength: wave_strength, damping: damping}) do
-    # Logger.info("Ocean: Starting initialization...")
+    # Configure display using new unified API - gapped_panels_wrapped layout for seamless wrapping
+    Octopus.App.configure_display(layout: :gapped_panels_wrapped)
 
     :timer.send_interval(trunc(1000 / @fps), :tick)
 
-    virtual_matrix = VirtualMatrix.new(installation(), layout: :gapped_panels_wrapped)
-    width = virtual_matrix.width
-    height = virtual_matrix.height
+    # Get display info instead of VirtualMatrix
+    display_info = Octopus.App.get_display_info()
+    width = display_info.width
+    height = display_info.height
 
     # Logger.info("Ocean: Virtual matrix size: \\#{width}x\\#{height} (gapped panels wrapped layout)")
     # Logger.info("Ocean: Panel count: \\#{installation().panel_count()}")
@@ -94,7 +95,6 @@ defmodule Octopus.Apps.Ocean do
     {:ok,
      %State{
        time: 0,
-       virtual_matrix: virtual_matrix,
        wave_strength: wave_strength,
        damping: damping,
        width: width,
@@ -193,8 +193,8 @@ defmodule Octopus.Apps.Ocean do
         active_button_flashes
       )
 
-    # Use VirtualMatrix to automatically handle panel cutting and joining
-    VirtualMatrix.send_frame(updated_state.virtual_matrix, canvas)
+    # Use new unified display API
+    Octopus.App.update_display(canvas)
 
     {:noreply,
      %{
@@ -390,14 +390,17 @@ defmodule Octopus.Apps.Ocean do
     }
   end
 
-  # Create interaction wave from button press
+  # Create interaction wave when button is pressed
   defp create_interaction_wave(state, button_number) do
+    # Get display info to access panel_to_global_coords
+    display_info = Octopus.App.get_display_info()
+
     panel_width = installation().panel_width()
     panel_height = installation().panel_height()
     panel_count = installation().panel_count()
 
     if button_number < panel_count do
-      case VirtualMatrix.panel_to_global_coords(state.virtual_matrix, button_number, 0, 0) do
+      case display_info.panel_to_global_coords.(button_number, 0, 0) do
         {panel_x, panel_y} ->
           # Create wave centered at panel
           origin_x = panel_x + trunc(panel_width / 2)

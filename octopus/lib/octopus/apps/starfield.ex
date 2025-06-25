@@ -7,9 +7,6 @@ defmodule Octopus.Apps.Starfield do
 
   alias Octopus.Canvas
 
-  # Get the installation module for direct function calls
-  @installation Octopus.installation()
-
   defmodule State do
     defstruct [:width, :height, :stars, :canvas, :config, :speed, :rotation]
   end
@@ -34,10 +31,14 @@ defmodule Octopus.Apps.Starfield do
     }
   end
 
-  def app_init(_) do
-    # Get dynamic dimensions from installation metadata
-    canvas_width = trunc(@installation.width())
-    canvas_height = trunc(@installation.height())
+  def app_init(_args) do
+    # Configure display using new unified API - gapped layout (was Canvas.to_frame(drop: true))
+    Octopus.App.configure_display(layout: :gapped_panels)
+
+    # Get dynamic dimensions from display info instead of installation
+    display_info = Octopus.App.get_display_info()
+    canvas_width = trunc(display_info.width)
+    canvas_height = trunc(display_info.height)
 
     # Use larger virtual space for starfield effect
     virtual_width = canvas_width * 2
@@ -140,7 +141,8 @@ defmodule Octopus.Apps.Starfield do
   end
 
   defp broadcast_frame(%State{canvas: canvas} = state) do
-    canvas |> Canvas.to_frame(drop: true) |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
     state
   end
 

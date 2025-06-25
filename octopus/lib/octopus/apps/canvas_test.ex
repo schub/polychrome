@@ -7,6 +7,9 @@ defmodule Octopus.Apps.CanvasTest do
   def name(), do: "Canvas Test"
 
   def app_init(_args) do
+    # Configure display using new unified API - gapped layout (was Canvas.to_frame(drop: true))
+    Octopus.App.configure_display(layout: :gapped_panels)
+
     :timer.send_interval(@tick_interval, self(), :tick)
 
     canvas =
@@ -30,7 +33,8 @@ defmodule Octopus.Apps.CanvasTest do
 
   def handle_info(:tick, %{canvas: canvas} = state) do
     canvas = canvas |> Canvas.translate({1, 0}, :wrap)
-    canvas |> Canvas.to_frame(drop: true) |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
     {:noreply, %{state | canvas: canvas}}
   end
 end

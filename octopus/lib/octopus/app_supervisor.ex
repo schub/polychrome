@@ -3,8 +3,10 @@ defmodule Octopus.AppSupervisor do
   require Logger
 
   alias Octopus.{AppManager, App}
-  alias Octopus.Protobuf.ControlEvent
-  alias Octopus.Events.Event.{Audio, Proximity, Input}
+  alias Octopus.Events.Event.Audio, as: AudioEvent
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
 
   @topic "apps"
 
@@ -46,18 +48,23 @@ defmodule Octopus.AppSupervisor do
 
   @doc """
   Starts an app and assigns a unique app_id. It is possible to start multiple instances of the same app.
+  Checks app compatibility before starting.
   """
   def start_app(module, opts \\ []) when is_atom(module) do
-    default_config = apply(module, :config_schema, []) |> App.default_config()
+    cond do
+      module not in available_apps() ->
+        Logger.error("App #{module} not found")
+        {:error, :app_not_found}
 
-    config = Keyword.get(opts, :config, %{})
-    config = Map.merge(default_config, config)
+      not apply(module, :compatible?, []) ->
+        Logger.info("App #{module} is not compatible with current installation")
+        {:error, :incompatible}
 
-    if module in available_apps() do
-      do_start_app(module, config)
-    else
-      Logger.error("App #{module} not found")
-      {:error, :app_not_found}
+      true ->
+        default_config = apply(module, :config_schema, []) |> App.default_config()
+        config = Keyword.get(opts, :config, %{})
+        config = Map.merge(default_config, config)
+        do_start_app(module, config)
     end
   end
 
@@ -173,7 +180,7 @@ defmodule Octopus.AppSupervisor do
   Sends an event to an app. Ignores the event if the app is not running.
   """
   def send_event(app_id, %event_type{} = event)
-      when event_type in [Input, ControlEvent, Proximity, Audio] do
+      when event_type in [InputEvent, LifecycleEvent, AudioEvent, ProximityEvent] do
     case Registry.lookup(Octopus.AppRegistry, app_id) do
       [{pid, _}] -> send(pid, {:event, event})
       [] -> :noop

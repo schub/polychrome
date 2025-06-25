@@ -3,11 +3,12 @@ defmodule Octopus.Apps.FrameRelay do
   require Logger
 
   alias Octopus.Protobuf
-  alias Octopus.Protobuf.{Frame, RGBFrame, WFrame, ControlEvent}
-  alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Protobuf.{RGBFrame, WFrame, InputEvent}
   alias Octopus.Protobuf.InputEvent, as: ProtobufInputEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
 
-  @supported_frames [Frame, WFrame, RGBFrame]
+  @supported_frames [WFrame, RGBFrame]
 
   @moduledoc """
   Frame Relay - receives frames from external sources and forwards them to the mixer.
@@ -74,10 +75,9 @@ defmodule Octopus.Apps.FrameRelay do
     {:noreply, state}
   end
 
-  def handle_event(%ControlEvent{} = event, state) do
-    binary = Protobuf.encode(event)
-    :gen_udp.send(state.udp, state.remote_ip, state.remote_port, binary)
-    Logger.info("UDP: Control event received. #{inspect(event)}}")
+  def handle_event(%LifecycleEvent{} = event, state) do
+    # LifecycleEvent cannot be encoded with protobuf, just log it
+    Logger.info("UDP: Control event received. #{inspect(event)}")
     {:noreply, state}
   end
 

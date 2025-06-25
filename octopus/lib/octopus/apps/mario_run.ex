@@ -3,12 +3,8 @@ defmodule Octopus.Apps.MarioRun do
   alias Octopus.Canvas
   alias Octopus.Sprite
   alias Octopus.WebP
-  alias Octopus.VirtualMatrix
 
   use Octopus.App, category: :animation
-
-  # Get the installation module for direct function calls
-  @installation Octopus.installation()
 
   @loops %{
     run: [
@@ -44,7 +40,6 @@ defmodule Octopus.Apps.MarioRun do
   defmodule State do
     defstruct [
       :canvas,
-      :virtual_matrix,
       :time,
       :sprite_sheets,
       :loop,
@@ -79,19 +74,22 @@ defmodule Octopus.Apps.MarioRun do
   end
 
   def app_init(_) do
+    # Configure display using new unified API - gapped_panels_wrapped layout for seamless wrapping
+    Octopus.App.configure_display(layout: :gapped_panels_wrapped)
+
     sprite_sheets = %{
       mario: "mario-run",
       luigi: "luigi-run"
     }
 
-    # Create virtual matrix using gapped_panels_wrapped layout for seamless wrapping
-    virtual_matrix = VirtualMatrix.new(@installation, layout: :gapped_panels_wrapped)
-    virtual_width = virtual_matrix.width
-    virtual_height = virtual_matrix.height
+    # Get display info instead of VirtualMatrix
+    display_info = Octopus.App.get_display_info()
+    virtual_width = display_info.width
+    virtual_height = display_info.height
 
     # Calculate panel stride (distance between panel starts) for positioning logic
-    panel_width = @installation.panel_width()
-    panel_gap = @installation.panel_gap()
+    panel_width = display_info.panel_width
+    panel_gap = display_info.panel_gap
     panel_stride = panel_width + panel_gap
 
     # Assume sprite width is 8 pixels (standard Mario sprite width)
@@ -99,7 +97,6 @@ defmodule Octopus.Apps.MarioRun do
 
     state = %State{
       canvas: Canvas.new(virtual_width, virtual_height),
-      virtual_matrix: virtual_matrix,
       time: 0.0,
       sprite_sheets: sprite_sheets,
       character: :luigi,
@@ -271,8 +268,8 @@ defmodule Octopus.Apps.MarioRun do
         flip
       )
 
-    # Send frame using VirtualMatrix
-    VirtualMatrix.send_frame(state.virtual_matrix, canvas)
+    # Use new unified display API
+    Octopus.App.update_display(canvas)
 
     # Animate and update state
     new_state = animate(state, loop, next_loop)

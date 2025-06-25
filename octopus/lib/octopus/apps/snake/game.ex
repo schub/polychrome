@@ -90,7 +90,7 @@ defmodule Octopus.Apps.Snake.Game do
       layout:
         case args[:layout] do
           nil ->
-            unless args[:side] == :right do
+            if args[:side] != :right do
               %{
                 base_canvas: Canvas.new(40, 8) |> Canvas.overlay(title),
                 score_base: 16,
@@ -185,7 +185,7 @@ defmodule Octopus.Apps.Snake.Game do
       |> Canvas.overlay(gamecanvas, offset: {layout.playfield_base, 0})
       |> Font.pipe_draw_char(font, second, font_variant, {layout.score_base, 0})
       |> (fn c ->
-            unless first == ?0 do
+            if first != ?0 do
               c |> Font.pipe_draw_char(font, first, font_variant, {layout.score_base - 8, 0})
             else
               c

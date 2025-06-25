@@ -4,9 +4,6 @@ defmodule Octopus.Apps.DoomFire do
   alias Octopus.WebP
   alias Octopus.Canvas
 
-  # Get the installation module for direct function calls
-  @installation Octopus.installation()
-
   defmodule Fire do
     defstruct [:width, :height, :buffer]
 
@@ -65,9 +62,13 @@ defmodule Octopus.Apps.DoomFire do
   def icon, do: WebP.load("doom-fire")
 
   def app_init(_) do
-    # Get dimensions from installation
-    width = @installation.width()
-    height = @installation.height()
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
+    # Get dimensions from display info instead of installation
+    display_info = Octopus.App.get_display_info()
+    width = display_info.width
+    height = display_info.height
 
     :timer.send_interval(trunc(1000 / 10), :tick)
     {:ok, %{fire: Fire.new(width, height), canvas: Canvas.new(width, height)}}
@@ -77,7 +78,8 @@ defmodule Octopus.Apps.DoomFire do
     canvas = Canvas.clear(canvas)
     canvas = Fire.draw(fire, canvas)
     fire = Fire.step(fire)
-    send_frame(canvas |> Canvas.to_frame())
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
     {:noreply, %{state | fire: fire, canvas: canvas}}
   end
 end

@@ -4,9 +4,6 @@ defmodule Octopus.Apps.SpritesGrouped do
 
   alias Octopus.{Sprite, Canvas, Transitions}
 
-  # Get the installation module for direct function calls
-  @installation Octopus.installation()
-
   defmodule State do
     defstruct [
       :group_index,
@@ -77,10 +74,23 @@ defmodule Octopus.Apps.SpritesGrouped do
 
   def name(), do: "Sprite Groups"
 
+  def compatible?() do
+    # Sprites are designed for 8x8 panels - cropping makes them unrecognizable
+    installation_info = Octopus.App.get_installation_info()
+
+    # Require exactly 8x8 panels for optimal sprite display
+    installation_info.panel_width >= 8 and installation_info.panel_height >= 8
+  end
+
   def app_init(_args) do
-    # Get dynamic dimensions from installation metadata
-    sprite_panel_width = trunc(@installation.panel_width())
-    num_panels = @installation.panel_count()
+    # Configure display using new unified API - adjacent layout for panel joining
+    # Use smooth easing for sprite transitions
+    Octopus.App.configure_display(layout: :adjacent_panels, easing_interval: @easing_interval)
+
+    # Get dynamic dimensions from display info
+    display_info = Octopus.App.get_display_info()
+    sprite_panel_width = trunc(display_info.panel_width)
+    num_panels = display_info.panel_count
 
     state =
       %State{
@@ -105,9 +115,8 @@ defmodule Octopus.Apps.SpritesGrouped do
     # Create empty canvas by joining empty panel canvases
     empty_canvas = create_final_canvas(%{}, state.num_panels, state.panel_width)
 
-    empty_canvas
-    |> Canvas.to_frame(easing_interval: @easing_interval)
-    |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(empty_canvas)
 
     {:noreply, %State{state | skip: 0}}
   end
@@ -163,14 +172,15 @@ defmodule Octopus.Apps.SpritesGrouped do
         static_panel_canvases
         |> List.replace_at(panel_index, animated_panel_canvas)
 
-      # Join all panels and send frame
-      panel_canvases
-      |> Enum.reduce(&Canvas.join(&2, &1))
-      |> Canvas.to_frame(easing_interval: @easing_interval)
-    end)
-    |> Stream.map(fn frame ->
+      # Join all panels and update display
+      final_canvas =
+        panel_canvases
+        |> Enum.reduce(&Canvas.join(&2, &1))
+
+      # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+      Octopus.App.update_display(final_canvas)
+
       :timer.sleep(@animation_interval)
-      send_frame(frame)
     end)
     |> Stream.run()
 

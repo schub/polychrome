@@ -188,7 +188,7 @@ defmodule Octopus.Apps.Blocks.Game do
       layout:
         case args[:layout] do
           nil ->
-            unless args[:side] == :right do
+            if args[:side] != :right do
               %{
                 base_canvas: Canvas.new(40, 8) |> Canvas.overlay(title),
                 score_base: 16,
@@ -292,7 +292,7 @@ defmodule Octopus.Apps.Blocks.Game do
   defp take_tile_if_possible(%Game{} = game, action, %Tile{} = new_tile) do
     #    IO.inspect({:take, game.actions, action, new_tile})
 
-    unless tile_hits?(game.board, new_tile) do
+    if !tile_hits?(game.board, new_tile) do
       case action do
         :rotate -> Octopus.App.play_sample("ui/click3.wav", tile_channel(game, new_tile))
         _ -> false
@@ -498,7 +498,7 @@ defmodule Octopus.Apps.Blocks.Game do
       |> Canvas.overlay(gamecanvas, offset: {layout.playfield_base, 0})
       |> Font.pipe_draw_char(font, second, font_variant, {layout.score_base, 0})
       |> (fn c ->
-            unless first == ?0 do
+            if first != ?0 do
               c |> Font.pipe_draw_char(font, first, font_variant, {layout.score_base - 8, 0})
             else
               c

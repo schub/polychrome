@@ -17,7 +17,15 @@ defmodule Octopus.Apps.Sprites do
   def name(), do: "Random Sprites"
 
   def app_init(_args) do
-    screens = get_screen_count()
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    # Include easing_interval for smooth hardware transitions
+    Octopus.App.configure_display(layout: :adjacent_panels, easing_interval: @easing_interval)
+
+    # Get display info instead of screen count
+    display_info = Octopus.App.get_display_info()
+    # Calculate screen count based on panel count (assuming 1 screen per panel)
+    screens = display_info.panel_count
+
     indexes = Enum.map(1..screens, fn _ -> Enum.random(0..255) end)
 
     canvas =
@@ -50,11 +58,11 @@ defmodule Octopus.Apps.Sprites do
     |> Stream.map(fn window_canvas ->
       state.canvas
       |> Canvas.overlay(window_canvas, offset: {updated_window * 8, 0})
-      |> Canvas.to_frame(easing_interval: @easing_interval)
     end)
-    |> Stream.map(fn frame ->
+    |> Stream.map(fn canvas ->
       :timer.sleep(@animation_interval)
-      send_frame(frame)
+      # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+      Octopus.App.update_display(canvas)
     end)
     |> Stream.run()
 

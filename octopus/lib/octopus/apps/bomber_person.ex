@@ -53,7 +53,18 @@ defmodule Octopus.Apps.BomberPerson do
 
   def name(), do: "Bomber Person"
 
+  def compatible?() do
+    installation_info = Octopus.App.get_installation_info()
+
+    installation_info.panel_count == 10 and
+      installation_info.panel_width == 8 and
+      installation_info.panel_height == 8
+  end
+
   def app_init(_args) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     state = create_state()
 
     :timer.send_interval(trunc(1000 / @fps), :tick)
@@ -276,9 +287,8 @@ defmodule Octopus.Apps.BomberPerson do
       |> Canvas.overlay(state.canvas, offset: {40, 0})
       |> Canvas.overlay(state.score_canvas[1], offset: {48, 0})
 
-    big_canvas
-    |> Canvas.to_frame()
-    |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(big_canvas)
 
     %State{state | big_canvas: big_canvas}
   end

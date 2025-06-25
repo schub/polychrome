@@ -1,7 +1,7 @@
 defmodule Octopus.Apps.StaticImage do
-  alias Octopus.Protobuf.ControlEvent
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
+
   alias Octopus.WebP
-  alias Octopus.Canvas
   use Octopus.App, category: :animation
 
   def name, do: "Static Image"
@@ -17,6 +17,15 @@ defmodule Octopus.Apps.StaticImage do
   end
 
   def app_init(%{image: image}) do
+    # Load image to determine appropriate layout
+    loaded_image = WebP.load(image)
+
+    # Configure layout based on image width (was Canvas.to_frame(drop: image.width > 80))
+    layout =
+      if loaded_image && loaded_image.width > 80, do: :gapped_panels, else: :adjacent_panels
+
+    Octopus.App.configure_display(layout: layout)
+
     send(self(), :display)
     {:ok, %{image: image}}
   end
@@ -27,8 +36,7 @@ defmodule Octopus.Apps.StaticImage do
     {:noreply, state}
   end
 
-  def handle_event(%ControlEvent{type: type}, state)
-      when type in [:APP_SELECTED, :APP_STARTED] do
+  def handle_event(%LifecycleEvent{type: :app_selected}, state) do
     display(state)
     {:noreply, state}
   end
@@ -45,7 +53,8 @@ defmodule Octopus.Apps.StaticImage do
   def display(%{image: image}) do
     case WebP.load(image) do
       nil -> nil
-      image -> image |> Canvas.to_frame(drop: image.width > 80) |> send_frame()
+      # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+      image -> Octopus.App.update_display(image)
     end
   end
 end

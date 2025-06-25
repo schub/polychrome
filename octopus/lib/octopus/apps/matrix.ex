@@ -2,8 +2,6 @@ defmodule Octopus.Apps.Matrix do
   use Octopus.App, category: :animation
   use Octopus.Params, prefix: :matrix
 
-  defdelegate installation, to: Octopus
-
   defmodule Particle do
     defstruct [:x, :y, :z, :speed, :color, :age, :max_age, :tail]
   end
@@ -114,10 +112,16 @@ defmodule Octopus.Apps.Matrix do
 
   def name(), do: "Matrix"
 
-  def app_init(_config) do
-    # Get dimensions from installation
-    width = installation().width()
-    height = installation().height()
+  def app_init(_args) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
+    # This is for the 10 panel installation that Matrix was made for
+
+    # Get dimensions from display info instead of installation
+    display_info = Octopus.App.get_display_info()
+    width = display_info.width
+    height = display_info.height
 
     canvas = Canvas.new(width, height)
     particles = []
@@ -144,7 +148,8 @@ defmodule Octopus.Apps.Matrix do
 
   def handle_info(:tick, %State{} = state) do
     state = state |> State.update(1 / 60 * param(:speed, 1.0)) |> State.render()
-    state.canvas |> Canvas.to_frame(easing_interval: param(:easing_interval, 100)) |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(state.canvas)
     {:noreply, state}
   end
 end

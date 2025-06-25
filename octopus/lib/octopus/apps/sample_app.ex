@@ -2,14 +2,11 @@ defmodule Octopus.Apps.SampleApp do
   use Octopus.App, category: :animation
   require Logger
 
-  alias Octopus.Events.Event.Input, as: InputEvent
-  alias Octopus.VirtualMatrix
   alias Octopus.Canvas
-
-  defdelegate installation, to: Octopus
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   defmodule State do
-    defstruct [:index, :color, :canvas, :virtual_matrix, :palette]
+    defstruct [:index, :color, :canvas, :display_info]
   end
 
   @fps 60
@@ -17,16 +14,21 @@ defmodule Octopus.Apps.SampleApp do
   def name(), do: "Sample"
 
   def app_init(_args) do
-    virtual_matrix = VirtualMatrix.new(installation(), layout: :gapped_panels)
-    canvas = Canvas.new(virtual_matrix.width, virtual_matrix.height)
+    # Configure display using new unified API - gapped layout (was VirtualMatrix :gapped_panels)
+    Octopus.App.configure_display(layout: :gapped_panels)
+
+    # Get display info instead of VirtualMatrix
+    display_info = Octopus.App.get_display_info()
+    canvas = Canvas.new(display_info.width, display_info.height)
 
     state = %State{
       index: 0,
       canvas: canvas,
-      virtual_matrix: virtual_matrix
+      display_info: display_info
     }
 
-    VirtualMatrix.send_frame(state.virtual_matrix, canvas)
+    # Use new unified display API instead of Canvas.to_frame() |> VirtualMatrix.send_frame()
+    Octopus.App.update_display(canvas)
 
     :timer.send_interval(trunc(1000 / @fps), :tick)
 
@@ -35,10 +37,9 @@ defmodule Octopus.Apps.SampleApp do
 
   def handle_info(:tick, %State{} = state) do
     coordinates =
-      {rem(state.index, state.virtual_matrix.width),
-       trunc(state.index / state.virtual_matrix.width)}
+      {rem(state.index, state.display_info.width), trunc(state.index / state.display_info.width)}
 
-    hue_step = 359.0 / (state.virtual_matrix.width * state.virtual_matrix.height)
+    hue_step = 359.0 / (state.display_info.width * state.display_info.height)
     hue = hue_step * state.index
 
     %Chameleon.RGB{r: r, g: g, b: b} =
@@ -51,43 +52,52 @@ defmodule Octopus.Apps.SampleApp do
       |> Canvas.clear()
       |> Canvas.put_pixel(coordinates, {r, g, b})
 
-    VirtualMatrix.send_frame(state.virtual_matrix, canvas)
+    # Use new unified display API instead of Canvas.to_frame() |> VirtualMatrix.send_frame()
+    Octopus.App.update_display(canvas)
 
     {:noreply,
      %State{
        state
        | canvas: canvas,
-         index: rem(state.index + 1, state.virtual_matrix.width * state.virtual_matrix.height)
+         index: rem(state.index + 1, state.display_info.width * state.display_info.height)
      }}
   end
 
   def handle_event(%InputEvent{type: :button, action: :press, button: 1}, state) do
     state = %State{state | color: 8}
 
-    state.canvas
-    |> Canvas.fill_rect(
-      {0, 0},
-      {state.virtual_matrix.width - 1, state.virtual_matrix.height - 1},
-      state.color
-    )
-    |> Canvas.to_frame(state.palette)
-    |> VirtualMatrix.send_frame(state.virtual_matrix)
+    canvas =
+      state.canvas
+      |> Canvas.fill_rect(
+        {0, 0},
+        {state.display_info.width - 1, state.display_info.height - 1},
+        state.color
+      )
 
-    {:noreply, state}
+    # Use new unified display API instead of Canvas.to_frame() |> VirtualMatrix.send_frame()
+    Octopus.App.update_display(canvas)
+
+    {:noreply, %State{state | canvas: canvas}}
   end
 
   def handle_event(%InputEvent{type: :button, action: :press, button: 2}, state) do
     state = %State{state | color: 7}
 
-    state.canvas
-    |> Canvas.fill_rect(
-      {0, 0},
-      {state.virtual_matrix.width - 1, state.virtual_matrix.height - 1},
-      state.color
-    )
-    |> Canvas.to_frame(state.palette)
-    |> VirtualMatrix.send_frame(state.virtual_matrix)
+    canvas =
+      state.canvas
+      |> Canvas.fill_rect(
+        {0, 0},
+        {state.display_info.width - 1, state.display_info.height - 1},
+        state.color
+      )
 
+    # Use new unified display API instead of Canvas.to_frame() |> VirtualMatrix.send_frame()
+    Octopus.App.update_display(canvas)
+
+    {:noreply, %State{state | canvas: canvas}}
+  end
+
+  def handle_event(%InputEvent{}, state) do
     {:noreply, state}
   end
 

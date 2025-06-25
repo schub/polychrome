@@ -269,11 +269,22 @@ defmodule OctopusWeb.ManagerLive do
               {category |> to_string |> String.capitalize()} Apps
             </div>
             <div class="border p-2 flex flex-row flex-wrap">
-              <div :for={%{module: module, name: name, icon: icon} <- apps} class="m-0 p-1">
+              <div
+                :for={%{module: module, name: name, icon: icon, compatible: compatible} <- apps}
+                class="m-0 p-1"
+              >
                 <button
-                  class="border py-1 px-2 rounded bg-slate-500 text-white flex flex-row items-center gap-1"
-                  phx-click="start"
+                  class={[
+                    "border py-1 px-2 rounded flex flex-row items-center gap-1",
+                    if(compatible,
+                      do: "bg-slate-500 text-white",
+                      else: "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    )
+                  ]}
+                  phx-click={if compatible, do: "start", else: nil}
                   phx-value-module={module}
+                  disabled={!compatible}
+                  title={if !compatible, do: "Incompatible with current installation", else: nil}
                 >
                   <%= if icon do %>
                     <div class="w-5 h-5 inline-block rounded-sm overflow-hidden">
@@ -281,6 +292,9 @@ defmodule OctopusWeb.ManagerLive do
                     </div>
                   <% end %>
                   {name}
+                  <%= if !compatible do %>
+                    <span class="text-xs">⚠️</span>
+                  <% end %>
                 </button>
               </div>
             </div>
@@ -422,6 +436,7 @@ defmodule OctopusWeb.ManagerLive do
     available_apps =
       for module <- AppSupervisor.available_apps() do
         name = apply(module, :name, [])
+        compatible = apply(module, :compatible?, [])
 
         icon =
           case apply(module, :icon, []) do
@@ -431,7 +446,7 @@ defmodule OctopusWeb.ManagerLive do
 
         category = apply(module, :category, [])
 
-        %{module: module, name: name, icon: icon, category: category}
+        %{module: module, name: name, icon: icon, category: category, compatible: compatible}
       end
       |> Enum.group_by(& &1.category)
       |> Enum.sort_by(fn {category, _} ->

@@ -192,7 +192,10 @@ defmodule Octopus.Apps.SpaceInvaders do
 
   def name, do: "Space Invaders"
 
-  def app_init(_) do
+  def app_init(_args) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     game = Game.new()
     canvas = Canvas.new(80, 8)
     :timer.send_interval(@frame_time_ms, :tick)
@@ -203,7 +206,8 @@ defmodule Octopus.Apps.SpaceInvaders do
     game = Game.update(game, 1.0 / @frame_rate)
     canvas = Canvas.clear(canvas)
     canvas = Game.draw(game, canvas, {8 * 4, 0})
-    canvas |> Canvas.to_frame() |> send_frame()
+    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
+    Octopus.App.update_display(canvas)
     {:noreply, %{state | game: game, canvas: canvas}}
   end
 

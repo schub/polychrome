@@ -18,6 +18,9 @@ defmodule Octopus.Apps.FontTester do
   def name(), do: "Font Tester"
 
   def app_init(_args) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     state = %State{text: @text}
     state = set_font(@max_index, state)
     send(self(), :tick)
@@ -49,8 +52,7 @@ defmodule Octopus.Apps.FontTester do
     |> Enum.map(&Font.draw_char(font, &1, state.variant, Canvas.new(8, 8)))
     |> Enum.reverse()
     |> Enum.reduce(&Canvas.join/2)
-    |> Canvas.to_frame()
-    |> send_frame()
+    |> Octopus.App.update_display()
 
     :timer.send_after(100, self(), :tick)
 
@@ -69,11 +71,7 @@ defmodule Octopus.Apps.FontTester do
     {:noreply, next_variant(state)}
   end
 
-  def handle_event(_event, state) do
-    {:noreply, state}
-  end
-
-  def handle_event(_event, state) do
+  def handle_event(_input_event, state) do
     {:noreply, state}
   end
 
