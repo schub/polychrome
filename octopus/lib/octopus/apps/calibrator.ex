@@ -2,8 +2,8 @@ defmodule Octopus.Apps.Calibrator do
   use Octopus.App, category: :test
   require Logger
 
-  alias Octopus.{ColorPalette, Broadcaster}
-  alias Octopus.Protobuf.{WFrame}
+  alias Octopus.Broadcaster
+  alias Octopus.Canvas
 
   @moduledoc """
   This app is used to calibrate the display. It reads colors from DisplayCal and renders them on the pixels.
@@ -290,14 +290,8 @@ defmodule Octopus.Apps.Calibrator do
   def name(), do: "Calibrator"
 
   def app_init(_args) do
-    data =
-      0..(640 - 1)
-      |> Enum.map(fn _ -> 1 end)
-      |> IO.iodata_to_binary()
-
     state = %State{
-      color: color_from_hex(@first_color),
-      data: data
+      color: color_from_hex(@first_color)
     }
 
     Broadcaster.set_calibration(false)
@@ -309,17 +303,8 @@ defmodule Octopus.Apps.Calibrator do
 
   def handle_info(:tick, %State{} = state) do
     state = set_next_color(state)
-
-    palette =
-      %ColorPalette{
-        colors: [
-          %RGBW{r: 0, g: 0, b: 0, w: 0},
-          state.color |> apply_corrections()
-        ]
-      }
-      |> encode_palette()
-
-    send_frame(%WFrame{data: state.data, palette: palette})
+    %RGB{r: r, g: g, b: b} = apply_corrections(state.color)
+    Canvas.new(1, 1) |> Canvas.fill({r, g, b}) |> send_canvas()
 
     {:noreply, state}
   end
@@ -352,29 +337,10 @@ defmodule Octopus.Apps.Calibrator do
   end
 
   def apply_corrections(%RGB{r: r, g: g, b: b}) do
-    # first gamma, then corrections
-    # %RGBW{
-    #   r: round(Enum.at(@gamma_lookup, 180)),
-    #   g: round(Enum.at(@gamma_lookup, 255)),
-    #   b: round(Enum.at(@gamma_lookup, 180)),
-    #   w: round(Enum.at(@gamma_lookup, 255))
-    # }
-    %RGBW{
+    %RGB{
       r: round(Enum.at(@gamma_lookup, r) * @red_correction),
       g: round(Enum.at(@gamma_lookup, g) * @green_correction),
-      b: round(Enum.at(@gamma_lookup, b) * @blue_correction),
-      w: 0
+      b: round(Enum.at(@gamma_lookup, b) * @blue_correction)
     }
-
-    # %RGBW{r: 0, g: 0, b: 30, w: 255}
-  end
-
-  def encode_palette(%ColorPalette{colors: colors}) do
-    colors
-    |> Enum.flat_map(fn
-      %RGB{r: r, g: g, b: b} -> [r, g, b]
-      %RGBW{r: r, g: g, b: b, w: w} -> [r, g, b, w]
-    end)
-    |> IO.iodata_to_binary()
   end
 end

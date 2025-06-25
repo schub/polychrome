@@ -6,11 +6,12 @@ defmodule Octopus.Mixer do
 
   alias Octopus.Protobuf.{
     RGBFrame,
+    WFrame,
     AudioFrame
   }
 
   @pubsub_topic "mixer"
-  @pubsub_frames [RGBFrame]
+  @pubsub_frames [RGBFrame, WFrame]
   @transition_duration 300
   @transition_frame_time trunc(1000 / 60)
 
@@ -81,7 +82,7 @@ defmodule Octopus.Mixer do
   # Existing frame handling functions (preserved for compatibility)
 
   def handle_frame(app_id, %RGBFrame{} = frame) do
-    # Split RGB frames to avoid UPD fragmenting. Can be removed when we fix the fragmenting in the firmware
+    # Split RGB frames to avoid UDP fragmenting. Can be removed when we fix the fragmenting in the firmware
     Protobuf.split_and_encode(frame)
     |> Enum.each(fn binary ->
       send_frame(binary, frame, app_id)
@@ -107,7 +108,7 @@ defmodule Octopus.Mixer do
 
   Published messages:
 
-  * `{:mixer, {:frame, %Octopus.Protobuf.Frame{} = frame}}` - a new frame was received from the selected app
+  * `{:mixer, {:frame, %Octopus.Protobuf.RGBFrame{} = frame}}` - a new RGB frame was received from the selected app
   * `{:mixer, {:config, config}}` - mixer configuration changed
   """
   def subscribe do

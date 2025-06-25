@@ -17,7 +17,7 @@ String hostname = "blinkenleds-" + String(PANEL_INDEX);
 #endif
 
 #define UDP_PORT 1337
-#define UDP_BUFFER_SIZE 1500 // This needs to be increased for RGBFrames
+#define UDP_BUFFER_SIZE 4096
 uint8_t udp_buffer[UDP_BUFFER_SIZE];
 WiFiUDP udp;
 

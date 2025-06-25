@@ -107,6 +107,10 @@ defmodule Octopus.Apps.Supermario do
     {:noreply, %{state | button_state: new_button_state}}
   end
 
+  def handle_event(_event, state) do
+    {:noreply, state}
+  end
+
   def schedule_ticker(interval) do
     :timer.send_interval(interval, self(), :tick)
   end

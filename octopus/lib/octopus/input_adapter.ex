@@ -55,7 +55,6 @@ defmodule Octopus.InputAdapter do
         Events.handle_event(domain_event)
 
       {:ok, %SoundToLightControlEvent{} = stl_event} ->
-        # Convert protobuf audio event to domain event
         domain_event = Factory.create_audio_event(stl_event)
         # Logger.debug("#{__MODULE__}: Received audio event: #{inspect(domain_event)}")
         Events.handle_event(domain_event)

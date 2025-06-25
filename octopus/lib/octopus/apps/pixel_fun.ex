@@ -241,7 +241,9 @@ defmodule Octopus.Apps.PixelFun do
     {:noreply, %State{state | move: {0, 0}}}
   end
 
-  def handle_event(_, state), do: {:noreply, state}
+  def handle_event(_event, state) do
+    {:noreply, state}
+  end
 
   defp render(%State{program: program} = state) do
     offset_x =

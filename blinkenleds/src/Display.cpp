@@ -63,10 +63,47 @@ void apply_rgb_frame(RGBFrame_data_t data, uint16_t first_pixel, uint16_t last_p
   }
 }
 
+// Function to calculate R value for a given W value (0-255)
+// Based on the formula: r = max_r * ((max_w - w) / max_w)^2
+uint8_t calculate_r_for_wframe(uint8_t w_value)
+{
+  const uint8_t max_w = 255;
+  const uint8_t max_r = 63;
+
+  if (w_value == 0)
+  {
+    return 0;
+  }
+  else
+  {
+    float ratio = (float)(max_w - w_value) / max_w;
+    return (uint8_t)(max_r * ratio * ratio);
+  }
+}
+
+void apply_w_frame(WFrame_data_t data, uint16_t first_pixel, uint16_t last_pixel)
+{
+  RgbwColor color;
+  for (int i = first_pixel; i <= last_pixel; i++)
+  {
+    uint8_t w = data.bytes[i];
+    uint8_t r = calculate_r_for_wframe(w);
+
+    color.R = r;
+    color.G = 0;
+    color.B = 0;
+    color.W = w;
+    pixel[i - first_pixel].set_color(color);
+  }
+}
+
 void Display::handle_packet(Packet packet)
 {
   uint16_t first_pixel;
   uint16_t last_pixel;
+
+  Serial.printf("Received packet: %d\n", packet.which_content);
+
   switch (packet.which_content)
   {
   case Packet_firmware_config_tag:
@@ -78,30 +115,20 @@ void Display::handle_packet(Packet packet)
 
     break;
 
-  case Packet_frame_tag:
-    first_pixel = PIXEL_COUNT * (PANEL_INDEX - 1);
-    last_pixel = first_pixel + PIXEL_COUNT - 1;
-
-    for (int i = first_pixel; i <= last_pixel; i++)
-    {
-      pixel[i - first_pixel].set_color(color_from_palette(packet.content.frame.palette, packet.content.frame.data.bytes[i]));
-    }
-
-    Pixel::set_easing_interval(packet.content.frame.easing_interval);
-
-    break;
-
   case Packet_w_frame_tag:
     first_pixel = PIXEL_COUNT * (PANEL_INDEX - 1);
     last_pixel = first_pixel + PIXEL_COUNT - 1;
-
-    for (int i = first_pixel; i <= last_pixel; i++)
-    {
-      pixel[i - first_pixel].set_color(color_from_palette(packet.content.w_frame.palette, packet.content.w_frame.data.bytes[i]));
-    }
+    apply_w_frame(packet.content.w_frame.data, first_pixel, last_pixel);
 
     Pixel::set_easing_interval(packet.content.w_frame.easing_interval);
 
+    break;
+
+  case Packet_rgb_frame_tag:
+    first_pixel = PIXEL_COUNT * (PANEL_INDEX - 1);
+    last_pixel = first_pixel + PIXEL_COUNT - 1;
+    apply_rgb_frame(packet.content.rgb_frame.data, first_pixel, last_pixel);
+    Pixel::set_easing_interval(packet.content.rgb_frame.easing_interval);
     break;
 
   case Packet_rgb_frame_part1_tag:
@@ -127,42 +154,8 @@ void Display::handle_packet(Packet packet)
     break;
 
   default:
-
     // Ignore other packets
     break;
-  }
-}
-
-RgbwColor Display::color_from_palette(Frame_palette_t palette, uint8_t index)
-{
-  if (index < palette.size / 3)
-  {
-    uint8_t r = palette.bytes[index * 3];
-    uint8_t g = palette.bytes[index * 3 + 1];
-    uint8_t b = palette.bytes[index * 3 + 2];
-
-    return RgbwColor(r, g, b, 0);
-  }
-  else
-  {
-    return RgbwColor(0, 0, 0, 0);
-  }
-}
-
-RgbwColor Display::color_from_palette(WFrame_palette_t palette, uint8_t index)
-{
-  if (index < palette.size / 4)
-  {
-    uint8_t r = palette.bytes[index * 4];
-    uint8_t g = palette.bytes[index * 4 + 1];
-    uint8_t b = palette.bytes[index * 4 + 2];
-    uint8_t w = palette.bytes[index * 4 + 3];
-
-    return RgbwColor(r, g, b, w);
-  }
-  else
-  {
-    return RgbwColor(0, 0, 0, 0);
   }
 }
 

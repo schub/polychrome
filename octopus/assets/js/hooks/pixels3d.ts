@@ -1,7 +1,8 @@
 import { Hook, makeHook } from "phoenix_typed_hook";
 
 type RGB = [number, number, number];
-type Frame = { kind: "rgb"; data: number[] };
+
+import { Frame, rgbPixelsFromFrame } from "./shared/frame";
 
 import * as THREE from "three";
 
@@ -156,9 +157,7 @@ class Pixels3dHook extends Hook {
     const buttonBaseHeight = 0.0175; // 17.5mm
     const buttonRingDiameter = 0.1; // 10cm
     const buttonRingHeight = 0.008; // 8mm
-    const buttonRingThickness = 0.01; // 1cm
     const buttonDomeDiameter = 0.09; // 9cm
-    const buttonDomeHeight = 0.02; // 2cm
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.xr.enabled = true;
@@ -338,10 +337,18 @@ class Pixels3dHook extends Hook {
         buttonBases[i].position.set(x, buttonTopY + buttonBaseHeight / 2, z);
 
         // Update button ring position
-        buttonRings[i].position.set(x, buttonTopY + buttonBaseHeight + buttonRingHeight / 2, z);
+        buttonRings[i].position.set(
+          x,
+          buttonTopY + buttonBaseHeight + buttonRingHeight / 2,
+          z
+        );
 
         // Update button dome position
-        buttonDomes[i].position.set(x, buttonTopY + buttonBaseHeight + buttonRingHeight, z);
+        buttonDomes[i].position.set(
+          x,
+          buttonTopY + buttonBaseHeight + buttonRingHeight,
+          z
+        );
       }
     };
 
@@ -493,7 +500,10 @@ class Pixels3dHook extends Hook {
         buttonBaseHeight,
         32
       );
-      const buttonBase = new THREE.Mesh(buttonBaseGeometry, blackButtonMaterial);
+      const buttonBase = new THREE.Mesh(
+        buttonBaseGeometry,
+        blackButtonMaterial
+      );
       buttonBase.position.set(
         buttonPoleRadius * Math.sin(angle),
         buttonTopY + buttonBaseHeight / 2,
@@ -507,7 +517,10 @@ class Pixels3dHook extends Hook {
         buttonRingHeight,
         32
       );
-      const buttonRing = new THREE.Mesh(buttonRingGeometry, blackButtonMaterial);
+      const buttonRing = new THREE.Mesh(
+        buttonRingGeometry,
+        blackButtonMaterial
+      );
       buttonRing.position.set(
         buttonPoleRadius * Math.sin(angle),
         buttonTopY + buttonBaseHeight + buttonRingHeight / 2,
@@ -581,32 +594,37 @@ class Pixels3dHook extends Hook {
 
     // Load second human model next to a panel
     const gltfLoader = new GLTFLoader();
-    gltfLoader.load('/models/low_poly_character/scene.gltf', (gltf) => {
-      const human2 = gltf.scene.clone();
+    gltfLoader.load(
+      "/models/low_poly_character/scene.gltf",
+      (gltf) => {
+        const human2 = gltf.scene.clone();
 
-      // Use natural model size (no scaling)
+        // Use natural model size (no scaling)
 
-      // Position next to the first LED panel (panel 0)
-      const panelRadius = diameter / 2;
-      const panelAngle = 0; // First panel angle
-      const offsetDistance = 3.0; // 3 meters away from the panel
+        // Position next to the first LED panel (panel 0)
+        const panelRadius = diameter / 2;
+        const panelAngle = 0; // First panel angle
+        const offsetDistance = 3.0; // 3 meters away from the panel
 
-      human2.position.set(
-        (panelRadius + offsetDistance) * Math.sin(panelAngle),
-        0,
-        (panelRadius + offsetDistance) * Math.cos(panelAngle)
-      );
+        human2.position.set(
+          (panelRadius + offsetDistance) * Math.sin(panelAngle),
+          0,
+          (panelRadius + offsetDistance) * Math.cos(panelAngle)
+        );
 
-      // Rotate to face the panel
-      human2.rotation.y = panelAngle + Math.PI;
+        // Rotate to face the panel
+        human2.rotation.y = panelAngle + Math.PI;
 
-      // Add to the scene
-      vrMovementObject.add(human2);
+        // Add to the scene
+        vrMovementObject.add(human2);
 
-      console.log('Second human model added next to panel');
-    }, undefined, (error) => {
-      console.error('Error loading second human model:', error);
-    });
+        console.log("Second human model added next to panel");
+      },
+      undefined,
+      (error) => {
+        console.error("Error loading second human model:", error);
+      }
+    );
 
     window.addEventListener("resize", onWindowResize);
 
@@ -744,24 +762,8 @@ class Pixels3dHook extends Hook {
 
     [`frame:${id}`, "frame:pixels-*"].forEach((event) => {
       this.handleEvent(event, ({ frame: frame }: { frame: Frame }) => {
-        switch (frame.kind) {
-          case "rgb": {
-            pixels.push(...Array(numPanels * 64).fill([0, 0, 0]));
-            const numPixels = frame.data.length / 3;
-            pixels.splice(0, pixels.length);
-            for (let i = 0; i < numPixels; i++) {
-              const pixelOffset = i * 3;
-              const r = frame.data[pixelOffset];
-              const g = frame.data[pixelOffset + 1];
-              const b = frame.data[pixelOffset + 2];
-
-              pixels[i] = [r, g, b];
-            }
-            break;
-          }
-          default: {
-            throw new Error("Unsupported frame kind: " + frame.kind);
-          }
+        for (let [i, pixel] of rgbPixelsFromFrame(frame).entries()) {
+          pixels[i] = pixel;
         }
       });
     });

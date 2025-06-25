@@ -1,11 +1,8 @@
 defmodule Octopus.Protobuf do
   require Logger
 
-  alias Octopus.ColorPalette
-
   alias Octopus.Protobuf.{
     Packet,
-    Frame,
     WFrame,
     RGBFrame,
     AudioFrame,
@@ -18,24 +15,7 @@ defmodule Octopus.Protobuf do
     SoundToLightControlEvent
   }
 
-  def encode(%Frame{data: data, palette: palette} = frame)
-      when is_binary(data) and is_binary(palette) do
-    %Packet{content: {:frame, frame}}
-    |> Packet.encode()
-  end
-
-  def encode(%Frame{data: list} = frame) when is_list(list) do
-    %Frame{frame | data: IO.iodata_to_binary(list)}
-    |> encode()
-  end
-
-  def encode(%Frame{palette: %ColorPalette{} = palette} = frame) do
-    %Frame{frame | palette: ColorPalette.to_binary(palette)}
-    |> encode()
-  end
-
-  def encode(%WFrame{palette: palette, data: data} = wframe)
-      when is_binary(palette) and is_binary(data) do
+  def encode(%WFrame{data: data} = wframe) when is_binary(data) do
     %Packet{content: {:w_frame, wframe}}
     |> Packet.encode()
   end
@@ -104,9 +84,6 @@ defmodule Octopus.Protobuf do
 
   def decode_packet(protobuf) when is_binary(protobuf) do
     case Packet.decode(protobuf) do
-      %Packet{content: {:frame, %Frame{palette: palette} = frame}} ->
-        {:ok, %Frame{frame | palette: ColorPalette.from_binary(palette)}}
-
       %Packet{content: {:wframe, %WFrame{} = frame}} ->
         {:ok, frame}
 

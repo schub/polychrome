@@ -48,8 +48,8 @@ defmodule Octopus.KioskModeManager do
     Phoenix.PubSub.subscribe(Octopus.PubSub, @topic)
   end
 
-  def handle_event(%InputEvent{} = controller_event) do
-    GenServer.cast(__MODULE__, {:input_event, controller_event})
+  def handle_event(%InputEvent{} = input_event) do
+    GenServer.cast(__MODULE__, {:input_event, input_event})
   end
 
   def game_finished() do

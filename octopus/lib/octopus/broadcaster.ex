@@ -170,7 +170,6 @@ defmodule Octopus.Broadcaster do
   end
 
   defp handle_firmware_packet(%ProximityEvent{} = protobuf_event, _from_ip, %State{} = state) do
-    # Convert protobuf to domain event
     domain_event = Octopus.Events.Factory.create_proximity_event(protobuf_event)
     Octopus.Events.handle_event(domain_event)
     state

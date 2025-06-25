@@ -16,7 +16,9 @@ defmodule Octopus.Events.Factory do
 
   @doc """
   Creates an Input domain event from a protobuf InputEvent.
+  Creates an Input domain event from a protobuf InputEvent.
 
+  Converts the protobuf format to the internal InputEvent format,
   Converts the protobuf format to the internal InputEvent format,
   handling the semantic mapping from low-level protobuf types to
   domain-meaningful event structures.

@@ -16,30 +16,34 @@ defmodule Octopus.Canvas do
   alias Octopus.Protobuf.{RGBFrame, WFrame}
   alias Octopus.Canvas
 
-  defstruct [:width, :height, :pixels]
+  defstruct [:width, :height, :pixels, :mode]
 
   @type coord :: {integer(), integer()}
 
   @typedoc """
-  A color is a tuple of 3 integers between 0 and 255
+  A color can be either an RGB tuple of 3 bytes (0-255), or a grayscale byte (0-255)
   """
-  @type color :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}
+  @type color :: {byte(), byte(), byte()} | byte()
+
+  @type mode :: :rgb | :grayscale
 
   @type t :: %Canvas{
           width: non_neg_integer(),
           height: non_neg_integer(),
-          pixels: %{required(coord()) => color()}
+          pixels: %{required(coord()) => color()},
+          mode: mode()
         }
 
   @doc """
   Creates a new canvas. The canvas is initialized with no pixels set.
   """
-  @spec new(non_neg_integer(), non_neg_integer()) :: Canvas.t()
-  def new(width, height) do
+  @spec new(non_neg_integer(), non_neg_integer(), mode()) :: Canvas.t()
+  def new(width, height, mode \\ :rgb) do
     %Canvas{
       width: width,
       height: height,
-      pixels: %{}
+      pixels: %{},
+      mode: mode
     }
   end
 
@@ -57,12 +61,22 @@ defmodule Octopus.Canvas do
   Encodes the canvas as a webp file.
   """
   @spec to_webp(Octopus.Canvas.t()) :: binary()
-  def to_webp(%Canvas{} = canvas) do
+  def to_webp(%Canvas{mode: :rgb} = canvas) do
     rgb_pixels =
       for y <- 0..(canvas.height - 1),
           x <- 0..(canvas.width - 1),
           {r, g, b} <- Octopus.Canvas.get_pixel(canvas, {x, y}),
           do: [r, g, b]
+
+    WebP.encode_rgb(List.flatten(rgb_pixels), canvas.width, canvas.height)
+  end
+
+  def to_webp(%Canvas{mode: :grayscale} = canvas) do
+    rgb_pixels =
+      for y <- 0..(canvas.height - 1),
+          x <- 0..(canvas.width - 1),
+          gray_value <- Octopus.Canvas.get_pixel(canvas, {x, y}),
+          do: [gray_value, gray_value, gray_value]
 
     WebP.encode_rgb(List.flatten(rgb_pixels), canvas.width, canvas.height)
   end
@@ -80,11 +94,21 @@ defmodule Octopus.Canvas do
   """
 
   @spec fill(Canvas.t(), color()) :: Canvas.t()
-  def fill(%Canvas{} = canvas, color) do
+  def fill(%Canvas{mode: :rgb} = canvas, {_r, _g, _b} = color) do
     pixels =
       for x <- 0..(canvas.width - 1),
           y <- 0..(canvas.height - 1),
           do: {{x, y}, color},
+          into: %{}
+
+    %Canvas{canvas | pixels: pixels}
+  end
+
+  def fill(%Canvas{mode: :grayscale} = canvas, gray_value) when is_integer(gray_value) do
+    pixels =
+      for x <- 0..(canvas.width - 1),
+          y <- 0..(canvas.height - 1),
+          do: {{x, y}, gray_value},
           into: %{}
 
     %Canvas{canvas | pixels: pixels}
@@ -106,20 +130,31 @@ defmodule Octopus.Canvas do
   Sets the color of the pixel at the given position.
   """
   @spec put_pixel(Canvas.t(), coord(), color()) :: Canvas.t()
-  def put_pixel(%Canvas{pixels: pixels} = canvas, {x, y}, {r, g, b}) do
-    pixels = Map.put(pixels, {x, y}, {r, g, b})
+  def put_pixel(%Canvas{mode: :rgb, pixels: pixels} = canvas, {x, y}, {_r, _g, _b} = color) do
+    pixels = Map.put(pixels, {x, y}, color)
     %Canvas{canvas | pixels: pixels}
   end
 
-  def put_pixel(%Canvas{}, _, color), do: raise("Invalid color #{inspect(color)}")
+  def put_pixel(%Canvas{mode: :grayscale, pixels: pixels} = canvas, {x, y}, gray_value)
+      when is_integer(gray_value) do
+    pixels = Map.put(pixels, {x, y}, gray_value)
+    %Canvas{canvas | pixels: pixels}
+  end
+
+  def put_pixel(%Canvas{mode: mode}, _, color),
+    do: raise("Invalid color #{inspect(color)} for mode #{mode}")
 
   @doc """
   Returns the pixel at the given position.
-  If the position is outside the canvas `{0, 0, 0}` is returned.
+  If the position is outside the canvas `{0, 0, 0}` is returned for RGB mode or `0` for grayscale mode.
   """
   @spec get_pixel(Canvas.t(), coord()) :: color()
-  def get_pixel(%Canvas{pixels: pixels}, {x, y}) do
+  def get_pixel(%Canvas{mode: :rgb, pixels: pixels}, {x, y}) do
     Map.get(pixels, {x, y}, {0, 0, 0})
+  end
+
+  def get_pixel(%Canvas{mode: :grayscale, pixels: pixels}, {x, y}) do
+    Map.get(pixels, {x, y}, 0)
   end
 
   @doc """
@@ -168,7 +203,9 @@ defmodule Octopus.Canvas do
   @window_width 8
   @window_gap 18
 
-  def to_frame(%Canvas{width: width, height: height} = canvas, opts \\ []) do
+  def to_frame(canvas, opts \\ [])
+
+  def to_frame(%Canvas{mode: :rgb, width: width, height: height} = canvas, opts) do
     window_gap = if Keyword.get(opts, :drop, false), do: @window_gap, else: 0
     window_width = @window_width + window_gap
     easing_interval = Keyword.get(opts, :easing_interval, 0)
@@ -183,7 +220,25 @@ defmodule Octopus.Canvas do
     %RGBFrame{data: data |> IO.iodata_to_binary(), easing_interval: easing_interval}
   end
 
-  def to_wframe(%Canvas{width: width, height: height} = canvas, opts \\ []) do
+  def to_frame(%Canvas{mode: :grayscale, width: width, height: height} = canvas, opts) do
+    window_gap = if Keyword.get(opts, :drop, false), do: @window_gap, else: 0
+    window_width = @window_width + window_gap
+    easing_interval = Keyword.get(opts, :easing_interval, 0)
+
+    data =
+      for window <- 0..(div(width + window_gap, window_width) - 1),
+          y <- 0..(height - 1),
+          x <- 0..7,
+          gray_value = get_pixel(canvas, {window * window_width + x, y}) do
+        [gray_value, gray_value, gray_value]
+      end
+
+    %RGBFrame{data: data |> IO.iodata_to_binary(), easing_interval: easing_interval}
+  end
+
+  def to_wframe(canvas, opts \\ [])
+
+  def to_wframe(%Canvas{mode: :rgb, width: width, height: height} = canvas, opts) do
     window_gap = if Keyword.get(opts, :drop, false), do: @window_gap, else: 0
     window_width = @window_width + window_gap
     easing_interval = Keyword.get(opts, :easing_interval, 0)
@@ -194,28 +249,29 @@ defmodule Octopus.Canvas do
           x <- 0..7,
           {r, g, b} = get_pixel(canvas, {window * window_width + x, y}) do
         %Chameleon.HSL{l: l} = Chameleon.RGB.new(r, g, b) |> Chameleon.convert(Chameleon.HSL)
-        trunc(l / 2.55 / 100 * 63)
-      end
-
-    max_w = 252
-    max_r = 63
-
-    palette =
-      for w <- 0..63 do
-        w = w * 4
-
-        r =
-          if w == 0 do
-            0
-          else
-            trunc(max_r * :math.pow((max_w - w) / max_w, 2))
-          end
-
-        [r, 0, 0, w]
+        l
       end
 
     %WFrame{
-      palette: palette |> IO.iodata_to_binary(),
+      data: data |> IO.iodata_to_binary(),
+      easing_interval: easing_interval
+    }
+  end
+
+  def to_wframe(%Canvas{mode: :grayscale, width: width, height: height} = canvas, opts) do
+    window_gap = if Keyword.get(opts, :drop, false), do: @window_gap, else: 0
+    window_width = @window_width + window_gap
+    easing_interval = Keyword.get(opts, :easing_interval, 0)
+
+    data =
+      for window <- 0..(div(width + window_gap, window_width) - 1),
+          y <- 0..(height - 1),
+          x <- 0..7,
+          gray_value = get_pixel(canvas, {window * window_width + x, y}) do
+        gray_value
+      end
+
+    %WFrame{
       data: data |> IO.iodata_to_binary(),
       easing_interval: easing_interval
     }
@@ -471,7 +527,9 @@ defmodule Octopus.Canvas do
   Create SVG representation of the canvas by rendering the pixels
   left to right, top to bottom in lines
   """
-  def to_svg(canvas, opts \\ []) do
+  def to_svg(canvas, opts \\ [])
+
+  def to_svg(%Canvas{mode: :rgb} = canvas, opts) do
     opts =
       Keyword.validate!(opts,
         width: canvas.width,
@@ -502,25 +560,60 @@ defmodule Octopus.Canvas do
     svg_header <> Enum.join(svg_pixels) <> svg_footer
   end
 
+  def to_svg(%Canvas{mode: :grayscale} = canvas, opts) do
+    opts =
+      Keyword.validate!(opts,
+        width: canvas.width,
+        height: canvas.height
+      )
+
+    svg_header = """
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="#{opts[:width]}px" height="#{opts[:height]}px"
+            viewbox="0 0 #{canvas.width} #{canvas.height}">
+    """
+
+    svg_footer = """
+          </svg>
+    """
+
+    # traverse pixels left to right, top to bottom
+    svg_pixels =
+      for y <- 0..(canvas.height - 1),
+          x <- 0..(canvas.width - 1),
+          gray_value = Canvas.get_pixel(canvas, {x, y}) do
+        """
+        <rect x="#{x}" y="#{y}" fill="rgb(#{gray_value},#{gray_value},#{gray_value})" width="1" height="1" />
+        """
+      end
+
+    svg_header <> Enum.join(svg_pixels) <> svg_footer
+  end
+
   @type blend_mode :: :multiply | :add | :subtract | :screen | :overlay | :darken | :lighten
 
   @spec blend_onto(Canvas.t(), Canvas.t(), blend_mode) :: Canvas.t()
   def blend_onto(%Canvas{} = bottom, %Canvas{} = top, mode), do: blend(top, bottom, mode)
 
   @spec blend(Canvas.t(), Canvas.t(), blend_mode, float) :: Canvas.t()
-  def blend(%Canvas{} = top, %Canvas{} = bottom, blend_mode, alpha \\ 1.0) do
+  def blend(top, bottom, blend_mode, alpha \\ 1.0)
+
+  def blend(%Canvas{mode: mode} = top, %Canvas{mode: mode} = bottom, blend_mode, alpha) do
     for y <- 0..(bottom.height - 1),
         x <- 0..(bottom.width - 1),
-        into: Canvas.new(bottom.width, bottom.height) do
+        into: Canvas.new(bottom.width, bottom.height, mode) do
       bottom_color = get_pixel(bottom, {x, y})
       top_color = get_pixel(top, {x, y})
-      {{x, y}, blend_color(bottom_color, top_color, blend_mode, alpha)}
+      {{x, y}, blend_color(blend_mode, mode, bottom_color, top_color, alpha)}
     end
   end
 
-  defp blend_color(color1, color2, blend_mode, alpha)
+  def blend(%Canvas{mode: top_mode}, %Canvas{mode: bottom_mode}, _blend_mode, _alpha) do
+    raise "Cannot blend canvases with different modes: #{top_mode} and #{bottom_mode}"
+  end
 
-  defp blend_color({r1, g1, b1}, {r2, g2, b2}, :multiply, alpha) do
+  defp blend_color(:multiply, :rgb, {r1, g1, b1}, {r2, g2, b2}, alpha) do
     {
       trunc(r1 * r2 / 255 * alpha + r1 * (1 - alpha)),
       trunc(g1 * g2 / 255 * alpha + g1 * (1 - alpha)),
@@ -528,7 +621,11 @@ defmodule Octopus.Canvas do
     }
   end
 
-  defp blend_color({r1, g1, b1}, {r2, g2, b2}, :add, alpha) do
+  defp blend_color(:multiply, :grayscale, gray1, gray2, alpha) do
+    trunc(gray1 * gray2 / 255 * alpha + gray1 * (1 - alpha))
+  end
+
+  defp blend_color(:add, :rgb, {r1, g1, b1}, {r2, g2, b2}, alpha) do
     {
       trunc(min(r1 * (1 - alpha) + r2 * alpha, 255)),
       trunc(min(g1 * (1 - alpha) + g2 * alpha, 255)),
@@ -536,7 +633,11 @@ defmodule Octopus.Canvas do
     }
   end
 
-  defp blend_color({r1, g1, b1}, {r2, g2, b2}, :subtract, alpha) do
+  defp blend_color(:add, :grayscale, gray1, gray2, alpha) do
+    trunc(min(gray1 * (1 - alpha) + gray2 * alpha, 255))
+  end
+
+  defp blend_color(:subtract, :rgb, {r1, g1, b1}, {r2, g2, b2}, alpha) do
     {
       trunc(max(r1 * (1 - alpha) - r2 * alpha, 0)),
       trunc(max(g1 * (1 - alpha) - g2 * alpha, 0)),
@@ -544,7 +645,11 @@ defmodule Octopus.Canvas do
     }
   end
 
-  defp blend_color({r1, g1, b1}, {r2, g2, b2}, :screen, alpha) do
+  defp blend_color(:subtract, :grayscale, gray1, gray2, alpha) do
+    trunc(max(gray1 * (1 - alpha) - gray2 * alpha, 0))
+  end
+
+  defp blend_color(:screen, :rgb, {r1, g1, b1}, {r2, g2, b2}, alpha) do
     {
       trunc(255 - (255 - r1) * (255 - r2) / 255 * alpha + r1 * (1 - alpha)),
       trunc(255 - (255 - g1) * (255 - g2) / 255 * alpha + g1 * (1 - alpha)),
@@ -552,7 +657,11 @@ defmodule Octopus.Canvas do
     }
   end
 
-  defp blend_color({r1, g1, b1}, {r2, g2, b2}, :overlay, alpha) do
+  defp blend_color(:screen, :grayscale, gray1, gray2, alpha) do
+    trunc(255 - (255 - gray1) * (255 - gray2) / 255 * alpha + gray1 * (1 - alpha))
+  end
+
+  defp blend_color(:overlay, :rgb, {r1, g1, b1}, {r2, g2, b2}, alpha) do
     r =
       if r1 < 128,
         do: trunc(2 * r1 * r2 / 255 * alpha + r1 * (1 - alpha)),
@@ -571,7 +680,15 @@ defmodule Octopus.Canvas do
     {r, g, b}
   end
 
-  defp blend_color({r1, g1, b1}, {r2, g2, b2}, :darken, alpha) do
+  defp blend_color(:overlay, :grayscale, gray1, gray2, alpha) do
+    if gray1 < 128 do
+      trunc(2 * gray1 * gray2 / 255 * alpha + gray1 * (1 - alpha))
+    else
+      trunc(255 - 2 * (255 - gray1) * (255 - gray2) / 255 * alpha + gray1 * (1 - alpha))
+    end
+  end
+
+  defp blend_color(:darken, :rgb, {r1, g1, b1}, {r2, g2, b2}, alpha) do
     {
       trunc(min(r1 * (1 - alpha) + r2 * alpha, 255)),
       trunc(min(r1, r2) * alpha + r1 * (1 - alpha)),
@@ -580,12 +697,63 @@ defmodule Octopus.Canvas do
     }
   end
 
-  defp blend_color({r1, g1, b1}, {r2, g2, b2}, :lighten, alpha) do
+  defp blend_color(:darken, :grayscale, gray1, gray2, alpha) do
+    trunc(min(gray1, gray2) * alpha + gray1 * (1 - alpha))
+  end
+
+  defp blend_color(:lighten, :rgb, {r1, g1, b1}, {r2, g2, b2}, alpha) do
     {
       trunc(max(r1, r2) * alpha + r1 * (1 - alpha)),
       trunc(max(g1, g2) * alpha + g1 * (1 - alpha)),
       trunc(max(b1, b2) * alpha + b1 * (1 - alpha))
     }
+  end
+
+  defp blend_color(:lighten, :grayscale, gray1, gray2, alpha) do
+    trunc(max(gray1, gray2) * alpha + gray1 * (1 - alpha))
+  end
+
+  @doc """
+  Converts an RGB canvas to grayscale mode.
+  """
+  @spec to_grayscale(Canvas.t()) :: Canvas.t()
+  def to_grayscale(%Canvas{mode: :grayscale} = canvas), do: canvas
+
+  def to_grayscale(%Canvas{mode: :rgb} = canvas) do
+    pixels =
+      canvas.pixels
+      |> Enum.map(fn {{x, y}, {r, g, b}} ->
+        gray_value = rgb_to_grayscale(r, g, b)
+        {{x, y}, gray_value}
+      end)
+      |> Enum.into(%{})
+
+    %Canvas{canvas | mode: :grayscale, pixels: pixels}
+  end
+
+  @doc """
+  Converts a grayscale canvas to RGB mode.
+  """
+  @spec to_rgb(Canvas.t()) :: Canvas.t()
+  def to_rgb(%Canvas{mode: :rgb} = canvas), do: canvas
+
+  def to_rgb(%Canvas{mode: :grayscale} = canvas) do
+    pixels =
+      canvas.pixels
+      |> Enum.map(fn {{x, y}, gray_value} ->
+        {{x, y}, {gray_value, gray_value, gray_value}}
+      end)
+      |> Enum.into(%{})
+
+    %Canvas{canvas | mode: :rgb, pixels: pixels}
+  end
+
+  @doc """
+  Converts RGB values to grayscale using luminance formula.
+  """
+  @spec rgb_to_grayscale(byte(), byte(), byte()) :: byte()
+  def rgb_to_grayscale(r, g, b) do
+    trunc(0.299 * r + 0.587 * g + 0.114 * b)
   end
 end
 
@@ -614,10 +782,10 @@ defimpl Inspect, for: Octopus.Canvas do
   @doc """
   Inspect implementation for printing out Canvas objects on the iex command line
   """
-  def inspect(canvas, _opts) do
+  def inspect(%Canvas{mode: :rgb} = canvas, _opts) do
     default_color = IO.ANSI.default_color()
 
-    stats = "width: #{canvas.width}, height: #{canvas.height} \n"
+    stats = "width: #{canvas.width}, height: #{canvas.height}, mode: rgb\n"
 
     # traverse pixels left to right, top to bottom
     delimiter = default_color <> "+" <> String.duplicate("--", canvas.width) <> "+\n"
@@ -628,6 +796,29 @@ defimpl Inspect, for: Octopus.Canvas do
           for x <- 0..(canvas.width - 1) do
             {r, g, b} = Canvas.get_pixel(canvas, {x, y})
             IO.ANSI.color(convert_color_rgb_to_ansi(r, g, b)) <> "\u2588\u2588"
+          end
+          |> List.to_string()
+
+        default_color <> "|" <> line <> default_color <> "|\n"
+      end
+
+    stats <> delimiter <> Enum.join(lines) <> delimiter
+  end
+
+  def inspect(%Canvas{mode: :grayscale} = canvas, _opts) do
+    default_color = IO.ANSI.default_color()
+
+    stats = "width: #{canvas.width}, height: #{canvas.height}, mode: grayscale\n"
+
+    # traverse pixels left to right, top to bottom
+    delimiter = default_color <> "+" <> String.duplicate("--", canvas.width) <> "+\n"
+
+    lines =
+      for y <- 0..(canvas.height - 1) do
+        line =
+          for x <- 0..(canvas.width - 1) do
+            gray_value = Canvas.get_pixel(canvas, {x, y})
+            IO.ANSI.color(convert_grayscale_to_ansi(gray_value)) <> "\u2588\u2588"
           end
           |> List.to_string()
 
@@ -648,6 +839,14 @@ defimpl Inspect, for: Octopus.Canvas do
 
       true ->
         16 + 36 * round(r / 255 * 5) + 6 * round(g / 255 * 5) + round(b / 255 * 5)
+    end
+  end
+
+  def convert_grayscale_to_ansi(gray_value) do
+    cond do
+      gray_value < 8 -> 16
+      gray_value > 248 -> 231
+      true -> round((gray_value - 8) / 247 * 24) + 232
     end
   end
 end

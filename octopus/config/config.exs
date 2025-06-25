@@ -15,7 +15,6 @@ config :octopus, :installation, Octopus.Installation.Nation2025
 config :octopus,
   ecto_repos: [Octopus.Repo],
   generators: [binary_id: true],
-  broadcast: true,
   show_sim_preview: true,
   enable_event_mode: false
 
@@ -39,7 +38,7 @@ config :octopus, :osc_server_port, 8000
 # Network addresses configuration
 config :octopus, :enable_broadcast, true
 # Default broadcast, can be overridden per environment
-config :octopus, :broadcast_ip, {255, 255, 255, 255}
+config :octopus, :broadcast_ip, nil
 config :octopus, :localhost_ip, {127, 0, 0, 1}
 
 # Configures the endpoint

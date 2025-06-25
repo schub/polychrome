@@ -2,15 +2,14 @@ defmodule Octopus.Apps.SampleApp do
   use Octopus.App, category: :animation
   require Logger
 
-  alias Octopus.{Canvas, ColorPalette}
+  alias Octopus.Canvas
   alias Octopus.Events.Event.Input, as: InputEvent
 
   defmodule State do
-    defstruct [:index, :color, :canvas, :display_info, :palette]
+    defstruct [:index, :color, :canvas, :display_info]
   end
 
   @fps 60
-  @colors [{255, 255, 255}, {255, 0, 0}, {0, 255, 0}, {255, 0, 255}]
 
   def name(), do: "Sample"
 
@@ -21,14 +20,11 @@ defmodule Octopus.Apps.SampleApp do
     # Get display info instead of VirtualMatrix
     display_info = Octopus.App.get_display_info()
     canvas = Canvas.new(display_info.width, display_info.height)
-    palette = ColorPalette.load("pico-8")
 
     state = %State{
       index: 0,
-      color: 7,
       canvas: canvas,
-      display_info: display_info,
-      palette: palette
+      display_info: display_info
     }
 
     # Use new unified display API instead of Canvas.to_frame() |> VirtualMatrix.send_frame()
@@ -43,10 +39,18 @@ defmodule Octopus.Apps.SampleApp do
     coordinates =
       {rem(state.index, state.display_info.width), trunc(state.index / state.display_info.width)}
 
+    hue_step = 359.0 / (state.display_info.width * state.display_info.height)
+    hue = hue_step * state.index
+
+    %Chameleon.RGB{r: r, g: g, b: b} =
+      hue
+      |> Chameleon.HSL.new(100, 50)
+      |> Chameleon.convert(Chameleon.RGB)
+
     canvas =
       state.canvas
       |> Canvas.clear()
-      |> Canvas.put_pixel(coordinates, Enum.at(@colors, state.color))
+      |> Canvas.put_pixel(coordinates, {r, g, b})
 
     # Use new unified display API instead of Canvas.to_frame() |> VirtualMatrix.send_frame()
     Octopus.App.update_display(canvas)

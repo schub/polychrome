@@ -133,20 +133,8 @@ defmodule Octopus.App do
         {:ok, %{}}
       end
 
-      def handle_info({:event, %InputEvent{} = input_event}, state) do
-        handle_event(input_event, state)
-      end
-
-      def handle_info({:event, %AudioEvent{} = audio_event}, state) do
-        handle_event(audio_event, state)
-      end
-
-      def handle_info({:event, %LifecycleEvent{} = lifecycle_event}, state) do
-        handle_event(lifecycle_event, state)
-      end
-
-      def handle_info({:event, %ProximityEvent{} = proximity_event}, state) do
-        handle_event(proximity_event, state)
+      def handle_info({:event, event}, state) do
+        handle_event(event, state)
       end
 
       def handle_call(:get_config, _from, state) do
