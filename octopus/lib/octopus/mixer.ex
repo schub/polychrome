@@ -169,8 +169,9 @@ defmodule Octopus.Mixer do
     end
   end
 
+  # Handle RGB display buffer updates
   def handle_cast(
-        {:update_app_display, app_id, canvas, mode, easing_interval_override},
+        {:update_app_display, app_id, canvas, :rgb, easing_interval_override},
         %State{} = state
       ) do
     case Map.get(state.app_displays, app_id) do
@@ -179,23 +180,49 @@ defmodule Octopus.Mixer do
         {:noreply, state}
 
       app_display ->
-        updated_display =
-          case mode do
-            :rgb -> %{app_display | rgb_buffer: canvas}
-            :grayscale -> %{app_display | grayscale_buffer: canvas}
-          end
-
+        updated_display = %{app_display | rgb_buffer: canvas}
         new_app_displays = Map.put(state.app_displays, app_id, updated_display)
         new_state = %State{state | app_displays: new_app_displays}
 
-        # If this app is currently selected (single app mode), generate and send frame immediately
-        if state.rendered_app == app_id and mode == :rgb do
+        # If this app is currently selected (single app mode), generate and send RGB frame immediately
+        if state.rendered_app == app_id do
           display_info = updated_display.display_info
-          # Use override easing_interval if provided, otherwise use app's configured value
+
           easing_interval =
             easing_interval_override || Map.get(updated_display.config, :easing_interval, 0)
 
           frame = canvas_to_frame(canvas, display_info, easing_interval)
+          binary = Protobuf.encode(frame)
+          send_frame(binary, frame)
+        end
+
+        {:noreply, new_state}
+    end
+  end
+
+  # Handle grayscale display buffer updates
+  def handle_cast(
+        {:update_app_display, app_id, canvas, :grayscale, easing_interval_override},
+        %State{} = state
+      ) do
+    case Map.get(state.app_displays, app_id) do
+      nil ->
+        # App not configured yet, ignore update
+        {:noreply, state}
+
+      app_display ->
+        updated_display = %{app_display | grayscale_buffer: canvas}
+        new_app_displays = Map.put(state.app_displays, app_id, updated_display)
+        new_state = %State{state | app_displays: new_app_displays}
+
+        # If this app is currently selected (single app mode), generate and send WFrame immediately
+        if state.rendered_app == app_id do
+          display_info = updated_display.display_info
+
+          easing_interval =
+            easing_interval_override || Map.get(updated_display.config, :easing_interval, 0)
+
+          frame = canvas_to_wframe(canvas, display_info, easing_interval)
           binary = Protobuf.encode(frame)
           send_frame(binary, frame)
         end
@@ -409,6 +436,30 @@ defmodule Octopus.Mixer do
     |> Enum.reverse()
     |> Enum.reduce(&Canvas.join/2)
     |> Canvas.to_frame(easing_interval: easing_interval)
+  end
+
+  # Converts a grayscale canvas to WFrame using layout-aware pixel extraction.
+  # Replaces Canvas.to_wframe() with layout-specific logic and per-app easing.
+  defp canvas_to_wframe(canvas, display_info, easing_interval) do
+    installation = Octopus.installation()
+    panel_count = installation.panel_count()
+
+    # Extract pixels from each panel according to the layout
+    panel_canvases =
+      for panel_id <- 0..(panel_count - 1) do
+        {x_start, x_end} = display_info.panel_range.(panel_id, :x)
+        {y_start, y_end} = display_info.panel_range.(panel_id, :y)
+
+        # Extract the panel section from the virtual canvas
+        Canvas.cut(canvas, {x_start, y_start}, {x_end, y_end})
+      end
+
+    # Join all panel canvases and convert to wframe with app-specific easing
+    # Reverse the order to match the expected physical layout
+    panel_canvases
+    |> Enum.reverse()
+    |> Enum.reduce(&Canvas.join/2)
+    |> Canvas.to_wframe(easing_interval: easing_interval)
   end
 
   defp build_display_info(layout) do
