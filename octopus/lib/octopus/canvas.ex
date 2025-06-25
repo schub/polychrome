@@ -249,7 +249,7 @@ defmodule Octopus.Canvas do
           x <- 0..7,
           {r, g, b} = get_pixel(canvas, {window * window_width + x, y}) do
         %Chameleon.HSL{l: l} = Chameleon.RGB.new(r, g, b) |> Chameleon.convert(Chameleon.HSL)
-        l
+        trunc(l * 2.55)
       end
 
     %WFrame{
