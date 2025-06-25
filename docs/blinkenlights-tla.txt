@@ -1,0 +1,327 @@
+BLINKENLIGHTS TLAs 0.9
+----------------------
+
+ACK	*	Acknowledge (ASCII control character)
+ADA		Ada Byron King, Lady Lovelace (Programmiersprache)
+AES	*	Advanced Encryption Standard
+AFK	*	Away From Keyboard
+ALT		ALT Key
+ALU	*	Arithmetic Logical Unit
+AMM	*	Andy Müller-Maguhn
+AND	*	Logical Operation
+APO	*	Außerparlamentarische Opposition
+ARP	*	Address Resolution Protocol
+ASM	*	ASseMbler
+AWK	*	Aho Weinberger Kernighan (Programmiersprache)
+BAR	*	Metasyntactic Variable
+BAT	*	DOS Batch File
+BAZ	-	Metasyntactic Variable
+BBN	*	Bolt, Beranek and Newman
+BBS	*	Bulletin Board System
+BCC	*	Blind Carbon Copy
+BEL	*	Bell (ASCII control character)
+BIN		Binary
+BIT	*	Binary Digit
+BLA	*	Metasyntactic Variable (german)
+BMP	*	Bitmap
+BNC	*	Bayonette Nut Connect
+BND	*	Bundesnachrichtendienst
+BNE	-	Branch Not Equal
+BNF	*	Backus-Naur Form
+BOF	-	Birds Of a Feather
+BPS	*	Bits Per Second
+BRB	*	Be Right Back
+BRK	-	Break
+BSD	*	Berkeley Software Distribution
+BTM	-	Betäubungsmittel
+BTX	*	Bildschirmtext
+C++	*	Programming Language
+C64	*	Commodore 64
+CAR	-	???
+CAT	-	Concatenate (UNIX command)
+CCD	*	Charge Coupled Device
+CDR	-
+CGI	*	Common Gateway Interface
+CPM	*	Control Program for Microcomputers
+CPU	*	Central Processing Unit
+CRC	*	Cyclic Redundancy Check
+CRD	*	Chaos Realitäts Dienst
+CRT	*	Cathod Ray Tube
+CSH	*	C-Shell
+CSS	*	Cascading Style Sheets
+CVS	*	Concurrent Versioning System
+DAU	*	Dümmster Anzunehmender User
+DCC	-	???
+DCT	*	Discrete Cosinus Transformation
+DEL	*	Delete (ASCII control character)
+DES	*	Data Encryption Standard
+DEV	*	/dev
+DFÜ	*	Datenfernübertragung
+DLL	*	Dynamic Link Library
+DMA	*	Direct Memory Access
+DNA		???
+DNS	*	Domain Name System
+DOS	*	Disk Operating System
+DOT		???
+DPI	*	Dots Per Inch
+DTD	-	Document Type Definition
+DSP	*	Digital Signal Processor
+DTP	-	Desktop Publishing
+DVD	*	Digital Versatile Disc
+DVI	-	???
+DXP	-	???
+EEK	-	Eek! It's the GIMP
+ELF	*	ELF Library Format
+EMP	*	Electro-Magnetic Pulse
+EMS	-	Expanded Memory System
+EOF	*	End Of File
+EOL	*	End Of Line
+EOT	*	End Of Transmission
+ERR	*	Error
+ESC	*	Escape (ASCII control character)
+ETC	*	etc.
+ETX	*	End Of Text
+EXE	*	Executable
+FAQ	*	Frequently Asked Questions
+FFT	*	Fast Fourier Transformation
+FOO	*	Meta-Syntactic Variable
+FPU	*	Floating Point Unit
+FTP	*	File Transfer Protocol
+FUD	*	Fear, Uncertainty and Doubt
+GAU	*	Größter anzunehmender Unfall
+GCC	*	GNU C Compiler
+GID	*	Group ID
+GIF	*	Graphic Interchange File
+GMT	*	Greenwich Mean Time
+GNU	*	GNU is Not Unix
+GPG	*	GNU Privacy Guard
+GPL	*	GNU Public License
+GSM	*	Global Systeme Mobile
+HAL	*	Heuristic Algorithm
+HEX	-	Hexadecimal
+HMD	*	Head Mounted Display
+HOP	-	Internet Mileage
+HQX	*	BinHex Format
+IBM	*	International Business Machine
+ICQ	*	I Seek You
+IDE	*	???
+IFF	-	Interchange File Format
+IMO		In My Opinion
+IPC	*	Interprocess Communication
+IRC	*	Internet Relay Chat
+IRQ	*	Interrupt Request
+ISA	*	Industry Standard Architecture
+ISP	*	Internet Service Provider
+ITS		???
+JMP		Jump (Assembler Instruction) ???
+JPG	*	Joint Picture Experts Group
+K&R	*	Kernighan & Ritchie
+LCD	*	Liquid Crystal Display
+LED	*	Light Emitting Diode
+LEX		/usr/bin/lex
+LIB		/lib
+LOG		Log File
+LOL	*	Laughing Out Loud
+LPT	*	Line Printer
+LSD	*	Lysergsäure-Diethylamid
+MAN	-	Manual
+MCP	*	Master Control Program
+MD5	*	Hash Algorithm
+MGT	*	The MIGDET
+MMU	*	Memory Management Unit
+MP3	*	MPEG Audio Layer III
+MPM	-	MP/M OS
+MUD	*	Multi-User Dungeon
+MVS	-	???
+NAK	*	No Acknolodge (ASCII control character)
+NAN	*	Not A Number
+NAT	*	Network Address Translation
+NDA	*	Non-Disclosure Agreement
+NMI	*	Non-Maskable Interrupt
+NOC	*	Network Operations Center
+NOP	*	No Operation
+NOT	*	NOT Logical Operation
+NTP	*	Network Time Protocol
+NUA	*	Network User Address
+NUI	*	Network User Identification
+NUL	*	ASCII control character
+OCT	-	Octal
+OOP	*	Object Oriented Programming
+PAL	*	PAL-System / Problem Anderer Leute
+PCI	*	Peripheral Communication Interface ???
+PCM	*	Pulse Code Modulation
+PDA	*	Personal Digital Assistent
+PDP	*	PDP Computer ???
+PGP	*	Pretty Good Privacy
+PHP	-	PHP ???
+PID	*	Process ID
+PIN	*	Persönliche Identifikations Nummer
+PIP	-	Peripheral Input Protocol ???
+POP	*	Post Office Protocol
+PPP	*	Point To Point Protocol
+PTY	*	Pseudo Teletype
+PUB	-	/pub
+PUT	-	HTTP command
+PWD	-	Print Working Directory
+RAM	*	Random Access Memory
+RCS	-	Revision Control System
+RC4	*	WEP Encryption
+REM	*	Remark (BASIC commment) / Rapid Eye Movement
+RFC	*	Request For Comment
+RGB	*	Red Green Blue
+RMS	*	Richard M. Stallman
+ROM	*	Read Only Memory
+RPC	*	Remote Procedure Call
+RTF	*	Rich Text Format
+RWX	*	rwxr-xr-x
+SED	-	Stream Editor
+SID	*	Sound Interface Device (C64)
+SMD	*	Surface Mounted Device
+SMP	*	Symmetric Multiprocessing
+SMS	*	Short Message Service
+SSH	*	Secure Shell
+SSL	*	Secure Socket Layer
+STX	*	Start Of Text (ASCII control character)
+SYN	*	SYN Packet
+TAN	*	Transaktionsnummer
+TAR	*	Tape Archiver
+TCP	*	Transmission Control Program
+TEE		Trans Europa Express
+TEX	*	TeX
+TFT	*	Thin Film Transistor
+THC	*	Tetra-Hydra Cannabinol
+TIP
+TLA	*	Three Letter Acronym
+TLD	*	Top Level Domain
+TMP	-	/tmp
+TMS		????
+TOC	-	Table Of Contents
+TP9		TTTPPP
+TSO	-	Time-Sharing Option
+TTL	*	????
+TTY	*	Teletype
+TXT	*	Text File
+UDP	*	User Datagram Protocol
+UFS	*	UNIX File System
+UID	*	User ID
+UPN	*	Umgekehrte Polnische Notation
+URI	*	Uniform Resource Identifier
+URL	*	Uniform Resource Locator
+USB	-	Universal Serial Bus
+USR	-	/usr
+UTF	*	Unicode Type Format
+V24	*	Serial Interface
+VAX	*	VAX Computer
+VCR	-	Video Recorder
+VFS	*	Virtual File System
+VMS	*	???
+W3C	*	World Wide Web Consortium
+WAU	*	WAU
+WEP	*	Wireless Equivalent Privacy
+XCF	-	GIMP File Format
+XML	*	Extensible Markup Language
+XON	*	ASCII control character
+XOR	*	Exclusive-Or
+XTC		Ecstasy
+YUV	*	Video Transmission
+Z80	*	Z80 Processor
+ZEN	*	ZEN
+ZIP	*	ZIP file
+WWW	*	World Wide Web
+XXX	*	XXX-rated
+
+
+
+Time Zones
+==========
+UTC	*	Universal Time Code
+GMT	*	Greenwich Mean Time
+CET	*	Central European Time
+EST	*	Easter Standard Time
+
+
+
+Words
+=====
+BUG	-	Error in Program
+
+
+Domains
+=======
+COM	*	Commercial
+GOV	*	Government
+MIL	*	Military
+ORG	*	Organizations
+NET	*	Networks
+INT	*	International Organisations
+EDU	*	Education
+
+
+GROUPS
+======
+UCB	*	University of California, Berkeley
+CCC	*	Chaos Computer Club
+CDC	*	Cult of the Dead Cow
+CMU	*	Carnegie Mellon University
+EFF	*	Electronic Frontier Foundation
+ELF	*	Erisian Liberation Front
+ETH	*	ETH Zürich
+FSF	*	Free Software Foundation
+MIT	*	Massachusetts Institute Of Technology
+
+
+THEM
+====
+MIB	*	Men In Black
+CIA	*	Central Intelligence Agency
+LKA	*	Landeskriminalamt
+DDR	*	Deutsche Demokratische Republik
+BRD	*	Bundesrepuplik Deutschland
+BKA	*	Bundeskriminalamt
+FBI	*	Federal Bureau of Investigations
+KKK	*	Klu-Klux-Klan
+GSG	*	Grenzschutzgruppe ???
+MEK	*	Mobiles Einsatzkommando
+MFS	*	Ministerium für Staatssicherheit
+KGB	*	self-explanatory ???
+MI5	*
+NSA	*	National Security Agency
+CI5	*
+SEK	*	Sondereinsatzkommando
+SED	*	Sozialistische Einheitspartei Deutschlands
+RAF	*	Rote Armee Fraktion
+
+
+Listen Berliner Wahl
+--------------------
+CDU	-	Christlich Demokratisch Union
+SPD	-	Sozialdemokratische Partei Deutschlands
+
+
+Classics
+========
+ABC	*	Alphabet
+SOS	*	Save Our Souls
+USW	*	und so weiter
+KMH	*	Km/h
+MFG
+
+NUMBERS
+=======
+
+128	*
+192	*
+216	*
+232	-
+235	*
+256	*
+404	*
+423	*
+480	*
+512	*
+576	*
+600	*
+640	*
+666	*
+768	*
+800	*
