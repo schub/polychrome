@@ -53,7 +53,6 @@ defmodule Octopus.Apps.StaticImage do
   def display(%{image: image}) do
     case WebP.load(image) do
       nil -> nil
-      # Use new unified display API instead of Canvas.to_frame() |> send_frame()
       image -> Octopus.App.update_display(image)
     end
   end

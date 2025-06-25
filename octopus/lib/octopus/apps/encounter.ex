@@ -192,7 +192,6 @@ defmodule Octopus.Apps.Encounter do
     bottom_right = {elem(top_left, 0) + panel_width - 1, panel_height - 1}
 
     canvas = state.canvas |> Canvas.fill_rect(top_left, bottom_right, {r, g, b})
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
 
     {:noreply, %{state | canvas: canvas}}
@@ -206,7 +205,6 @@ defmodule Octopus.Apps.Encounter do
     bottom_right = {elem(top_left, 0) + panel_width - 1, panel_height - 1}
 
     canvas = state.canvas |> Canvas.clear_rect(top_left, bottom_right)
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
 
     {:noreply, %{state | canvas: canvas}}

@@ -20,7 +20,6 @@ defmodule Octopus.Apps.Rickroll do
 
   def handle_info(:tick, %{animation: animation, index: index} = state) do
     {canvas, duration} = Enum.at(animation, index)
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
     index = rem(index + 1, length(animation))
     Process.send_after(self(), :tick, duration)

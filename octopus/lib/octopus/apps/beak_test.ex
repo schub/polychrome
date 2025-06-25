@@ -60,7 +60,6 @@ defmodule Octopus.Apps.BeakTest do
       state.canvas
       |> Canvas.fill_rect(top_left, bottom_right, {255, 255, 255})
 
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
     {:noreply, %State{state | canvas: canvas}}
   end
@@ -76,7 +75,6 @@ defmodule Octopus.Apps.BeakTest do
       state.canvas
       |> Canvas.clear_rect(top_left, bottom_right)
 
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
     {:noreply, %State{state | canvas: canvas}}
   end

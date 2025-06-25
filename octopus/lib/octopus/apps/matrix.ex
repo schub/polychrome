@@ -148,7 +148,6 @@ defmodule Octopus.Apps.Matrix do
 
   def handle_info(:tick, %State{} = state) do
     state = state |> State.update(1 / 60 * param(:speed, 1.0)) |> State.render()
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(state.canvas)
     {:noreply, state}
   end

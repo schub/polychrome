@@ -287,7 +287,6 @@ defmodule Octopus.Apps.BomberPerson do
       |> Canvas.overlay(state.canvas, offset: {40, 0})
       |> Canvas.overlay(state.score_canvas[1], offset: {48, 0})
 
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(big_canvas)
 
     %State{state | big_canvas: big_canvas}

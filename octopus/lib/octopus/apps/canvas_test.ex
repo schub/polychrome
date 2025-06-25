@@ -33,7 +33,6 @@ defmodule Octopus.Apps.CanvasTest do
 
   def handle_info(:tick, %{canvas: canvas} = state) do
     canvas = canvas |> Canvas.translate({1, 0}, :wrap)
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
     {:noreply, %{state | canvas: canvas}}
   end

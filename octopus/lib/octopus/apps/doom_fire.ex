@@ -78,7 +78,6 @@ defmodule Octopus.Apps.DoomFire do
     canvas = Canvas.clear(canvas)
     canvas = Fire.draw(fire, canvas)
     fire = Fire.step(fire)
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
     {:noreply, %{state | fire: fire, canvas: canvas}}
   end

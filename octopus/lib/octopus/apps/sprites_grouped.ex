@@ -115,7 +115,6 @@ defmodule Octopus.Apps.SpritesGrouped do
     # Create empty canvas by joining empty panel canvases
     empty_canvas = create_final_canvas(%{}, state.num_panels, state.panel_width)
 
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(empty_canvas)
 
     {:noreply, %State{state | skip: 0}}
@@ -177,7 +176,6 @@ defmodule Octopus.Apps.SpritesGrouped do
         panel_canvases
         |> Enum.reduce(&Canvas.join(&2, &1))
 
-      # Use new unified display API instead of Canvas.to_frame() |> send_frame()
       Octopus.App.update_display(final_canvas)
 
       :timer.sleep(@animation_interval)

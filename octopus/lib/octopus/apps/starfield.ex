@@ -141,7 +141,6 @@ defmodule Octopus.Apps.Starfield do
   end
 
   defp broadcast_frame(%State{canvas: canvas} = state) do
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
     state
   end

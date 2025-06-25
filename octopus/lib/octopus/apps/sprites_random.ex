@@ -61,7 +61,6 @@ defmodule Octopus.Apps.Sprites do
     end)
     |> Stream.map(fn canvas ->
       :timer.sleep(@animation_interval)
-      # Use new unified display API instead of Canvas.to_frame() |> send_frame()
       Octopus.App.update_display(canvas)
     end)
     |> Stream.run()

@@ -206,7 +206,6 @@ defmodule Octopus.Apps.SpaceInvaders do
     game = Game.update(game, 1.0 / @frame_rate)
     canvas = Canvas.clear(canvas)
     canvas = Game.draw(game, canvas, {8 * 4, 0})
-    # Use new unified display API instead of Canvas.to_frame() |> send_frame()
     Octopus.App.update_display(canvas)
     {:noreply, %{state | game: game, canvas: canvas}}
   end
