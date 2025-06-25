@@ -1,8 +1,9 @@
 defmodule Octopus.Apps.Rickroll do
-  use Octopus.App, category: :animation
+  use Octopus.App, category: :media
 
   alias Octopus.WebP
-  alias Octopus.Protobuf.{AudioFrame, ControlEvent}
+  alias Octopus.Protobuf.AudioFrame
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
 
   require Logger
 
@@ -26,7 +27,7 @@ defmodule Octopus.Apps.Rickroll do
     {:noreply, %{state | index: index}}
   end
 
-  def handle_control_event(%ControlEvent{type: :APP_SELECTED}, state) do
+  def handle_event(%LifecycleEvent{type: :app_selected}, state) do
     num_buttons = Octopus.installation().num_buttons()
 
     1..num_buttons
@@ -36,7 +37,7 @@ defmodule Octopus.Apps.Rickroll do
     {:noreply, state}
   end
 
-  def handle_control_event(_, state) do
+  def handle_event(_, state) do
     {:noreply, state}
   end
 end

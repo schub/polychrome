@@ -4,7 +4,7 @@ defmodule Octopus.Apps.FontTester do
 
   alias Octopus.Canvas
   alias Octopus.Font
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   defmodule State do
     defstruct [:index, :variant, :current_font, :text, :easing_interval]
@@ -59,19 +59,19 @@ defmodule Octopus.Apps.FontTester do
     {:noreply, state}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :press, button: 1}, state) do
+  def handle_event(%InputEvent{type: :button, action: :press, button: 1}, state) do
     {:noreply, prev_font(state)}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :press, button: 2}, state) do
+  def handle_event(%InputEvent{type: :button, action: :press, button: 2}, state) do
     {:noreply, next_font(state)}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :press, button: 10}, state) do
+  def handle_event(%InputEvent{type: :button, action: :press, button: 10}, state) do
     {:noreply, next_variant(state)}
   end
 
-  def handle_input(_input_event, state) do
+  def handle_event(_input_event, state) do
     {:noreply, state}
   end
 

@@ -3,7 +3,7 @@ defmodule Octopus.Apps.SampleApp do
   require Logger
 
   alias Octopus.{Canvas, ColorPalette}
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   defmodule State do
     defstruct [:index, :color, :canvas, :display_info, :palette]
@@ -59,7 +59,7 @@ defmodule Octopus.Apps.SampleApp do
      }}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :press, button: 1}, state) do
+  def handle_event(%InputEvent{type: :button, action: :press, button: 1}, state) do
     state = %State{state | color: 8}
 
     canvas =
@@ -76,7 +76,7 @@ defmodule Octopus.Apps.SampleApp do
     {:noreply, %State{state | canvas: canvas}}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :press, button: 2}, state) do
+  def handle_event(%InputEvent{type: :button, action: :press, button: 2}, state) do
     state = %State{state | color: 7}
 
     canvas =
@@ -93,11 +93,11 @@ defmodule Octopus.Apps.SampleApp do
     {:noreply, %State{state | canvas: canvas}}
   end
 
-  def handle_input(%ControllerEvent{}, state) do
+  def handle_event(%InputEvent{}, state) do
     {:noreply, state}
   end
 
-  def handle_control_event(_event, state) do
+  def handle_event(_event, state) do
     {:noreply, state}
   end
 end

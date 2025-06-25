@@ -1,9 +1,9 @@
 defmodule Octopus.Apps.ProximityTest do
-  use Octopus.App, category: :test
+  use Octopus.App, category: :debug
   require Logger
 
-  alias Octopus.Events.Event.Proximity, as: ProximityEvent
   alias Octopus.Canvas
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
 
   defmodule State do
     defstruct [:min_distance, :max_distance, :measurements, :smoothed_measurements]
@@ -60,7 +60,7 @@ defmodule Octopus.Apps.ProximityTest do
     {:noreply, state}
   end
 
-  def handle_proximity(
+  def handle_event(
         %ProximityEvent{
           panel: panel,
           sensor: sensor,
@@ -89,7 +89,7 @@ defmodule Octopus.Apps.ProximityTest do
     {:noreply, %State{state | measurements: measurements, smoothed_measurements: measurements}}
   end
 
-  def handle_proximity(
+  def handle_event(
         %ProximityEvent{
           panel: panel,
           sensor: sensor,
@@ -104,7 +104,7 @@ defmodule Octopus.Apps.ProximityTest do
     {:noreply, state}
   end
 
-  def handle_proximity(event, state) do
+  def handle_event(event, state) do
     Logger.warning("Unhandled proximity event: #{inspect(event)}")
     {:noreply, state}
   end

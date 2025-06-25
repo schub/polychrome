@@ -1,8 +1,9 @@
 defmodule Octopus.Apps.Text do
-  use Octopus.App, category: :animation
+  use Octopus.App, category: :media
   require Logger
 
-  alias Octopus.Protobuf.{AudioFrame, ControlEvent}
+  alias Octopus.Protobuf.AudioFrame
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
   alias Octopus.{Canvas, Font, Transitions}
 
   @animation_steps 150
@@ -40,12 +41,12 @@ defmodule Octopus.Apps.Text do
     {:ok, state}
   end
 
-  def handle_control_event(%ControlEvent{type: :APP_SELECTED}, state) do
+  def handle_event(%LifecycleEvent{type: :app_selected}, state) do
     send(self(), :tick)
     {:noreply, state}
   end
 
-  def handle_control_event(_, state), do: {:noreply, state}
+  def handle_event(_, state), do: {:noreply, state}
 
   def config_schema() do
     %{

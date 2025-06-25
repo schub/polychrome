@@ -27,8 +27,8 @@ defmodule Octopus.App do
 
   If `compatible?/0` returns `false`, the app will not be started and will be visually marked as incompatible in the UI.
 
-  ## Inputs
-  An app can implement the `handle_input/2` callback to react to input events. It will receive an Octopus.ControllerEvent struct and the genserver state.
+  ## Events
+  An app can implement the `handle_event/2` callback to react to events. It will receive event structs and the genserver state.
 
   """
 
@@ -39,13 +39,13 @@ defmodule Octopus.App do
     WFrame,
     RGBFrame,
     AudioFrame,
-    ControlEvent,
     SynthFrame
   }
 
   alias Octopus.Events.Event.Proximity, as: ProximityEvent
-  alias Octopus.Events.Event.Audio
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Audio, as: AudioEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
 
   alias Octopus.{Mixer, AppSupervisor}
 
@@ -79,9 +79,12 @@ defmodule Octopus.App do
               | {:stop, reason :: any()}
 
   @doc """
-  Optional callback to handle input events. An app will only receive input events if it is selected as active in the mixer.
+  Optional callback to handle events. An app will only receive events if it is selected as active in the mixer.
   """
-  @callback handle_input(%ControllerEvent{} | %Audio{}, state :: any) ::
+  @callback handle_event(
+              %InputEvent{} | %AudioEvent{} | %ProximityEvent{} | %LifecycleEvent{},
+              state :: any
+            ) ::
               {:noreply, state :: any}
 
   @type config_option ::
@@ -108,12 +111,6 @@ defmodule Octopus.App do
   """
   @callback handle_config(config :: any(), state :: any()) :: {:noreply, state :: any()}
 
-  @callback handle_control_event(%ControlEvent{}, state :: any()) :: {:noreply, state :: any()}
-
-  @callback handle_proximity(%ProximityEvent{}, state :: any()) :: {:noreply, state :: any()}
-
-  @callback handle_audio(%Audio{}, state :: any()) :: {:noreply, state :: any()}
-
   defmacro __using__(opts) do
     category = Keyword.get(opts, :category, :misc)
 
@@ -136,20 +133,20 @@ defmodule Octopus.App do
         {:ok, %{}}
       end
 
-      def handle_info({:event, %ControllerEvent{} = controller_event}, state) do
-        handle_input(controller_event, state)
+      def handle_info({:event, %InputEvent{} = input_event}, state) do
+        handle_event(input_event, state)
       end
 
-      def handle_info({:event, %Audio{} = audio_event}, state) do
-        handle_audio(audio_event, state)
+      def handle_info({:event, %AudioEvent{} = audio_event}, state) do
+        handle_event(audio_event, state)
       end
 
-      def handle_info({:event, %ControlEvent{} = control_event}, state) do
-        handle_control_event(control_event, state)
+      def handle_info({:event, %LifecycleEvent{} = lifecycle_event}, state) do
+        handle_event(lifecycle_event, state)
       end
 
       def handle_info({:event, %ProximityEvent{} = proximity_event}, state) do
-        handle_proximity(proximity_event, state)
+        handle_event(proximity_event, state)
       end
 
       def handle_call(:get_config, _from, state) do
@@ -169,19 +166,7 @@ defmodule Octopus.App do
 
       def compatible?(), do: true
 
-      def handle_input(_input_event, state) do
-        {:noreply, state}
-      end
-
-      def handle_control_event(_event, state) do
-        {:noreply, state}
-      end
-
-      def handle_proximity(_event, state) do
-        {:noreply, state}
-      end
-
-      def handle_audio(_event, state) do
+      def handle_event(_event, state) do
         {:noreply, state}
       end
 
@@ -200,10 +185,7 @@ defmodule Octopus.App do
       defoverridable icon: 0
       defoverridable app_init: 1
       defoverridable compatible?: 0
-      defoverridable handle_input: 2
-      defoverridable handle_control_event: 2
-      defoverridable handle_proximity: 2
-      defoverridable handle_audio: 2
+      defoverridable handle_event: 2
       defoverridable config_schema: 0
       defoverridable handle_config: 2
       defoverridable get_config: 1

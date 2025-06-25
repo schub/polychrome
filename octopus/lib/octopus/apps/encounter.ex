@@ -1,8 +1,9 @@
 defmodule Octopus.Apps.Encounter do
-  use Octopus.App, category: :animation
+  use Octopus.App, category: :game
   require Logger
   alias Octopus.Canvas
-  alias Octopus.Protobuf.{SynthFrame, SynthConfig, SynthAdsrConfig, ControlEvent}
+  alias Octopus.Protobuf.{SynthFrame, SynthConfig, SynthAdsrConfig}
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
 
   defmodule State do
     defstruct [:notes, :config, :canvas, :display_info]
@@ -211,9 +212,13 @@ defmodule Octopus.Apps.Encounter do
     {:noreply, %{state | canvas: canvas}}
   end
 
-  def handle_control_event(%ControlEvent{type: :APP_SELECTED}, state) do
+  def handle_event(%LifecycleEvent{type: :app_selected}, state) do
     Logger.info("handle control event")
     play(state)
+    {:noreply, state}
+  end
+
+  def handle_event(_event, state) do
     {:noreply, state}
   end
 end

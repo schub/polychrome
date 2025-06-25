@@ -3,7 +3,7 @@ defmodule Octopus.KioskModeManager do
   require Logger
 
   alias Octopus.{AppSupervisor, AppManager, PlaylistScheduler, InputAdapter}
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
   alias Octopus.PlaylistScheduler.Playlist
 
   @game Octopus.Apps.Whackamole
@@ -48,7 +48,7 @@ defmodule Octopus.KioskModeManager do
     Phoenix.PubSub.subscribe(Octopus.PubSub, @topic)
   end
 
-  def handle_input(%ControllerEvent{} = controller_event) do
+  def handle_event(%InputEvent{} = controller_event) do
     GenServer.cast(__MODULE__, {:input_event, controller_event})
   end
 
@@ -102,7 +102,7 @@ defmodule Octopus.KioskModeManager do
 
   # Any button press starts the game
   def handle_cast(
-        {:input_event, %ControllerEvent{type: :button, action: :press}},
+        {:input_event, %InputEvent{type: :button, action: :press}},
         %State{status: :playlist} = state
       ) do
     Logger.info("KioskModeManager: game button pressed, starting game")
@@ -114,7 +114,7 @@ defmodule Octopus.KioskModeManager do
     {:noreply, %State{state | status: :game, game_app_id: app_id}}
   end
 
-  def handle_cast({:input_event, %ControllerEvent{}}, state) do
+  def handle_cast({:input_event, %InputEvent{}}, state) do
     {:noreply, state}
   end
 

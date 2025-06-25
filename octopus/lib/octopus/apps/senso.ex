@@ -3,8 +3,9 @@ defmodule Octopus.Apps.Senso do
   require Logger
 
   alias Octopus.Canvas
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
-  alias Octopus.Protobuf.{SynthFrame, ControlEvent, AudioFrame, SynthConfig, SynthAdsrConfig}
+  alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Protobuf.{SynthFrame, AudioFrame, SynthConfig, SynthAdsrConfig}
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
 
   @first_squence_len 3
   @state_time_delta 100
@@ -140,12 +141,12 @@ defmodule Octopus.Apps.Senso do
     {:noreply, newState}
   end
 
-  def handle_input(_input_event, %State{input_blocked: true} = state) do
+  def handle_event(_input_event, %State{input_blocked: true} = state) do
     {:noreply, state}
   end
 
-  def handle_input(
-        %ControllerEvent{type: :button, action: :press, button: button},
+  def handle_event(
+        %InputEvent{type: :button, action: :press, button: button},
         %State{} = state
       )
       when button >= 1 and button <= state.display_info.panel_count do
@@ -178,7 +179,7 @@ defmodule Octopus.Apps.Senso do
     {:noreply, state}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :release, button: button}, state)
+  def handle_event(%InputEvent{type: :button, action: :release, button: button}, state)
       when button >= 1 and button <= state.display_info.panel_count do
     btn_num = button
 
@@ -222,11 +223,7 @@ defmodule Octopus.Apps.Senso do
     {:noreply, %State{state | index: state.index + increment, input_blocked: block_input}}
   end
 
-  def handle_input(_input_event, state) do
-    {:noreply, state}
-  end
-
-  def handle_control_event(%ControlEvent{type: :APP_SELECTED}, state) do
+  def handle_event(%LifecycleEvent{type: :app_selected}, state) do
     Enum.map(1..state.display_info.panel_count, fn channel ->
       %SynthFrame{
         event_type: :CONFIG,
@@ -240,6 +237,10 @@ defmodule Octopus.Apps.Senso do
 
     send(self(), :run)
     {:noreply, %State{state | input_blocked: true}}
+  end
+
+  def handle_event(_event, state) do
+    {:noreply, state}
   end
 
   defp get_color(num, panel_count) do

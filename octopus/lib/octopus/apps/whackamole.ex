@@ -2,7 +2,7 @@ defmodule Octopus.Apps.Whackamole do
   use Octopus.App, category: :game
   require Logger
 
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
   alias Octopus.Canvas
   alias Octopus.Font
   alias Octopus.Apps.Whackamole.Game
@@ -30,8 +30,8 @@ defmodule Octopus.Apps.Whackamole do
     {:noreply, %State{state | game: game}}
   end
 
-  def handle_input(
-        %ControllerEvent{type: :button, action: :press, button: button},
+  def handle_event(
+        %InputEvent{type: :button, action: :press, button: button},
         %State{} = state
       )
       when button >= 1 and button <= 10 do
@@ -42,7 +42,11 @@ defmodule Octopus.Apps.Whackamole do
     {:noreply, %State{state | game: game}}
   end
 
-  def handle_input(%ControllerEvent{}, %State{} = state) do
+  def handle_event(%InputEvent{}, %State{} = state) do
+    {:noreply, state}
+  end
+
+  def handle_event(_event, state) do
     {:noreply, state}
   end
 end

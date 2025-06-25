@@ -1,5 +1,6 @@
 defmodule Octopus.Apps.StaticImage do
-  alias Octopus.Protobuf.ControlEvent
+  alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
+
   alias Octopus.WebP
   use Octopus.App, category: :animation
 
@@ -35,13 +36,12 @@ defmodule Octopus.Apps.StaticImage do
     {:noreply, state}
   end
 
-  def handle_control_event(%ControlEvent{type: type}, state)
-      when type in [:APP_SELECTED, :APP_STARTED] do
+  def handle_event(%LifecycleEvent{type: :app_selected}, state) do
     display(state)
     {:noreply, state}
   end
 
-  def handle_control_event(_, state) do
+  def handle_event(_, state) do
     {:noreply, state}
   end
 

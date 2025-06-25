@@ -7,101 +7,105 @@ defmodule Octopus.Events.Factory do
   out of the domain event modules themselves.
   """
 
-  alias Octopus.Events.Event.{Controller, Proximity, Audio}
-  alias Octopus.Protobuf.{InputEvent, ProximityEvent, SoundToLightControlEvent}
+  alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Events.Event.Proximity, as: ProximityEvent
+  alias Octopus.Events.Event.Audio, as: AudioEvent
+  alias Octopus.Protobuf.InputEvent, as: ProtobufInputEvent
+  alias Octopus.Protobuf.ProximityEvent, as: ProtobufProximityEvent
+  alias Octopus.Protobuf.SoundToLightControlEvent
 
   @doc """
-  Creates a Controller domain event from a protobuf InputEvent.
+  Creates an Input domain event from a protobuf InputEvent.
 
-  Converts the protobuf format to the internal ControllerEvent format,
+  Converts the protobuf format to the internal InputEvent format,
   handling the semantic mapping from low-level protobuf types to
   domain-meaningful event structures.
   """
-  def create_controller_event(%InputEvent{type: :BUTTON_1, value: value}),
-    do: %Controller{type: :button, button: 1, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_1, value: value}),
+    do: %InputEvent{type: :button, button: 1, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_2, value: value}),
-    do: %Controller{type: :button, button: 2, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_2, value: value}),
+    do: %InputEvent{type: :button, button: 2, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_3, value: value}),
-    do: %Controller{type: :button, button: 3, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_3, value: value}),
+    do: %InputEvent{type: :button, button: 3, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_4, value: value}),
-    do: %Controller{type: :button, button: 4, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_4, value: value}),
+    do: %InputEvent{type: :button, button: 4, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_5, value: value}),
-    do: %Controller{type: :button, button: 5, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_5, value: value}),
+    do: %InputEvent{type: :button, button: 5, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_6, value: value}),
-    do: %Controller{type: :button, button: 6, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_6, value: value}),
+    do: %InputEvent{type: :button, button: 6, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_7, value: value}),
-    do: %Controller{type: :button, button: 7, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_7, value: value}),
+    do: %InputEvent{type: :button, button: 7, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_8, value: value}),
-    do: %Controller{type: :button, button: 8, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_8, value: value}),
+    do: %InputEvent{type: :button, button: 8, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_9, value: value}),
-    do: %Controller{type: :button, button: 9, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_9, value: value}),
+    do: %InputEvent{type: :button, button: 9, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_10, value: value}),
-    do: %Controller{type: :button, button: 10, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_10, value: value}),
+    do: %InputEvent{type: :button, button: 10, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_11, value: value}),
-    do: %Controller{type: :button, button: 11, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_11, value: value}),
+    do: %InputEvent{type: :button, button: 11, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_12, value: value}),
-    do: %Controller{type: :button, button: 12, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_12, value: value}),
+    do: %InputEvent{type: :button, button: 12, action: value_to_action(value)}
 
   # Joystick movement events
-  def create_controller_event(%InputEvent{type: :AXIS_X_1, value: value}) when value < 0,
-    do: %Controller{type: :joystick, joystick: 1, direction: :left}
+  def create_input_event(%ProtobufInputEvent{type: :AXIS_X_1, value: value}) when value < 0,
+    do: %InputEvent{type: :joystick, joystick: 1, direction: :left}
 
-  def create_controller_event(%InputEvent{type: :AXIS_X_1, value: value}) when value > 0,
-    do: %Controller{type: :joystick, joystick: 1, direction: :right}
+  def create_input_event(%ProtobufInputEvent{type: :AXIS_X_1, value: value}) when value > 0,
+    do: %InputEvent{type: :joystick, joystick: 1, direction: :right}
 
-  def create_controller_event(%InputEvent{type: :AXIS_Y_1, value: value}) when value < 0,
-    do: %Controller{type: :joystick, joystick: 1, direction: :up}
+  def create_input_event(%ProtobufInputEvent{type: :AXIS_Y_1, value: value}) when value < 0,
+    do: %InputEvent{type: :joystick, joystick: 1, direction: :up}
 
-  def create_controller_event(%InputEvent{type: :AXIS_Y_1, value: value}) when value > 0,
-    do: %Controller{type: :joystick, joystick: 1, direction: :down}
+  def create_input_event(%ProtobufInputEvent{type: :AXIS_Y_1, value: value}) when value > 0,
+    do: %InputEvent{type: :joystick, joystick: 1, direction: :down}
 
-  def create_controller_event(%InputEvent{type: :AXIS_X_2, value: value}) when value < 0,
-    do: %Controller{type: :joystick, joystick: 2, direction: :left}
+  def create_input_event(%ProtobufInputEvent{type: :AXIS_X_2, value: value}) when value < 0,
+    do: %InputEvent{type: :joystick, joystick: 2, direction: :left}
 
-  def create_controller_event(%InputEvent{type: :AXIS_X_2, value: value}) when value > 0,
-    do: %Controller{type: :joystick, joystick: 2, direction: :right}
+  def create_input_event(%ProtobufInputEvent{type: :AXIS_X_2, value: value}) when value > 0,
+    do: %InputEvent{type: :joystick, joystick: 2, direction: :right}
 
-  def create_controller_event(%InputEvent{type: :AXIS_Y_2, value: value}) when value < 0,
-    do: %Controller{type: :joystick, joystick: 2, direction: :up}
+  def create_input_event(%ProtobufInputEvent{type: :AXIS_Y_2, value: value}) when value < 0,
+    do: %InputEvent{type: :joystick, joystick: 2, direction: :up}
 
-  def create_controller_event(%InputEvent{type: :AXIS_Y_2, value: value}) when value > 0,
-    do: %Controller{type: :joystick, joystick: 2, direction: :down}
+  def create_input_event(%ProtobufInputEvent{type: :AXIS_Y_2, value: value}) when value > 0,
+    do: %InputEvent{type: :joystick, joystick: 2, direction: :down}
 
   # Center/neutral position for joysticks
-  def create_controller_event(%InputEvent{type: axis_type, value: 0})
+  def create_input_event(%ProtobufInputEvent{type: axis_type, value: 0})
       when axis_type in [:AXIS_X_1, :AXIS_Y_1],
-      do: %Controller{type: :joystick, joystick: 1, direction: :center}
+      do: %InputEvent{type: :joystick, joystick: 1, direction: :center}
 
-  def create_controller_event(%InputEvent{type: axis_type, value: 0})
+  def create_input_event(%ProtobufInputEvent{type: axis_type, value: 0})
       when axis_type in [:AXIS_X_2, :AXIS_Y_2],
-      do: %Controller{type: :joystick, joystick: 2, direction: :center}
+      do: %InputEvent{type: :joystick, joystick: 2, direction: :center}
 
   # Joystick button events
-  def create_controller_event(%InputEvent{type: :BUTTON_A_1, value: value}),
-    do: %Controller{type: :joystick, joystick: 1, joy_button: :a, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_A_1, value: value}),
+    do: %InputEvent{type: :joystick, joystick: 1, joy_button: :a, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_A_2, value: value}),
-    do: %Controller{type: :joystick, joystick: 2, joy_button: :a, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_A_2, value: value}),
+    do: %InputEvent{type: :joystick, joystick: 2, joy_button: :a, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_B_1, value: value}),
-    do: %Controller{type: :joystick, joystick: 1, joy_button: :b, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_B_1, value: value}),
+    do: %InputEvent{type: :joystick, joystick: 1, joy_button: :b, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_B_2, value: value}),
-    do: %Controller{type: :joystick, joystick: 2, joy_button: :b, action: value_to_action(value)}
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_B_2, value: value}),
+    do: %InputEvent{type: :joystick, joystick: 2, joy_button: :b, action: value_to_action(value)}
 
-  def create_controller_event(%InputEvent{type: :BUTTON_MENU, value: value}),
-    do: %Controller{
+  def create_input_event(%ProtobufInputEvent{type: :BUTTON_MENU, value: value}),
+    do: %InputEvent{
       type: :joystick,
       joystick: 1,
       joy_button: :menu,
@@ -114,12 +118,12 @@ defmodule Octopus.Events.Factory do
   Converts the protobuf format to a more Elixir-friendly structure with
   better field names and adds a timestamp.
   """
-  def create_proximity_event(%ProximityEvent{
+  def create_proximity_event(%ProtobufProximityEvent{
         panel_index: panel_index,
         sensor_index: sensor_index,
         distance_mm: distance_mm
       }) do
-    %Proximity{
+    %ProximityEvent{
       panel: panel_index,
       sensor: sensor_index,
       distance_mm: distance_mm,
@@ -134,7 +138,7 @@ defmodule Octopus.Events.Factory do
   timestamp for audio-reactive lighting effects.
   """
   def create_audio_event(%SoundToLightControlEvent{bass: bass, mid: mid, high: high}) do
-    %Audio{
+    %AudioEvent{
       bass: bass,
       mid: mid,
       high: high,

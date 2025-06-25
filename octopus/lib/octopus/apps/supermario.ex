@@ -3,7 +3,7 @@ defmodule Octopus.Apps.Supermario do
   require Logger
 
   alias Octopus.Apps.Supermario.Game
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
   alias Octopus.{ButtonState, JoyState}
 
   @frame_rate 60
@@ -46,28 +46,28 @@ defmodule Octopus.Apps.Supermario do
   end
 
   # ignore input events while mario dies
-  def handle_input(
+  def handle_event(
         _,
         %State{game: %Game{state: :mario_dies}} = state
       ),
       do: {:noreply, %State{state | button_state: nil}}
 
   # also ignore input events between levels
-  def handle_input(
+  def handle_event(
         _,
         %State{game: %Game{state: :paused}} = state
       ),
       do: {:noreply, %State{state | button_state: nil}}
 
-  def handle_input(
-        %ControllerEvent{} = event,
+  def handle_event(
+        %InputEvent{} = event,
         %State{button_state: nil} = state
       ) do
-    handle_input(event, %{state | button_state: ButtonState.new()})
+    handle_event(event, %{state | button_state: ButtonState.new()})
   end
 
-  def handle_input(
-        %ControllerEvent{} = event,
+  def handle_event(
+        %InputEvent{} = event,
         %State{button_state: button_state} = state
       ) do
     new_button_state = ButtonState.handle_event(button_state, event)

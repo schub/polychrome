@@ -3,7 +3,7 @@ defmodule Octopus.Apps.SpaceInvaders do
 
   alias Octopus.Canvas
   alias Octopus.Protobuf.AudioFrame
-  alias Octopus.Events.Event.Controller, as: ControllerEvent
+  alias Octopus.Events.Event.Input, as: InputEvent
 
   require Logger
 
@@ -211,32 +211,32 @@ defmodule Octopus.Apps.SpaceInvaders do
     {:noreply, %{state | game: game, canvas: canvas}}
   end
 
-  def handle_input(%ControllerEvent{type: :button, action: :press, button: 10}, state) do
+  def handle_event(%InputEvent{type: :button, action: :press, button: 10}, state) do
     {:noreply, %{state | game: Game.new()}}
   end
 
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :left},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: _joystick, direction: :left},
         %{game: game} = state
       ) do
     {:noreply, %{state | game: Game.move_left(game)}}
   end
 
-  def handle_input(
-        %ControllerEvent{type: :joystick, joystick: _joystick, direction: :right},
+  def handle_event(
+        %InputEvent{type: :joystick, joystick: _joystick, direction: :right},
         %{game: game} = state
       ) do
     {:noreply, %{state | game: Game.move_right(game)}}
   end
 
-  def handle_input(
-        %ControllerEvent{type: :button, action: :press, button: 5},
+  def handle_event(
+        %InputEvent{type: :button, action: :press, button: 5},
         %{game: game} = state
       ) do
     {:noreply, %{state | game: Game.shoot(game)}}
   end
 
-  def handle_input(_, state) do
+  def handle_event(_, state) do
     {:noreply, state}
   end
 end
