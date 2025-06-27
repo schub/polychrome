@@ -227,35 +227,45 @@ defmodule OctopusWeb.ManagerLive do
           </div>
           <table class="w-full text-left m-0">
             <tbody>
-              <tr :for={
-                %{module: module, app_id: app_id, name: name, selected: selected} <-
-                  @running_apps
-              }>
-                <td class={"w-1/2 p-2 #{if selected, do: ~c"bg-slate-300 font-bold"}"}>
+              <tr :for={%{module: module, app_id: app_id, name: name, selected: selected, output_type: output_type, masked: masked} <- @running_apps}
+                class={
+                  cond do
+                    selected -> "bg-green-200"
+                    masked -> "bg-gray-200"
+                    true -> "bg-white"
+                  end
+                }>
+                <td class="w-1/2 p-2">
                   {name}
                 </td>
                 <td class="flex flex-row gap-2 p-1 pl-3">
                   <button
-                    class="border py-1 px-2 rounded  bg-slate-300"
+                    class="border py-1 px-2 rounded bg-slate-300"
                     phx-click="stop"
                     phx-value-module={module}
                     phx-value-app-id={app_id}
                   >
                     Stop
                   </button>
-
                   <.link navigate={~p"/app/#{app_id}"} class="border py-1 px-2 rounded bg-slate-300">
                     Configure
                   </.link>
-
                   <button
-                    :if={!selected}
                     class="border py-1 px-2 rounded bg-slate-300"
                     phx-click="select"
-                    phx-value-module={module}
                     phx-value-app-id={app_id}
                   >
-                    Select
+                    Show
+                  </button>
+                  <button
+                    :if={output_type in [:grayscale, :both]}
+                    class={"ml-2 border py-1 px-2 rounded " <>
+                      if(masked, do: "bg-gray-500 text-white", else: "bg-slate-300")
+                    }
+                    phx-click="mask"
+                    phx-value-app-id={app_id}
+                  >
+                    Mask
                   </button>
                 </td>
               </tr>
@@ -320,6 +330,11 @@ defmodule OctopusWeb.ManagerLive do
 
   def handle_event("select", %{"app-id" => app_id}, socket) do
     AppManager.select_app(app_id)
+    {:noreply, socket}
+  end
+
+  def handle_event("mask", %{"app-id" => app_id}, socket) do
+    AppManager.set_mask_app(app_id)
     {:noreply, socket}
   end
 
@@ -394,6 +409,10 @@ defmodule OctopusWeb.ManagerLive do
     {:noreply, socket |> assign_apps()}
   end
 
+  def handle_info({:app_manager, {:mask_app, _mask_app_id}}, socket) do
+    {:noreply, socket |> assign_apps()}
+  end
+
   def handle_info({:app_manager, {:app_lifecycle, _app_id, _event}}, socket) do
     # App lifecycle events (selected/deselected) - no UI action needed
     {:noreply, socket}
@@ -455,13 +474,17 @@ defmodule OctopusWeb.ManagerLive do
 
     selected_app = AppManager.get_selected_app()
 
+    mask_app_id = AppManager.get_mask_app()
+
     running_apps =
       for {module, app_id} <- AppSupervisor.running_apps() do
         %{
           module: module,
           app_id: app_id,
           name: apply(module, :name, []),
-          selected: app_id == selected_app
+          selected: app_id == selected_app,
+          output_type: apply(module, :output_type, []),
+          masked: app_id == mask_app_id
         }
       end
 

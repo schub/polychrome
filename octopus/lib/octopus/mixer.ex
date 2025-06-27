@@ -2,7 +2,7 @@ defmodule Octopus.Mixer do
   use GenServer
   require Logger
 
-  alias Octopus.{Broadcaster, Protobuf, Canvas, AppManager}
+  alias Octopus.{Broadcaster, Protobuf, Canvas, AppManager, AppSupervisor}
 
   alias Octopus.Protobuf.{
     RGBFrame,
@@ -29,6 +29,7 @@ defmodule Octopus.Mixer do
 
       # Existing fields (maintained for compatibility)
       rendered_app: nil,
+      mask_app_id: nil,
       transition: nil,
       buffer_canvas: Canvas.new(80, 8),
       max_luminance: 255
@@ -118,6 +119,8 @@ defmodule Octopus.Mixer do
   def init(:ok) do
     # Subscribe to AppManager events to update visual rendering
     AppManager.subscribe()
+    # Subscribe to AppSupervisor events to clean up app display buffers
+    AppSupervisor.subscribe()
 
     # Initialize default display info cache for backward compatibility
     display_info = build_display_info(:gapped_panels)
@@ -184,16 +187,31 @@ defmodule Octopus.Mixer do
         new_app_displays = Map.put(state.app_displays, app_id, updated_display)
         new_state = %State{state | app_displays: new_app_displays}
 
-        # If this app is currently selected (single app mode), generate and send RGB frame immediately
         if state.rendered_app == app_id do
           display_info = updated_display.display_info
 
           easing_interval =
             easing_interval_override || Map.get(updated_display.config, :easing_interval, 0)
 
-          frame = canvas_to_frame(canvas, display_info, easing_interval)
-          binary = Protobuf.encode(frame)
-          send_frame(binary, frame)
+          # If in masked mode and mask buffer is available, apply mask
+          if state.output_mode == :masked and state.mask_app_id do
+            mask_display = Map.get(new_state.app_displays, state.mask_app_id)
+
+            if mask_display && mask_display.grayscale_buffer do
+              masked_canvas = apply_mask(canvas, mask_display.grayscale_buffer)
+              frame = canvas_to_frame(masked_canvas, display_info, easing_interval)
+              binary = Protobuf.encode(frame)
+              send_frame(binary, frame)
+            else
+              frame = canvas_to_frame(canvas, display_info, easing_interval)
+              binary = Protobuf.encode(frame)
+              send_frame(binary, frame)
+            end
+          else
+            frame = canvas_to_frame(canvas, display_info, easing_interval)
+            binary = Protobuf.encode(frame)
+            send_frame(binary, frame)
+          end
         end
 
         {:noreply, new_state}
@@ -277,35 +295,34 @@ defmodule Octopus.Mixer do
 
   # Handle app selection changes from AppManager
   def handle_info({:app_manager, {:selected_app, selected_app}}, %State{} = state) do
-    case selected_app do
-      # Dual-side apps render immediately without transitions
-      {_, _} ->
-        state = %State{state | rendered_app: selected_app, transition: nil}
-        {:noreply, state}
+    # When main app changes, update rendered_app and possibly output_mode
+    state = %State{state | rendered_app: selected_app}
+    state = update_output_mode(state)
+    {:noreply, state}
+  end
 
-      # Single apps use transitions
-      _ ->
-        case state.transition do
-          # No current transition - start new transition
-          nil ->
-            state = %State{state | transition: {:out, @transition_duration}}
-            schedule_transition()
-            {:noreply, state}
-
-          # Already transitioning out - keep transitioning
-          {:out, _} ->
-            {:noreply, state}
-
-          # Transitioning in - reverse to transition out
-          {:in, time_left} ->
-            state = %State{state | transition: {:out, @transition_duration - time_left}}
-            {:noreply, state}
-        end
-    end
+  def handle_info({:app_manager, {:mask_app, mask_app_id}}, %State{} = state) do
+    # When mask app changes, update mask_app_id and possibly output_mode
+    state = %State{state | mask_app_id: mask_app_id}
+    state = update_output_mode(state)
+    {:noreply, state}
   end
 
   # Handle app lifecycle events from AppManager (no action needed, just ignore)
   def handle_info({:app_manager, {:app_lifecycle, _app_id, _event}}, %State{} = state) do
+    {:noreply, state}
+  end
+
+  # Handle app stopping events from AppSupervisor to clean up display buffers
+  def handle_info({:apps, {:stopped, app_id}}, %State{} = state) do
+    # Remove the app's display buffers to prevent memory leaks and stale data
+    new_app_displays = Map.delete(state.app_displays, app_id)
+    new_state = %State{state | app_displays: new_app_displays}
+    {:noreply, new_state}
+  end
+
+  # Ignore other app supervisor events
+  def handle_info({:apps, _}, %State{} = state) do
     {:noreply, state}
   end
 
@@ -572,5 +589,39 @@ defmodule Octopus.Mixer do
   """
   def get_app_display_info(app_id) do
     GenServer.call(__MODULE__, {:get_display_info, app_id})
+  end
+
+  defp update_output_mode(%State{rendered_app: main, mask_app_id: mask} = state) do
+    cond do
+      main && mask -> %State{state | output_mode: :masked}
+      main -> %State{state | output_mode: :rgb}
+      true -> %State{state | output_mode: :rgb}
+    end
+  end
+
+  # Helper to apply grayscale mask to RGB canvas
+  defp apply_mask(rgb_canvas, grayscale_canvas) do
+    width = min(rgb_canvas.width, grayscale_canvas.width)
+    height = min(rgb_canvas.height, grayscale_canvas.height)
+
+    pixels =
+      for x <- 0..(width - 1), y <- 0..(height - 1), into: %{} do
+        rgb = Map.get(rgb_canvas.pixels, {x, y}, {0, 0, 0})
+        mask = Map.get(grayscale_canvas.pixels, {x, y}, 255)
+
+        masked =
+          case rgb do
+            {r, g, b} ->
+              m = mask / 255
+              {trunc(r * m), trunc(g * m), trunc(b * m)}
+
+            _ ->
+              rgb
+          end
+
+        {{x, y}, masked}
+      end
+
+    %Canvas{rgb_canvas | pixels: pixels}
   end
 end

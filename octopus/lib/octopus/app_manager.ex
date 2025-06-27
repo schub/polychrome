@@ -19,7 +19,8 @@ defmodule Octopus.AppManager do
 
   defmodule State do
     defstruct selected_app: nil,
-              last_selected_app: nil
+              last_selected_app: nil,
+              mask_app_id: nil
   end
 
   def start_link(_) do
@@ -27,7 +28,7 @@ defmodule Octopus.AppManager do
   end
 
   @doc """
-  Selects the app with the given `app_id`.
+  Selects the app with the given `app_id` to be shown (main app).
   """
   def select_app(app_id) do
     GenServer.cast(__MODULE__, {:select_app, app_id})
@@ -41,10 +42,24 @@ defmodule Octopus.AppManager do
   end
 
   @doc """
-  Returns the currently selected app.
+  Returns the currently selected app (main app).
   """
   def get_selected_app() do
     GenServer.call(__MODULE__, :get_selected_app)
+  end
+
+  @doc """
+  Sets the mask app (grayscale mask).
+  """
+  def set_mask_app(mask_app_id) do
+    GenServer.cast(__MODULE__, {:set_mask_app, mask_app_id})
+  end
+
+  @doc """
+  Returns the currently selected mask app.
+  """
+  def get_mask_app() do
+    GenServer.call(__MODULE__, :get_mask_app)
   end
 
   @doc """
@@ -52,6 +67,7 @@ defmodule Octopus.AppManager do
 
   Published messages:
   * `{:app_manager, {:selected_app, app_id}}` - the selected app changed
+  * `{:app_manager, {:mask_app, mask_app_id}}` - the mask app changed
   * `{:app_manager, {:app_lifecycle, app_id, :selected | :deselected}}` - app lifecycle events
   """
   def subscribe do
@@ -59,11 +75,17 @@ defmodule Octopus.AppManager do
   end
 
   def init(:ok) do
+    # Subscribe to app stopping events
+    AppSupervisor.subscribe()
     {:ok, %State{}}
   end
 
   def handle_call(:get_selected_app, _from, %State{selected_app: selected_app} = state) do
     {:reply, selected_app, state}
+  end
+
+  def handle_call(:get_mask_app, _from, %State{mask_app_id: mask_app_id} = state) do
+    {:reply, mask_app_id, state}
   end
 
   # Handle dual-side app selection (for games like Blocks, etc.)
@@ -76,13 +98,18 @@ defmodule Octopus.AppManager do
         {_, :right} -> {nil, next_app_id}
       end
 
+    # If the mask app is the same as the new main app, clear the mask
+    mask_app_id = if state.mask_app_id == next_app_id, do: nil, else: state.mask_app_id
+
     state = %State{
       state
       | selected_app: selected_app,
-        last_selected_app: state.selected_app
+        last_selected_app: state.selected_app,
+        mask_app_id: mask_app_id
     }
 
     broadcast_selected_app(state)
+    broadcast_mask_app(state)
     send_lifecycle_events(state)
 
     {:noreply, state}
@@ -90,15 +117,64 @@ defmodule Octopus.AppManager do
 
   # Handle single app selection
   def handle_cast({:select_app, next_app_id}, %State{} = state) do
+    # If the mask app is the same as the new main app, clear the mask
+    mask_app_id = if state.mask_app_id == next_app_id, do: nil, else: state.mask_app_id
+
     state = %State{
       state
       | selected_app: next_app_id,
-        last_selected_app: state.selected_app
+        last_selected_app: state.selected_app,
+        mask_app_id: mask_app_id
     }
 
     broadcast_selected_app(state)
+    broadcast_mask_app(state)
     send_lifecycle_events(state)
 
+    {:noreply, state}
+  end
+
+  # Handle mask app selection
+  def handle_cast({:set_mask_app, mask_app_id}, %State{} = state) do
+    # If the mask app is the same as the main app, clear mask
+    # If the mask app is the same as the current mask app, toggle it off (clear mask)
+    mask_app_id =
+      cond do
+        mask_app_id == state.selected_app -> nil
+        # Toggle off if same mask app clicked again
+        mask_app_id == state.mask_app_id -> nil
+        true -> mask_app_id
+      end
+
+    state = %State{state | mask_app_id: mask_app_id}
+    broadcast_mask_app(state)
+    {:noreply, state}
+  end
+
+  # Handle app stopping events to clear mask if mask app is stopped
+  def handle_info({:apps, {:stopped, app_id}}, %State{} = state) do
+    # If the stopped app was the mask app, clear the mask
+    new_mask_app_id = if state.mask_app_id == app_id, do: nil, else: state.mask_app_id
+
+    # If the stopped app was the selected app, clear it too
+    new_selected_app = if state.selected_app == app_id, do: nil, else: state.selected_app
+
+    new_state = %State{state | mask_app_id: new_mask_app_id, selected_app: new_selected_app}
+
+    # Broadcast changes if they occurred
+    if new_mask_app_id != state.mask_app_id do
+      broadcast_mask_app(new_state)
+    end
+
+    if new_selected_app != state.selected_app do
+      broadcast_selected_app(new_state)
+    end
+
+    {:noreply, new_state}
+  end
+
+  # Ignore other app supervisor events
+  def handle_info({:apps, _}, %State{} = state) do
     {:noreply, state}
   end
 
@@ -115,6 +191,14 @@ defmodule Octopus.AppManager do
       Octopus.PubSub,
       @topic,
       {:app_manager, {:selected_app, selected}}
+    )
+  end
+
+  defp broadcast_mask_app(%State{} = state) do
+    Phoenix.PubSub.broadcast(
+      Octopus.PubSub,
+      @topic,
+      {:app_manager, {:mask_app, state.mask_app_id}}
     )
   end
 
