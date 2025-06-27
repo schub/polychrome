@@ -1,5 +1,5 @@
 defmodule Octopus.Apps.Rickroll do
-  use Octopus.App, category: :media
+  use Octopus.App, category: :animation
 
   alias Octopus.WebP
   alias Octopus.Protobuf.AudioFrame
@@ -7,7 +7,7 @@ defmodule Octopus.Apps.Rickroll do
 
   require Logger
 
-  def name, do: "Do Not Click"
+  def name, do: "Rickroll"
 
   def app_init(_args) do
     # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
