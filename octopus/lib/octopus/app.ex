@@ -8,6 +8,16 @@ defmodule Octopus.App do
 
   See `Octopus.Apps.SampleApp` for an example.
 
+  ## App Output Type
+
+  Apps can declare their output type (e.g., :rgb, :grayscale, :both) by passing `output_type:` to the `use Octopus.App` macro. This is used by the system to determine how the app's output can be used (e.g., as a mask or as a main RGB source).
+
+  Example:
+  ```elixir
+  use Octopus.App, category: :animation, output_type: :grayscale
+  ```
+  If not specified, the default is `:rgb`.
+
   ## App Compatibility
 
   Apps can implement the `compatible?/0` callback to check if they're compatible with the current installation.
@@ -113,11 +123,16 @@ defmodule Octopus.App do
 
   defmacro __using__(opts) do
     category = Keyword.get(opts, :category, :misc)
+    output_type = Keyword.get(opts, :output_type, :rgb)
 
     quote do
       @behaviour Octopus.App
       use GenServer
       import Octopus.App
+
+      @output_type unquote(output_type)
+
+      def output_type(), do: @output_type
 
       def start_link({config, init_args}) do
         GenServer.start_link(__MODULE__, config, init_args)
@@ -170,6 +185,7 @@ defmodule Octopus.App do
         %{}
       end
 
+      defoverridable output_type: 0
       defoverridable icon: 0
       defoverridable app_init: 1
       defoverridable compatible?: 0

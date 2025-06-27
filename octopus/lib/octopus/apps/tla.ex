@@ -1,5 +1,5 @@
 defmodule Octopus.Apps.Tla do
-  use Octopus.App, category: :animation
+  use Octopus.App, category: :animation, output_type: :grayscale
   use Octopus.Params, prefix: :tla
 
   alias Octopus.Font

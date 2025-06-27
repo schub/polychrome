@@ -1,5 +1,5 @@
 defmodule Octopus.Apps.PulseGray do
-  use Octopus.App, category: :test
+  use Octopus.App, category: :test, output_type: :grayscale
 
   alias Octopus.Canvas
 
