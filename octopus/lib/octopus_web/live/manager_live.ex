@@ -280,16 +280,22 @@ defmodule OctopusWeb.ManagerLive do
             </div>
             <div class="border p-2 flex flex-row flex-wrap">
               <div
-                :for={%{module: module, name: name, icon: icon, compatible: compatible} <- apps}
+                :for={%{module: module, name: name, icon: icon, compatible: compatible, output_type: output_type} <- apps}
                 class="m-0 p-1"
               >
                 <button
                   class={[
                     "border py-1 px-2 rounded flex flex-row items-center gap-1",
-                    if(compatible,
-                      do: "bg-slate-500 text-white",
-                      else: "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    )
+                    case {output_type, compatible} do
+                      {:rgb, true} -> "bg-blue-500 text-white"
+                      {:rgb, false} -> "bg-blue-100 text-blue-500 cursor-not-allowed"
+                      {:grayscale, true} -> "bg-slate-500 text-white"
+                      {:grayscale, false} -> "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      {:both, true} -> "bg-purple-600 text-white"
+                      {:both, false} -> "bg-purple-200 text-purple-600 cursor-not-allowed"
+                      {_, true} -> "bg-slate-500 text-white"
+                      {_, false} -> "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    end
                   ]}
                   phx-click={if compatible, do: "start", else: nil}
                   phx-value-module={module}
@@ -464,8 +470,16 @@ defmodule OctopusWeb.ManagerLive do
           end
 
         category = apply(module, :category, [])
+        output_type = apply(module, :output_type, [])
 
-        %{module: module, name: name, icon: icon, category: category, compatible: compatible}
+        %{
+          module: module,
+          name: name,
+          icon: icon,
+          category: category,
+          compatible: compatible,
+          output_type: output_type
+        }
       end
       |> Enum.group_by(& &1.category)
       |> Enum.sort_by(fn {category, _} ->
