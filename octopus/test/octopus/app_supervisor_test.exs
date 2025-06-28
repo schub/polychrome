@@ -39,4 +39,50 @@ defmodule Octopus.AppSupervisorTest do
       assert is_boolean(result)
     end
   end
+
+  test "start_or_select_app returns existing app_id when app is already running" do
+    # Start an app for the first time
+    assert {:ok, app_id1} = AppSupervisor.start_or_select_app(Octopus.Apps.CanvasTest)
+    assert is_binary(app_id1)
+
+    # Verify it's in running apps
+    running = AppSupervisor.running_apps()
+    assert Enum.any?(running, fn {module, ^app_id1} -> module == Octopus.Apps.CanvasTest end)
+
+    # Try to start the same app again - should return the same app_id
+    assert {:ok, app_id2} = AppSupervisor.start_or_select_app(Octopus.Apps.CanvasTest)
+    assert app_id1 == app_id2
+
+    # Verify only one instance is running
+    running_after = AppSupervisor.running_apps()
+
+    canvas_test_apps =
+      Enum.filter(running_after, fn {module, _} -> module == Octopus.Apps.CanvasTest end)
+
+    assert length(canvas_test_apps) == 1
+
+    # Clean up
+    AppSupervisor.stop_app(app_id1)
+  end
+
+  test "find_running_app returns correct app_id when app is running" do
+    # Start an app
+    assert {:ok, app_id} = AppSupervisor.start_app(Octopus.Apps.CanvasTest)
+
+    # find_running_app should find it
+    assert {:ok, ^app_id} = AppSupervisor.find_running_app(Octopus.Apps.CanvasTest)
+
+    # Clean up
+    AppSupervisor.stop_app(app_id)
+  end
+
+  test "find_running_app returns :not_found when app is not running" do
+    # Ensure no Canvas Test apps are running
+    AppSupervisor.running_apps()
+    |> Enum.filter(fn {module, _} -> module == Octopus.Apps.CanvasTest end)
+    |> Enum.each(fn {_, app_id} -> AppSupervisor.stop_app(app_id) end)
+
+    # find_running_app should return :not_found
+    assert :not_found = AppSupervisor.find_running_app(Octopus.Apps.CanvasTest)
+  end
 end

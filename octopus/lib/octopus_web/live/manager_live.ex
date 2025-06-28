@@ -323,7 +323,7 @@ defmodule OctopusWeb.ManagerLive do
 
   def handle_event("start", %{"module" => module_string}, socket) do
     module = String.to_existing_atom(module_string)
-    {:ok, app_id} = AppSupervisor.start_app(module)
+    {:ok, app_id} = AppSupervisor.start_or_select_app(module)
     AppManager.select_app(app_id)
     {:noreply, socket}
   end

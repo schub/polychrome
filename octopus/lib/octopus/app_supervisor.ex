@@ -68,6 +68,31 @@ defmodule Octopus.AppSupervisor do
     end
   end
 
+  @doc """
+  Starts an app if not already running, otherwise returns the existing app_id.
+  This prevents duplicate instances of the same app module.
+  """
+  def start_or_select_app(module, opts \\ []) when is_atom(module) do
+    case find_running_app(module) do
+      {:ok, existing_app_id} ->
+        Logger.info("App #{module} already running with id #{existing_app_id}, selecting it")
+        {:ok, existing_app_id}
+
+      :not_found ->
+        start_app(module, opts)
+    end
+  end
+
+  @doc """
+  Finds a running app by module. Returns {:ok, app_id} if found, :not_found otherwise.
+  """
+  def find_running_app(module) when is_atom(module) do
+    case Enum.find(running_apps(), fn {mod, _app_id} -> mod == module end) do
+      {^module, app_id} -> {:ok, app_id}
+      nil -> :not_found
+    end
+  end
+
   defp do_start_app(module, config) when is_atom(module) do
     app_id = generate_app_id()
     name = {:via, Registry, {Octopus.AppRegistry, app_id, module}}
