@@ -1,5 +1,5 @@
 defmodule Octopus.Apps.Text do
-  use Octopus.App, category: :media
+  use Octopus.App, category: :animation
   require Logger
 
   alias Octopus.Protobuf.AudioFrame
