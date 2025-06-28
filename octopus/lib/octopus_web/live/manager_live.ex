@@ -227,7 +227,7 @@ defmodule OctopusWeb.ManagerLive do
           </div>
           <table class="w-full text-left m-0">
             <tbody>
-              <tr :for={%{module: module, app_id: app_id, name: name, selected: selected, output_type: output_type, masked: masked} <- @running_apps}
+              <tr :for={%{module: module, app_id: app_id, name: name, selected: selected, output_type: _output_type, masked: masked} <- @running_apps}
                 class={
                   cond do
                     selected -> "bg-green-200"
@@ -251,14 +251,15 @@ defmodule OctopusWeb.ManagerLive do
                     Configure
                   </.link>
                   <button
-                    class="border py-1 px-2 rounded bg-slate-300"
+                    class={"border py-1 px-2 rounded " <>
+                      if(selected, do: "bg-green-500 text-white", else: "bg-slate-300")
+                    }
                     phx-click="select"
                     phx-value-app-id={app_id}
                   >
                     Show
                   </button>
                   <button
-                    :if={output_type in [:grayscale, :both]}
                     class={"ml-2 border py-1 px-2 rounded " <>
                       if(masked, do: "bg-gray-500 text-white", else: "bg-slate-300")
                     }

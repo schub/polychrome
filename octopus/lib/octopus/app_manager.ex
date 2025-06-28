@@ -136,18 +136,42 @@ defmodule Octopus.AppManager do
 
   # Handle mask app selection
   def handle_cast({:set_mask_app, mask_app_id}, %State{} = state) do
-    # If the mask app is the same as the main app, clear mask
+    # Check if the mask app is a grayscale app and currently selected
+    is_selected_grayscale_app =
+      mask_app_id == state.selected_app and supports_grayscale?(mask_app_id)
+
     # If the mask app is the same as the current mask app, toggle it off (clear mask)
-    mask_app_id =
+    # If it's a selected grayscale app, deselect it and set as mask
+    # Otherwise, if it's the same as the main app (non-grayscale), clear mask
+    {new_selected_app, new_mask_app_id} =
       cond do
-        mask_app_id == state.selected_app -> nil
         # Toggle off if same mask app clicked again
-        mask_app_id == state.mask_app_id -> nil
-        true -> mask_app_id
+        mask_app_id == state.mask_app_id ->
+          {state.selected_app, nil}
+
+        # If it's a selected grayscale app, deselect and set as mask
+        is_selected_grayscale_app ->
+          {nil, mask_app_id}
+
+        # If the mask app is the same as the main app (non-grayscale), clear mask
+        mask_app_id == state.selected_app ->
+          {state.selected_app, nil}
+
+        # Normal case: set as mask
+        true ->
+          {state.selected_app, mask_app_id}
       end
 
-    state = %State{state | mask_app_id: mask_app_id}
+    state = %State{
+      state
+      | selected_app: new_selected_app,
+        last_selected_app: state.selected_app,
+        mask_app_id: new_mask_app_id
+    }
+
+    broadcast_selected_app(state)
     broadcast_mask_app(state)
+    send_lifecycle_events(state)
     {:noreply, state}
   end
 
@@ -230,6 +254,17 @@ defmodule Octopus.AppManager do
         @topic,
         {:app_manager, {:app_lifecycle, state.last_selected_app, :deselected}}
       )
+    end
+  end
+
+  # Helper function to check if an app supports grayscale output
+  defp supports_grayscale?(app_id) do
+    try do
+      {_pid, module} = AppSupervisor.lookup_app(app_id)
+      output_type = apply(module, :output_type, [])
+      output_type in [:grayscale, :both]
+    rescue
+      _ -> false
     end
   end
 end

@@ -197,17 +197,37 @@ defmodule Octopus.Mixer do
           if state.output_mode == :masked and state.mask_app_id do
             mask_display = Map.get(new_state.app_displays, state.mask_app_id)
 
-            if mask_display && mask_display.grayscale_buffer do
-              masked_canvas = apply_mask(canvas, mask_display.grayscale_buffer)
-              frame = canvas_to_frame(masked_canvas, display_info, easing_interval)
-              binary = Protobuf.encode(frame)
-              send_frame(binary, frame)
+            if mask_display do
+              # Get mask canvas, converting to grayscale if needed
+              mask_canvas = get_mask_canvas(mask_display)
+
+              if mask_canvas do
+                # RGB apps always send RGB frames with panel-level masking
+                frame =
+                  canvas_to_frame_with_mask(
+                    canvas,
+                    mask_canvas,
+                    display_info,
+                    easing_interval,
+                    :rgb
+                  )
+
+                binary = Protobuf.encode(frame)
+                send_frame(binary, frame)
+              else
+                # RGB apps always send RGB frames
+                frame = canvas_to_frame(canvas, display_info, easing_interval)
+                binary = Protobuf.encode(frame)
+                send_frame(binary, frame)
+              end
             else
+              # RGB apps always send RGB frames
               frame = canvas_to_frame(canvas, display_info, easing_interval)
               binary = Protobuf.encode(frame)
               send_frame(binary, frame)
             end
           else
+            # RGB apps always send RGB frames
             frame = canvas_to_frame(canvas, display_info, easing_interval)
             binary = Protobuf.encode(frame)
             send_frame(binary, frame)
@@ -240,9 +260,44 @@ defmodule Octopus.Mixer do
           easing_interval =
             easing_interval_override || Map.get(updated_display.config, :easing_interval, 0)
 
-          frame = canvas_to_wframe(canvas, display_info, easing_interval)
-          binary = Protobuf.encode(frame)
-          send_frame(binary, frame)
+          # If in masked mode and mask buffer is available, apply mask
+          if state.output_mode == :masked and state.mask_app_id do
+            mask_display = Map.get(new_state.app_displays, state.mask_app_id)
+
+            if mask_display do
+              # Get mask canvas, converting to grayscale if needed
+              mask_canvas = get_mask_canvas(mask_display)
+
+              if mask_canvas do
+                # Grayscale apps always send WFrames with panel-level masking
+                frame =
+                  canvas_to_wframe_with_mask(
+                    canvas,
+                    mask_canvas,
+                    display_info,
+                    easing_interval
+                  )
+
+                binary = Protobuf.encode(frame)
+                send_frame(binary, frame)
+              else
+                # Grayscale apps always send WFrames
+                frame = canvas_to_wframe(canvas, display_info, easing_interval)
+                binary = Protobuf.encode(frame)
+                send_frame(binary, frame)
+              end
+            else
+              # Grayscale apps always send WFrames
+              frame = canvas_to_wframe(canvas, display_info, easing_interval)
+              binary = Protobuf.encode(frame)
+              send_frame(binary, frame)
+            end
+          else
+            # Grayscale apps always send WFrames
+            frame = canvas_to_wframe(canvas, display_info, easing_interval)
+            binary = Protobuf.encode(frame)
+            send_frame(binary, frame)
+          end
         end
 
         {:noreply, new_state}
@@ -479,6 +534,69 @@ defmodule Octopus.Mixer do
     |> Canvas.to_wframe(easing_interval: easing_interval)
   end
 
+  # Converts canvas to frame with panel-level masking applied
+  defp canvas_to_frame_with_mask(canvas, mask_canvas, display_info, easing_interval, output_type) do
+    installation = Octopus.installation()
+    panel_count = installation.panel_count()
+
+    # Ensure mask canvas is in grayscale format for masking
+    grayscale_mask = Canvas.to_grayscale(mask_canvas)
+
+    # Extract and mask pixels from each panel according to the layout
+    panel_canvases =
+      for panel_id <- 0..(panel_count - 1) do
+        {x_start, x_end} = display_info.panel_range.(panel_id, :x)
+        {y_start, y_end} = display_info.panel_range.(panel_id, :y)
+
+        # Extract the panel section from both canvases
+        panel_canvas = Canvas.cut(canvas, {x_start, y_start}, {x_end, y_end})
+        panel_mask = Canvas.cut(grayscale_mask, {x_start, y_start}, {x_end, y_end})
+
+        # Apply masking at panel level
+        case output_type do
+          :rgb -> apply_mask_rgb(panel_canvas, panel_mask)
+          :grayscale -> apply_mask_grayscale(panel_canvas, panel_mask)
+        end
+      end
+
+    # Join all masked panel canvases and convert to frame with app-specific easing
+    # Reverse the order to match the expected physical layout
+    panel_canvases
+    |> Enum.reverse()
+    |> Enum.reduce(&Canvas.join/2)
+    |> Canvas.to_frame(easing_interval: easing_interval)
+  end
+
+  # Converts canvas to wframe with panel-level masking applied
+  defp canvas_to_wframe_with_mask(canvas, mask_canvas, display_info, easing_interval) do
+    installation = Octopus.installation()
+    panel_count = installation.panel_count()
+
+    # Ensure mask canvas is in grayscale format for masking
+    grayscale_mask = Canvas.to_grayscale(mask_canvas)
+
+    # Extract and mask pixels from each panel according to the layout
+    panel_canvases =
+      for panel_id <- 0..(panel_count - 1) do
+        {x_start, x_end} = display_info.panel_range.(panel_id, :x)
+        {y_start, y_end} = display_info.panel_range.(panel_id, :y)
+
+        # Extract the panel section from both canvases
+        panel_canvas = Canvas.cut(canvas, {x_start, y_start}, {x_end, y_end})
+        panel_mask = Canvas.cut(grayscale_mask, {x_start, y_start}, {x_end, y_end})
+
+        # Apply masking at panel level (always grayscale for WFrames)
+        apply_mask_grayscale(panel_canvas, panel_mask)
+      end
+
+    # Join all masked panel canvases and convert to wframe with app-specific easing
+    # Reverse the order to match the expected physical layout
+    panel_canvases
+    |> Enum.reverse()
+    |> Enum.reduce(&Canvas.join/2)
+    |> Canvas.to_wframe(easing_interval: easing_interval)
+  end
+
   defp build_display_info(layout) do
     installation = Octopus.installation()
 
@@ -599,15 +717,32 @@ defmodule Octopus.Mixer do
     end
   end
 
+  # Helper to get mask canvas from app display, converting to grayscale if needed
+  defp get_mask_canvas(mask_display) do
+    cond do
+      # Prefer grayscale buffer if available
+      mask_display.grayscale_buffer ->
+        mask_display.grayscale_buffer
+
+      # Convert RGB buffer to grayscale for masking
+      mask_display.rgb_buffer ->
+        Canvas.to_grayscale(mask_display.rgb_buffer)
+
+      # No buffer available
+      true ->
+        nil
+    end
+  end
+
   # Helper to apply grayscale mask to RGB canvas
-  defp apply_mask(rgb_canvas, grayscale_canvas) do
-    width = min(rgb_canvas.width, grayscale_canvas.width)
-    height = min(rgb_canvas.height, grayscale_canvas.height)
+  defp apply_mask_rgb(rgb_canvas, grayscale_mask) do
+    width = min(rgb_canvas.width, grayscale_mask.width)
+    height = min(rgb_canvas.height, grayscale_mask.height)
 
     pixels =
       for x <- 0..(width - 1), y <- 0..(height - 1), into: %{} do
         rgb = Canvas.get_pixel(rgb_canvas, {x, y})
-        mask = Canvas.get_pixel(grayscale_canvas, {x, y})
+        mask = Canvas.get_pixel(grayscale_mask, {x, y})
 
         masked =
           case rgb do
@@ -623,5 +758,24 @@ defmodule Octopus.Mixer do
       end
 
     %Canvas{rgb_canvas | pixels: pixels}
+  end
+
+  # Helper to apply grayscale mask to grayscale canvas
+  defp apply_mask_grayscale(grayscale_canvas, grayscale_mask) do
+    width = min(grayscale_canvas.width, grayscale_mask.width)
+    height = min(grayscale_canvas.height, grayscale_mask.height)
+
+    pixels =
+      for x <- 0..(width - 1), y <- 0..(height - 1), into: %{} do
+        gray_value = Canvas.get_pixel(grayscale_canvas, {x, y})
+        mask = Canvas.get_pixel(grayscale_mask, {x, y})
+
+        # Apply mask: multiply grayscale value by normalized mask value
+        masked_value = trunc(gray_value * mask / 255)
+
+        {{x, y}, masked_value}
+      end
+
+    %Canvas{grayscale_canvas | pixels: pixels}
   end
 end
