@@ -19,6 +19,9 @@ defmodule Octopus.Apps.Supermario do
   def name(), do: "Supermario"
 
   def app_init(args \\ %{}) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     state =
       args
       |> Map.put_new(:windows_shown, @windows_shown)
@@ -34,7 +37,7 @@ defmodule Octopus.Apps.Supermario do
       {:ok, game} ->
         game
         |> Game.render_canvas()
-        |> send_canvas()
+        |> Octopus.App.update_display()
 
         {:noreply, %State{state | game: game}}
 
