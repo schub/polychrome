@@ -72,10 +72,18 @@ defmodule Octopus.Font do
 
     char_pixels
     |> Enum.with_index()
-    |> Enum.reduce(canvas, fn {rgb, i}, canvas ->
+    |> Enum.reduce(canvas, fn {{r, g, b}, i}, canvas ->
       x = rem(i, 8)
       y = div(i, 8)
-      Canvas.put_pixel(canvas, {x + offset_x, y + offset_y}, rgb)
+
+      # Convert color based on canvas mode
+      color =
+        case canvas.mode do
+          :grayscale -> Canvas.rgb_to_grayscale(r, g, b)
+          :rgb -> {r, g, b}
+        end
+
+      Canvas.put_pixel(canvas, {x + offset_x, y + offset_y}, color)
     end)
   end
 
