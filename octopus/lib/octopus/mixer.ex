@@ -20,8 +20,6 @@ defmodule Octopus.Mixer do
       # App display buffers and configuration
       # %{app_id => %{rgb_buffer: canvas, grayscale_buffer: canvas, config: %{}}}
       app_displays: %{},
-      # List of app_ids to include in mixdown
-      selected_apps: [],
       # :rgb | :grayscale | :masked
       output_mode: :rgb,
       # Cached installation info for performance
@@ -64,20 +62,6 @@ defmodule Octopus.Mixer do
   """
   def get_display_info() do
     GenServer.call(__MODULE__, :get_display_info)
-  end
-
-  @doc """
-  Sets which apps should be included in the visual mixdown.
-  """
-  def set_selected_apps(app_ids) do
-    GenServer.cast(__MODULE__, {:set_selected_apps, app_ids})
-  end
-
-  @doc """
-  Sets the output mode for the mixer.
-  """
-  def set_output_mode(mode) when mode in [:rgb, :grayscale, :masked] do
-    GenServer.cast(__MODULE__, {:set_output_mode, mode})
   end
 
   # Frame handling functions
@@ -303,16 +287,6 @@ defmodule Octopus.Mixer do
 
         {:noreply, new_state}
     end
-  end
-
-  def handle_cast({:set_selected_apps, app_ids}, %State{} = state) do
-    new_state = %State{state | selected_apps: app_ids}
-    {:noreply, new_state}
-  end
-
-  def handle_cast({:set_output_mode, mode}, %State{} = state) do
-    new_state = %State{state | output_mode: mode}
-    {:noreply, new_state}
   end
 
   # Legacy callbacks
