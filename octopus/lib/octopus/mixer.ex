@@ -28,8 +28,10 @@ defmodule Octopus.Mixer do
       # Legacy fields (maintained for compatibility)
       rendered_app: nil,
       mask_app_id: nil,
-      transition: nil,
       buffer_canvas: nil,
+
+      # Transition system
+      transition: nil,
       max_luminance: 255
     ]
   end
@@ -325,10 +327,22 @@ defmodule Octopus.Mixer do
 
   # Handle app selection changes from AppManager
   def handle_info({:app_manager, {:selected_app, selected_app}}, %State{} = state) do
-    # Update rendered app and output mode
-    state = %State{state | rendered_app: selected_app}
-    state = update_output_mode(state)
-    {:noreply, state}
+    # Check if transitions are enabled
+    transitions_enabled = Application.get_env(:octopus, :enable_transitions, true)
+
+    # Start transition if switching to a different app and transitions are enabled
+    if state.rendered_app != selected_app and state.transition == nil and transitions_enabled do
+      # Start fade out transition, store target app for later
+      state = %State{state | transition: {:out, @transition_duration, selected_app}}
+      Broadcaster.set_luminance(state.max_luminance)
+      schedule_transition()
+      {:noreply, state}
+    else
+      # No transition needed, transition already in progress, or transitions disabled
+      state = %State{state | rendered_app: selected_app}
+      state = update_output_mode(state)
+      {:noreply, state}
+    end
   end
 
   def handle_info({:app_manager, {:mask_app, mask_app_id}}, %State{} = state) do
@@ -362,26 +376,27 @@ defmodule Octopus.Mixer do
     {:noreply, state}
   end
 
-  def handle_info(:transition, %State{transition: {:out, time}} = state) when time <= 0 do
-    selected_app = AppManager.get_selected_app()
-
+  def handle_info(:transition, %State{transition: {:out, time, target_app}} = state)
+      when time <= 0 do
+    # Fade out complete, switch to target app and start fade in
     state = %State{
       state
-      | rendered_app: selected_app,
+      | rendered_app: target_app,
         transition: {:in, @transition_duration}
     }
 
+    state = update_output_mode(state)
     Broadcaster.set_luminance(0)
-
     schedule_transition()
 
     {:noreply, state}
   end
 
-  def handle_info(:transition, %State{transition: {:out, time}} = state) do
+  def handle_info(:transition, %State{transition: {:out, time, target_app}} = state) do
+    # Continue fade out
     state = %State{
       state
-      | transition: {:out, time - @transition_frame_time}
+      | transition: {:out, time - @transition_frame_time, target_app}
     }
 
     (Easing.cubic_in(time / @transition_duration) * state.max_luminance)
@@ -394,6 +409,7 @@ defmodule Octopus.Mixer do
   end
 
   def handle_info(:transition, %State{transition: {:in, time}} = state) when time <= 0 do
+    # Fade in complete, transition finished
     state = %State{state | transition: nil}
     Broadcaster.set_luminance(state.max_luminance)
 
@@ -401,12 +417,10 @@ defmodule Octopus.Mixer do
   end
 
   def handle_info(:transition, %State{transition: {:in, time}} = state) do
-    selected_app = AppManager.get_selected_app()
-
+    # Continue fade in
     state = %State{
       state
-      | transition: {:in, time - @transition_frame_time},
-        rendered_app: selected_app
+      | transition: {:in, time - @transition_frame_time}
     }
 
     ((1 - Easing.cubic_out(time / @transition_duration)) * state.max_luminance)
