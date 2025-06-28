@@ -1,4 +1,4 @@
-defmodule Octopus.Apps.Tla do
+defmodule Octopus.Apps.TenLetters do
   use Octopus.App, category: :animation, output_type: :grayscale
   use Octopus.Params, prefix: :tla
 
@@ -83,7 +83,7 @@ defmodule Octopus.Apps.Tla do
     end
   end
 
-  def name, do: "TLA"
+  def name, do: "Ten Letters"
 
   def app_init(_) do
     path = Path.join([:code.priv_dir(:octopus), "words", "nog24-256-10--letter-words.txt"])
