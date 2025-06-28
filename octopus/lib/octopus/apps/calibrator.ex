@@ -290,6 +290,9 @@ defmodule Octopus.Apps.Calibrator do
   def name(), do: "Calibrator"
 
   def app_init(_args) do
+    # Configure display using new unified API - adjacent layout for calibration
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     state = %State{
       color: color_from_hex(@first_color)
     }
@@ -304,7 +307,7 @@ defmodule Octopus.Apps.Calibrator do
   def handle_info(:tick, %State{} = state) do
     state = set_next_color(state)
     %RGB{r: r, g: g, b: b} = apply_corrections(state.color)
-    Canvas.new(1, 1) |> Canvas.fill({r, g, b}) |> send_canvas()
+    Canvas.new(1, 1) |> Canvas.fill({r, g, b}) |> Octopus.App.update_display()
 
     {:noreply, state}
   end

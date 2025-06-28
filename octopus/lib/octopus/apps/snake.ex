@@ -20,6 +20,9 @@ defmodule Octopus.Apps.Snake do
   def icon(), do: Sprite.load("../images/snake", 0)
 
   def app_init(args) do
+    # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
+    Octopus.App.configure_display(layout: :adjacent_panels)
+
     state = %State{
       button_state: ButtonState.new(),
       game: Game.new(args),
@@ -58,7 +61,7 @@ defmodule Octopus.Apps.Snake do
 
     game
     |> Game.render_canvas()
-    |> send_canvas()
+    |> Octopus.App.update_display()
 
     %State{state | t: t + 1, game: game}
   end
