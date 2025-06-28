@@ -1,5 +1,5 @@
 defmodule Octopus.Apps.StoryTeller do
-  use Octopus.App, category: :animation
+  use Octopus.App, category: :animation, output_type: :grayscale
   use Octopus.Params, prefix: :text
 
   require Logger
@@ -31,6 +31,13 @@ defmodule Octopus.Apps.StoryTeller do
   def name(), do: "Storyteller"
 
   def app_init(config) do
+    # Configure display using new unified API - adjacent layout for text display
+    Octopus.App.configure_display(
+      layout: :adjacent_panels,
+      supports_grayscale: true,
+      supports_rgb: false
+    )
+
     {:ok, story} =
       case config do
         %{story: story} -> Story.load(story)
@@ -40,6 +47,9 @@ defmodule Octopus.Apps.StoryTeller do
 
     {[first_line], lines} = Enum.split(story, 1)
 
+    # Get display info to create canvas with correct dimensions
+    display_info = Octopus.App.get_display_info()
+
     state = %State{
       buffer: "",
       line: first_line,
@@ -48,7 +58,7 @@ defmodule Octopus.Apps.StoryTeller do
       fade_in: 0,
       offset: 0,
       font: Font.load("BlinkenLightsRegular"),
-      canvas: Canvas.new(8 * 10, 8),
+      canvas: Canvas.new(display_info.width, display_info.height, :grayscale),
       clear_buffer: false
     }
 
@@ -71,9 +81,15 @@ defmodule Octopus.Apps.StoryTeller do
 
     state =
       case state.line do
-        {:text, [_letter | _], _opts} -> next_letter(state)
-        {:text, [], _} -> next_word(state)
-        nil -> Octopus.PlaylistScheduler.playlist_next()
+        {:text, [_letter | _], _opts} ->
+          next_letter(state)
+
+        {:text, [], _} ->
+          next_word(state)
+
+        nil ->
+          Octopus.PlaylistScheduler.playlist_next()
+          state
       end
 
     draw(state)
@@ -132,12 +148,11 @@ defmodule Octopus.Apps.StoryTeller do
     canvas =
       state.canvas
       |> Canvas.clear()
-      |> Canvas.rect({0, 0}, {87, 7}, {0, 0, 0})
 
     variant = 0
 
-    Canvas.put_string(canvas, {state.offset * 8, 0}, buffer, state.font, variant)
-    |> Canvas.to_wframe(easing_interval: param(:easing_interval, 100))
-    |> send_frame()
+    canvas
+    |> Canvas.put_string({state.offset * 8, 0}, buffer, state.font, variant)
+    |> Octopus.App.update_display(:grayscale, easing_interval: param(:easing_interval, 100))
   end
 end
