@@ -606,8 +606,8 @@ defmodule Octopus.Mixer do
 
     pixels =
       for x <- 0..(width - 1), y <- 0..(height - 1), into: %{} do
-        rgb = Map.get(rgb_canvas.pixels, {x, y}, {0, 0, 0})
-        mask = Map.get(grayscale_canvas.pixels, {x, y}, 255)
+        rgb = Canvas.get_pixel(rgb_canvas, {x, y})
+        mask = Canvas.get_pixel(grayscale_canvas, {x, y})
 
         masked =
           case rgb do
