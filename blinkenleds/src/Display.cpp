@@ -102,8 +102,6 @@ void Display::handle_packet(Packet packet)
   uint16_t first_pixel;
   uint16_t last_pixel;
 
-  Serial.printf("Received packet: %d\n", packet.which_content);
-
   switch (packet.which_content)
   {
   case Packet_firmware_config_tag:
@@ -165,14 +163,23 @@ uint32_t Display::map_index(uint32_t index)
   uint32_t x = index % WIDTH;
   uint32_t y = index / WIDTH;
 
+  uint32_t mapped_index;
   if (y % 2 == 0)
   {
-    return y * WIDTH + x;
+    mapped_index = y * WIDTH + x;
   }
   else
   {
-    return y * WIDTH + (WIDTH - x - 1);
+    mapped_index = y * WIDTH + (WIDTH - x - 1);
   }
+
+#ifdef SKIP_LEDS
+  // Skip every second LED: logical LEDs 0,1,2,3... map to physical LEDs 0,2,4,6...
+  return mapped_index * 2;
+#else
+  // Standard mapping
+  return mapped_index;
+#endif
 }
 
 void Display::render_test_frame()
