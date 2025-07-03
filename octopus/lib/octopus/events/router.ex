@@ -14,6 +14,7 @@ defmodule Octopus.Events.Router do
   alias Octopus.Events.Event.Input, as: InputEvent
   alias Octopus.Events.Event.Proximity, as: ProximityEvent
   alias Octopus.Events.Event.Audio, as: AudioEvent
+  alias Octopus.Events.Event.Proximity.Processor
 
   @pubsub_topic "events_router"
 
@@ -47,7 +48,6 @@ defmodule Octopus.Events.Router do
     AppSupervisor.send_event(selected_app, input_event)
     KioskModeManager.handle_event(input_event)
 
-    # Broadcast event for monitoring/debugging
     Phoenix.PubSub.broadcast(
       Octopus.PubSub,
       @pubsub_topic,
@@ -58,11 +58,9 @@ defmodule Octopus.Events.Router do
   end
 
   def handle_cast({:route_event, %AudioEvent{} = audio_event}, state) do
-    # Route audio events to selected app
     selected_app = AppManager.get_selected_app()
     AppSupervisor.send_event(selected_app, audio_event)
 
-    # Broadcast event for monitoring/debugging
     Phoenix.PubSub.broadcast(
       Octopus.PubSub,
       @pubsub_topic,
@@ -73,15 +71,15 @@ defmodule Octopus.Events.Router do
   end
 
   def handle_cast({:route_event, %ProximityEvent{} = proximity_event}, state) do
-    # Route proximity events to selected app
-    selected_app = AppManager.get_selected_app()
-    AppSupervisor.send_event(selected_app, proximity_event)
+    processed_event = Processor.process_event(proximity_event)
 
-    # Broadcast event for monitoring/debugging
+    selected_app = AppManager.get_selected_app()
+    AppSupervisor.send_event(selected_app, processed_event)
+
     Phoenix.PubSub.broadcast(
       Octopus.PubSub,
       @pubsub_topic,
-      {:events_router, {:proximity_event, proximity_event}}
+      {:events_router, {:proximity_event, processed_event}}
     )
 
     {:noreply, state}

@@ -4,14 +4,21 @@ import { Chart, registerables } from 'chart.js';
 // Register Chart.js components
 Chart.register(...registerables);
 
+interface AlgorithmData {
+  raw: Array<{ distance: number; timestamp: number }>;
+  sma: Array<{ distance: number; timestamp: number }>;
+  ema: Array<{ distance: number; timestamp: number }>;
+  median: Array<{ distance: number; timestamp: number }>;
+  combined: Array<{ distance: number; timestamp: number }>;
+}
+
 interface ProximityData {
   sensor: string;
-  readings: Array<{ distance: number; timestamp: number }>;
+  algorithms: AlgorithmData;
 }
 
 class ProximityChartHook extends Hook {
   chart?: Chart | null;
-  maxDataPoints: number;
 
   constructor() {
     super();
@@ -58,37 +65,62 @@ class ProximityChartHook extends Hook {
             display: true,
             position: 'top'
           }
+        },
+        elements: {
+          point: {
+            radius: 0
+          },
+          line: {
+            tension: 0.1
+          }
         }
       }
     });
 
-    console.log('Empty proximity chart initialized');
-
-    // Listen for messages from LiveView
+    // Listen for messages from LiveView - use arrow function to preserve 'this'
     this.handleEvent("proximity-data", (data: ProximityData) => {
-      this.addBatch(data.sensor, data.readings);
+      this.addAlgorithmBatches(data.sensor, data.algorithms);
     });
   }
 
-  addBatch(sensorKey: string, readings: Array<{ distance: number; timestamp: number }>) {
+  addAlgorithmBatches(sensorKey: string, algorithms: AlgorithmData) {
     if (!this.chart) return;
 
-    // Create friendly label
-    const sensorLabel = sensorKey.replace(/_/g, ' '); // "sensor_1_0" -> "sensor 1 0"
+    // Only process raw and combined algorithms for display
+    const algorithmsToShow = ['raw', 'combined'];
+
+    // Process each algorithm, but only show selected ones
+    Object.entries(algorithms).forEach(([algorithmName, readings]) => {
+      if (algorithmsToShow.includes(algorithmName)) {
+        this.addBatch(sensorKey, algorithmName, readings);
+      }
+    });
+
+    // Update chart once after processing all algorithms
+    this.chart.update('none');
+  }
+
+  addBatch(sensorKey: string, algorithmName: string, readings: Array<{ distance: number; timestamp: number }>) {
+    if (!this.chart) return;
+
+    // Create dataset label combining sensor and algorithm
+    const datasetLabel = `${sensorKey} - ${algorithmName.toUpperCase()}`;
 
     // Find existing dataset or create new one
-    let dataset = this.chart.data.datasets.find(d => d.label === sensorLabel);
+    let dataset = this.chart.data.datasets.find(d => d.label === datasetLabel);
 
     if (!dataset) {
-      // Create new dataset for this sensor
+      // Create new dataset for this sensor/algorithm combination
       dataset = {
-        label: sensorLabel,
+        label: datasetLabel,
         data: [],
-        borderColor: this.getSensorColor(sensorKey),
-        backgroundColor: this.getSensorColor(sensorKey, 0.1),
+        borderColor: this.getAlgorithmColor(algorithmName),
+        backgroundColor: this.getAlgorithmColor(algorithmName, 0.1),
         tension: 0.1,
-        pointRadius: 1,
-        borderWidth: 1
+        pointRadius: 0, // No points
+        borderWidth: algorithmName === 'combined' ? 2 : 1, // Make combined line slightly thicker, others thinner
+        pointBackgroundColor: this.getAlgorithmColor(algorithmName),
+        pointBorderColor: this.getAlgorithmColor(algorithmName)
       };
       this.chart.data.datasets.push(dataset);
     }
@@ -102,38 +134,25 @@ class ProximityChartHook extends Hook {
       });
     }
 
-    const maxPoints = 1000;
+    const maxPoints = 100;
 
     // Maintain rolling window - replace the data array if it exceeds max points
     if (dataset.data.length > maxPoints) {
       dataset.data = dataset.data.slice(-maxPoints);
     }
-
-    // Update chart once per batch
-    this.chart.update('none');
   }
 
-  getSensorColor(sensorKey: string, alpha: number = 1): string {
-    // Generate consistent colors based on sensor key
-    const colors = [
-      `rgba(255, 99, 132, ${alpha})`,   // Red
-      `rgba(54, 162, 235, ${alpha})`,   // Blue  
-      `rgba(255, 205, 86, ${alpha})`,   // Yellow
-      `rgba(75, 192, 192, ${alpha})`,   // Teal
-      `rgba(153, 102, 255, ${alpha})`,  // Purple
-      `rgba(255, 159, 64, ${alpha})`,   // Orange
-    ];
+  getAlgorithmColor(algorithmName: string, alpha: number = 1): string {
+    // Predefined colors for each algorithm
+    const colors: { [key: string]: string } = {
+      raw: `rgba(239, 68, 68, ${alpha})`,      // Red
+      sma: `rgba(59, 130, 246, ${alpha})`,     // Blue
+      ema: `rgba(249, 115, 22, ${alpha})`, // Orange
+      median: `rgba(147, 51, 234, ${alpha})`,  // Purple
+      combined: `rgba(34, 197, 94, ${alpha})` // Green
+    };
 
-    // Create a hash from the sensor key string
-    let hash = 0;
-    for (let i = 0; i < sensorKey.length; i++) {
-      const char = sensorKey.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-
-    const index = Math.abs(hash) % colors.length;
-    return colors[index];
+    return colors[algorithmName] || `rgba(128, 128, 128, ${alpha})`; // Default gray
   }
 
   destroyed() {
@@ -143,4 +162,4 @@ class ProximityChartHook extends Hook {
   }
 }
 
-export default makeHook(ProximityChartHook); 
+export default makeHook(ProximityChartHook);

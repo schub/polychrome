@@ -36,11 +36,11 @@ defmodule Octopus.Application do
         Octopus.AppSupervisor,
         Octopus.AppManager,
         Octopus.Events.Router,
+        Octopus.Events.Event.Proximity.Processor,
         Octopus.InputAdapter,
         Octopus.PlaylistScheduler,
         Octopus.KioskModeManager,
         Octopus.Mixer,
-        Octopus.ProximitySensor,
 
         # WebApp
         {Finch, name: Octopus.Finch},
