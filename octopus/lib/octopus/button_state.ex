@@ -4,9 +4,10 @@ defmodule Octopus.ButtonState do
   alias Octopus.JoyState
   alias Octopus.ButtonState
   alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Installation
 
   defp button_map() do
-    num_buttons = Octopus.installation().num_buttons()
+    num_buttons = Installation.num_buttons()
 
     1..num_buttons
     |> Enum.map(fn i -> {i, i - 1} end)

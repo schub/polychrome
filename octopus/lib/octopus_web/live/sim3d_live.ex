@@ -4,6 +4,7 @@ defmodule OctopusWeb.Sim3dLive do
   alias Octopus.Mixer
   alias Octopus.Protobuf.{FirmwareConfig, RGBFrame}
   alias Octopus.Params.Sim3d, as: Params
+  alias Octopus.Installation
 
   @default_config %FirmwareConfig{
     easing_mode: :LINEAR,
@@ -40,7 +41,7 @@ defmodule OctopusWeb.Sim3dLive do
      assign(socket,
        id: socket.id,
        id_prefix: @id_prefix,
-       num_panels: Octopus.installation().num_panels()
+       num_panels: Installation.num_panels()
      )}
   end
 

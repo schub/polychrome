@@ -63,7 +63,8 @@ defmodule Octopus.Apps.ProximityDemo do
     canvas = Canvas.new(display_info.width, display_info.height)
 
     # Get all smoothed readings from the ProximitySensor
-    smoothed_measurements = Octopus.ProximitySensor.get_smoothed_values()
+    # smoothed_measurements = Octopus.ProximitySensor.get_smoothed_values()
+    smoothed_measurements = []
 
     Enum.reduce(smoothed_measurements, canvas, fn {{panel_index, sensor_index}, distance},
                                                   acc_canvas ->

@@ -39,7 +39,7 @@ defmodule Octopus.Apps.Train do
   def add_window_corners(canvas) do
     # Use dynamic panel layout instead of hardcoded gap calculation
     display_info = Octopus.App.get_display_info()
-    panel_count = display_info.panel_count
+    panel_count = display_info.num_panels
     panel_width = display_info.panel_width
 
     window_locations =

@@ -62,6 +62,7 @@ defmodule Octopus.MixProject do
       {:chameleon, "~> 2.5"},
       {:live_monaco_editor, "~> 0.2"},
       {:nimble_parsec, "~> 1.4"},
+      {:nimble_options, "~> 1.0"},
       {:mdns_lite, "~> 0.8.10"},
       {:oscx, "~> 0.1.1"}
     ]

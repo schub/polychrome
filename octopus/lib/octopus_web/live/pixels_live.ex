@@ -6,6 +6,7 @@ defmodule OctopusWeb.PixelsLive do
   alias Octopus.{Events, Mixer}
   alias Octopus.Protobuf.{FirmwareConfig, RGBFrame}
   alias Octopus.Events.Event.Input, as: InputEvent
+  alias Octopus.Installation
 
   @default_config %FirmwareConfig{
     easing_mode: :LINEAR,
@@ -15,7 +16,7 @@ defmodule OctopusWeb.PixelsLive do
   @id_prefix "pixels"
 
   defp get_views() do
-    [default_layout | _] = Octopus.installation().simulator_layouts()
+    [default_layout | _] = Installation.simulator_layouts()
 
     %{
       "default" => default_layout
@@ -25,7 +26,7 @@ defmodule OctopusWeb.PixelsLive do
   @default_view "default"
 
   defp get_key_map() do
-    num_buttons = Octopus.installation().num_buttons()
+    num_buttons = Installation.num_buttons()
 
     # Base button mappings for number keys and function keys
     button_mappings =
@@ -89,8 +90,8 @@ defmodule OctopusWeb.PixelsLive do
       end
 
     view_options = Enum.map(views, fn {k, v} -> [key: v.name, value: k] end)
-    max_windows = length(Octopus.installation().panels())
-    num_buttons = Octopus.installation().num_buttons()
+    max_windows = Installation.num_panels()
+    num_buttons = Installation.num_buttons()
 
     {:ok,
      socket

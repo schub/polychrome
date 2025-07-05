@@ -35,7 +35,7 @@ defmodule Octopus.Apps.Whackamole.Game do
     # Get display info for canvas dimensions
     display_info = Octopus.App.get_display_info()
     base_canvas = Canvas.new(display_info.width, display_info.height)
-    panel_count = display_info.panel_count
+    panel_count = display_info.num_panels
 
     Logger.info(
       "WhackAMole: Initializing game with canvas size #{display_info.width}x#{display_info.height}, #{panel_count} panels"

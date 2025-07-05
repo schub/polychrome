@@ -6,6 +6,7 @@ defmodule Octopus.Apps.Whackamole do
   alias Octopus.Canvas
   alias Octopus.Font
   alias Octopus.Apps.Whackamole.Game
+  alias Octopus.Installation
 
   @tick_every_ms 100
   @frame_rate 60
@@ -21,8 +22,7 @@ defmodule Octopus.Apps.Whackamole do
 
   def compatible?() do
     # Game works with any number of panels >= 3 for meaningful gameplay
-    installation = Octopus.installation()
-    installation.panel_count() >= 3
+    Installation.num_panels() >= 3
   end
 
   def app_init(_) do

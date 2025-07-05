@@ -5,6 +5,7 @@ defmodule Octopus.Apps.Rickroll do
   alias Octopus.Canvas
   alias Octopus.Protobuf.AudioFrame
   alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
+  alias Octopus.Installation
 
   require Logger
 
@@ -13,7 +14,7 @@ defmodule Octopus.Apps.Rickroll do
   def compatible?() do
     # Rickroll is compatible with installations that have at least one panel
     # and 8x8 pixel panels (for proper animation display)
-    installation_info = Octopus.App.get_installation_info()
+    installation_info = get_installation_info()
 
     installation_info.panel_count >= 1 and
       installation_info.panel_width >= 8 and
@@ -28,7 +29,7 @@ defmodule Octopus.Apps.Rickroll do
     single_panel_animation = WebP.load_animation("rickroll")
 
     # Get installation info to create tiled animation
-    installation_info = Octopus.App.get_installation_info()
+    installation_info = get_installation_info()
 
     # Create tiled animation that repeats across all panels
     tiled_animation = create_tiled_animation(single_panel_animation, installation_info)
@@ -50,7 +51,7 @@ defmodule Octopus.Apps.Rickroll do
   end
 
   def handle_event(%LifecycleEvent{type: :app_selected}, state) do
-    num_buttons = Octopus.installation().num_buttons()
+    num_buttons = Installation.num_buttons()
 
     1..num_buttons
     |> Enum.map(&%AudioFrame{uri: "file://rickroll.wav", stop: false, channel: &1})

@@ -66,9 +66,6 @@ defmodule Octopus.Apps.Ocean do
     }
   end
 
-  # Add delegate to access installation metadata
-  defdelegate installation, to: Octopus
-
   def app_init(%{wave_strength: wave_strength, damping: damping}) do
     # Configure display using new unified API - gapped_panels_wrapped layout for seamless wrapping
     Octopus.App.configure_display(layout: :gapped_panels_wrapped)
@@ -395,9 +392,9 @@ defmodule Octopus.Apps.Ocean do
     # Get display info to access panel_to_global_coords
     display_info = Octopus.App.get_display_info()
 
-    panel_width = installation().panel_width()
-    panel_height = installation().panel_height()
-    panel_count = installation().panel_count()
+    panel_width = display_info.panel_width
+    panel_height = display_info.panel_height
+    panel_count = display_info.num_panels
 
     if button_number < panel_count do
       case display_info.panel_to_global_coords.(button_number, 0, 0) do

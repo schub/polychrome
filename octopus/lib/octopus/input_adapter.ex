@@ -5,6 +5,7 @@ defmodule Octopus.InputAdapter do
   alias Octopus.{Protobuf, Events}
   alias Octopus.Protobuf.{InputEvent, InputLightEvent, SoundToLightControlEvent}
   alias Octopus.Events.Factory
+  alias Octopus.Installation
 
   defmodule State do
     defstruct [:udp, :from_ip, :from_port]
@@ -15,7 +16,7 @@ defmodule Octopus.InputAdapter do
   end
 
   def send_light_event(button, duration) when is_integer(button) and button >= 1 do
-    max_buttons = Octopus.installation().num_buttons()
+    max_buttons = Installation.num_buttons()
 
     if button <= max_buttons do
       binary =
