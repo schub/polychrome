@@ -104,7 +104,7 @@ defmodule Octopus.Apps.Whackamole.Game do
   def start_game_over(game) do
     # Clear any remaining animators and start game over sequence
     clear_all_animators(game)
-    start_game_over_animation(game)
+    start_game_over_animation(game, self())
 
     %{game | state: :game_over}
   end
@@ -197,11 +197,28 @@ defmodule Octopus.Apps.Whackamole.Game do
     end
   end
 
+  def handle_mole_warning(game, panel) do
+    case game.state do
+      :playing ->
+        if Map.has_key?(game.moles, panel) do
+          # Start warning animation - dramatic blinking without decrementing lives yet
+          mole = game.moles[panel]
+          warning_animation(game, mole)
+          game
+        else
+          game
+        end
+
+      _ ->
+        game
+    end
+  end
+
   def handle_mole_timeout(game, panel) do
     case game.state do
       :playing ->
         if Map.has_key?(game.moles, panel) do
-          # Mole timed out
+          # Mole actually timed out - decrement lives and remove mole
           moles = Map.delete(game.moles, panel)
           lives = game.lives - 1
 
@@ -217,10 +234,6 @@ defmodule Octopus.Apps.Whackamole.Game do
               game.active_animators
             end
 
-          # Start lost animation
-          mole = game.moles[panel]
-          lost_animation(game, mole)
-
           # Clear the stored mole sprite since the mole is gone
           send(self(), {:clear_mole_sprite, panel})
 
@@ -231,10 +244,10 @@ defmodule Octopus.Apps.Whackamole.Game do
               active_animators: updated_active_animators
           }
 
-          # Check if game over
+          # Check if game over - give more time for any remaining animations
           if lives <= 0 do
-            # Delay game over to allow animation to complete
-            :timer.send_after(500, {:game_over})
+            # Delay game over to allow any remaining animations to complete
+            :timer.send_after(1000, {:game_over})
             updated_game
           else
             updated_game
@@ -271,8 +284,19 @@ defmodule Octopus.Apps.Whackamole.Game do
               # Start spawn animation
               spawn_animation(game, panel)
 
-              # Schedule mole timeout
+              # Schedule mole warning (3 seconds before timeout)
               mole_timeout_ms = get_mole_timeout_ms(game.difficulty)
+              # Start warning 3s before timeout
+              warning_delay_ms = mole_timeout_ms - 3000
+
+              if warning_delay_ms > 0 do
+                :timer.send_after(warning_delay_ms, {:mole_warning, panel})
+              else
+                # If timeout is less than 3s, start warning immediately
+                :timer.send_after(100, {:mole_warning, panel})
+              end
+
+              # Schedule actual mole timeout
               :timer.send_after(mole_timeout_ms, {:mole_timeout, panel})
 
               %{game | moles: moles, last_mole_spawn_time: now}
@@ -364,46 +388,154 @@ defmodule Octopus.Apps.Whackamole.Game do
     :ok
   end
 
-  defp lost_animation(game, mole) do
-    red_canvas = background_canvas(game, 0, 100, 100)
+  defp warning_animation(game, mole) do
     blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
+    yellow_canvas = background_canvas(game, 60, 50, 70)
 
-    # Background red flashing effect
-    background_transition_fn = fn _canvas_sprite, _ ->
-      [blank_canvas, red_canvas, blank_canvas, red_canvas, blank_canvas, red_canvas, blank_canvas]
-    end
-
-    lost_animation_duration_ms = param(:lost_animation_duration_ms, 500)
-
-    # Start background red flashing effect
-    Animator.animate(
-      animation_id: {:background_effect, mole.pannel},
-      app_pid: self(),
-      canvas: blank_canvas,
-      position: {0, 0},
-      transition_fun: background_transition_fn,
-      duration: lost_animation_duration_ms,
-      canvas_size: {game.panel_width, game.panel_height},
-      frame_rate: 60
-    )
-
-    # Also animate the mole disappearing from foreground layer
+    # Get the stored mole sprite for this panel, or fallback to random
     sprite_canvas =
       Map.get(game.mole_sprites, mole.pannel) ||
         Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
 
-    # Mole fades out/disappears
+    # Create a proper accelerating blink pattern
+    # Start with slow blinks (long on/off periods) and progressively get faster
     foreground_transition_fn = fn _start, _ ->
-      [sprite_canvas, sprite_canvas, blank_canvas, blank_canvas]
+      # Create frames with decreasing blink duration
+      # Early frames: long on/off periods (slow blinks)
+      # Later frames: short on/off periods (fast blinks)
+      slow_blinks = [
+        # 4 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 4 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        # 4 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 4 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        blank_canvas
+      ]
+
+      medium_blinks = [
+        # 3 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 3 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        # 3 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 3 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        # 3 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 3 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas
+      ]
+
+      fast_blinks = [
+        # 2 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        # 2 frames OFF
+        blank_canvas,
+        blank_canvas,
+        # 2 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        # 2 frames OFF
+        blank_canvas,
+        blank_canvas,
+        # 2 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        # 2 frames OFF
+        blank_canvas,
+        blank_canvas,
+        # 2 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        # 2 frames OFF
+        blank_canvas,
+        blank_canvas
+      ]
+
+      rapid_blinks = [
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas
+      ]
+
+      # Combine all sequences for accelerating effect
+      slow_blinks ++ medium_blinks ++ fast_blinks ++ rapid_blinks ++ [blank_canvas]
     end
 
+    # Fixed 3 second warning
+    warning_animation_duration_ms = 3000
+
+    # Add static yellow background
+    Animator.animate(
+      animation_id: {:background_effect, mole.pannel},
+      app_pid: self(),
+      canvas: yellow_canvas,
+      position: {0, 0},
+      # Static - no transition
+      transition_fun: fn _start, target -> [target] end,
+      duration: warning_animation_duration_ms,
+      canvas_size: {game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
+
+    # Animate the mole sprite blinking with accelerating pattern
     Animator.animate(
       animation_id: {:foreground_mole, mole.pannel},
       app_pid: self(),
-      canvas: blank_canvas,
+      # Start with mole visible
+      canvas: sprite_canvas,
       position: {0, 0},
       transition_fun: foreground_transition_fn,
-      duration: lost_animation_duration_ms,
+      duration: warning_animation_duration_ms,
       canvas_size: {game.panel_width, game.panel_height},
       frame_rate: 60
     )
@@ -441,47 +573,41 @@ defmodule Octopus.Apps.Whackamole.Game do
   end
 
   defp whack_success_animation(game, panel) do
-    # Get the current mole sprite
-    sprite_canvas =
-      Map.get(game.mole_sprites, panel) || Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
-
-    # Create a green-tinted version of the mole sprite for success feedback
-    # Green background
-    green_canvas = background_canvas(game, 120, 80, 80)
-    green_tinted_mole = Canvas.blend(sprite_canvas, green_canvas, :multiply, 0.7)
-
+    # Green background effect on background layer
+    green_canvas = background_canvas(game, 120, 50, 70)
     blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
 
-    # Animate: normal mole → green tinted mole → mole going down → blank
-    transition_fun = fn _start_canvas, target_canvas ->
-      [sprite_canvas, green_tinted_mole, green_tinted_mole, target_canvas]
+    # Green flash effect on background layer
+    green_transition_fun = fn _start, _ ->
+      [blank_canvas, green_canvas, green_canvas, blank_canvas]
     end
 
-    # Use foreground layer for the complete success animation
-    # Total duration including green flash
-    success_duration = 600
+    green_duration = 400
 
+    # Start background green flash effect
     Animator.animate(
-      animation_id: {:foreground_mole, panel},
+      animation_id: {:background_effect, panel},
       app_pid: self(),
       canvas: blank_canvas,
       position: {0, 0},
-      transition_fun: transition_fun,
-      duration: success_duration,
+      transition_fun: green_transition_fun,
+      duration: green_duration,
       canvas_size: {game.panel_width, game.panel_height},
       frame_rate: 60
     )
+
+    # Start mole down animation simultaneously on foreground layer
+    down_animation(game, panel)
 
     InputAdapter.send_light_event(panel + 1, 500)
   end
 
   defp whack_fail_animation(game, panel, _hit?) do
     # Red background effect on background layer
-    red_canvas = background_canvas(game, 0, 75, 50)
+    red_canvas = background_canvas(game, 0, 50, 70)
     blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
 
     transition_fun = fn _start, _ -> [blank_canvas, red_canvas, blank_canvas] end
-    # Increased from 100ms to 300ms
     whack_duration = param(:whack_duration, 300)
 
     Animator.animate(
@@ -498,7 +624,7 @@ defmodule Octopus.Apps.Whackamole.Game do
     InputAdapter.send_light_event(panel + 1, 500)
   end
 
-  defp start_game_over_animation(game) do
+  defp start_game_over_animation(game, app_pid) do
     transition_fun = &Transitions.push(&1, &2, direction: :top, separation: 0)
     duration = 300
 
@@ -508,7 +634,7 @@ defmodule Octopus.Apps.Whackamole.Game do
 
     Animator.animate(
       animation_id: {:game_over},
-      app_pid: self(),
+      app_pid: app_pid,
       canvas: game_over,
       position: {0, 0},
       transition_fun: transition_fun,
@@ -522,9 +648,26 @@ defmodule Octopus.Apps.Whackamole.Game do
   end
 
   defp clear_all_animators(game) do
+    # Clear old-style tracked animators
     Enum.each(Map.keys(game.active_animators), fn animation_id ->
       Animator.clear(animation_id)
     end)
+
+    # Clear all mole-related animations for all panels
+    for panel <- 0..(game.panel_count - 1) do
+      # Clear foreground mole animations (spawn, warning, down)
+      Animator.clear({:foreground_mole, panel})
+      # Clear background effect animations (success, fail, warning)
+      Animator.clear({:background_effect, panel})
+    end
+
+    # Clear any intro/game-over animations that might be running
+    Animator.clear({:intro_whack})
+    Animator.clear({:intro_em})
+    Animator.clear({:game_over})
+    Animator.clear({:score})
+    Animator.clear({:highscore})
+    Animator.clear({:tilt})
 
     # Clear the display
     blank_canvas = Canvas.new(game.display_info.width, game.display_info.height)

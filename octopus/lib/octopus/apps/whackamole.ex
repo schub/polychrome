@@ -84,6 +84,12 @@ defmodule Octopus.Apps.Whackamole do
     {:noreply, %{state | game: updated_game}}
   end
 
+  def handle_info({:mole_warning, panel}, %State{} = state) do
+    # Handle mole warning - start dramatic blinking animation
+    updated_game = Game.handle_mole_warning(state.game, panel)
+    {:noreply, %{state | game: updated_game}}
+  end
+
   def handle_info({:spawn_mole}, %State{} = state) do
     Logger.info("Spawning mole in state: #{state.game.state}")
     # Spawn a new mole
@@ -387,11 +393,15 @@ defmodule Octopus.Apps.Whackamole do
           bg_canvas -> bg_canvas
         end
 
-      # Overlay foreground layer (if exists)
+      # Composite foreground layer with background, treating black pixels as transparent
       panel_canvas =
         case Map.get(foreground_canvases, panel_index) do
-          nil -> panel_canvas
-          fg_canvas -> Canvas.overlay(panel_canvas, fg_canvas, offset: {0, 0})
+          nil ->
+            panel_canvas
+
+          fg_canvas ->
+            # Composite foreground onto background, treating black as transparent
+            composite_with_transparency(panel_canvas, fg_canvas)
         end
 
       # Overlay the composed panel onto the display
@@ -399,13 +409,28 @@ defmodule Octopus.Apps.Whackamole do
     end)
   end
 
-  # Helper function to check if a canvas has any non-black content
-  defp has_color_content?(nil), do: false
+  # Composite foreground canvas onto background canvas, treating black pixels as transparent
+  defp composite_with_transparency(background_canvas, foreground_canvas) do
+    # Create a new canvas with the background as base
+    result_canvas = Canvas.new(background_canvas.width, background_canvas.height)
 
-  defp has_color_content?(canvas) do
-    # Simple check: if canvas has any non-black pixels, it has color content
-    # This is a heuristic - in practice, our background effects are either black or colored
-    canvas != Canvas.new(canvas.width, canvas.height) |> Canvas.fill({0, 0, 0})
+    # Copy background first
+    result_canvas = Canvas.overlay(result_canvas, background_canvas, offset: {0, 0})
+
+    # For each pixel in foreground, only copy if it's not black
+    for y <- 0..(foreground_canvas.height - 1),
+        x <- 0..(foreground_canvas.width - 1),
+        reduce: result_canvas do
+      acc ->
+        fg_pixel = Canvas.get_pixel(foreground_canvas, {x, y})
+
+        case fg_pixel do
+          # Black pixel - transparent, don't copy
+          {0, 0, 0} -> acc
+          # Non-black pixel - copy it
+          _ -> Canvas.put_pixel(acc, {x, y}, fg_pixel)
+        end
+    end
   end
 
   defp clear_panel_canvas(state, panel) do
