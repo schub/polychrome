@@ -13,7 +13,6 @@ defmodule Octopus.Canvas do
 
   alias Octopus.Font
   alias Octopus.WebP
-  alias Octopus.Protobuf.{RGBFrame, WFrame}
   alias Octopus.Canvas
 
   defstruct [:width, :height, :pixels, :mode]
@@ -199,9 +198,6 @@ defmodule Octopus.Canvas do
       Font.draw_char(font, char, variant, acc, {i * 8, 0})
     end)
   end
-
-  @window_width 8
-  @window_gap 18
 
   @doc """
   Translates the canvas by the given offset.
