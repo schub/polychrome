@@ -28,35 +28,28 @@ defmodule Octopus.Apps.Whackamole do
   end
 
   def app_init(_) do
-    Logger.info("WhackAMole app_init starting")
     # Configure display using modern unified API - adjacent layout for whackamole panels
     Octopus.App.configure_display(layout: :adjacent_panels)
 
     # Get display info for the game to use
     display_info = Octopus.App.get_display_info()
-    Logger.info("Display info: #{inspect(display_info)}")
 
     game = Game.new(display_info)
-    Logger.info("Game created with state: #{game.state}")
 
     # Start the intro sequence immediately and update the game state
     updated_game = Game.start_intro(game, self())
-    Logger.info("Game after start_intro: #{updated_game.state}")
 
     state = %State{
       game: updated_game,
       display_info: display_info
     }
 
-    Logger.info("WhackAMole app_init complete")
     {:ok, state}
   end
 
   def handle_info({:intro_complete}, %State{} = state) do
-    Logger.info("Intro complete - transitioning to playing state")
     # Transition from intro to playing state
     updated_game = Game.start_playing(state.game)
-    Logger.info("Game transitioned to: #{updated_game.state}")
     {:noreply, %{state | game: updated_game}}
   end
 
@@ -91,7 +84,6 @@ defmodule Octopus.Apps.Whackamole do
   end
 
   def handle_info({:spawn_mole}, %State{} = state) do
-    Logger.info("Spawning mole in state: #{state.game.state}")
     # Spawn a new mole
     updated_game = Game.maybe_spawn_mole(state.game)
 
@@ -143,7 +135,6 @@ defmodule Octopus.Apps.Whackamole do
   end
 
   def handle_info({:start_intro_em}, %State{} = state) do
-    Logger.info("Starting intro 'EM! animation")
     # Start the "'EM!" animation
     game = state.game
     transition_fun = &Transitions.push(&1, &2, direction: :top, separation: 0)
@@ -165,7 +156,6 @@ defmodule Octopus.Apps.Whackamole do
     )
 
     # Schedule intro completion - keep text visible for 1 second after animation finishes
-    Logger.info("Scheduling intro completion in #{duration + 1000}ms")
     :timer.send_after(duration + 1000, {:intro_complete})
 
     {:noreply, state}
@@ -241,7 +231,6 @@ defmodule Octopus.Apps.Whackamole do
   end
 
   def handle_info({:animator_update, animation_id, canvas, frame_status}, %State{} = state) do
-    Logger.debug("Animator update: #{inspect(animation_id)}, frame_status: #{frame_status}")
     # Handle canvas updates from the Animator module with animation identification
     updated_state =
       case animation_id do

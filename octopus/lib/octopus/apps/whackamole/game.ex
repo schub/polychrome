@@ -70,8 +70,6 @@ defmodule Octopus.Apps.Whackamole.Game do
       Canvas.new(6 * game.panel_width, game.panel_height)
       |> Canvas.put_string({0, 0}, " WHACK", game.font, 0)
 
-    Logger.info("Starting intro WHACK animation")
-
     # Start "WHACK" animation
     Animator.animate(
       animation_id: {:intro_whack},
@@ -273,7 +271,6 @@ defmodule Octopus.Apps.Whackamole.Game do
 
           case free_panels do
             [] ->
-              Logger.debug("No free panels for mole spawn")
               game
 
             _ ->
