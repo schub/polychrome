@@ -376,7 +376,7 @@ defmodule Octopus.Apps.Whackamole.Game do
 
     # Get the stored mole sprite for this panel, or fallback to random
     sprite_canvas =
-      Map.get(game.mole_sprites, mole.pannel) ||
+      Map.get(game.mole_sprites, mole.panel) ||
         Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
 
     # Create a proper accelerating blink pattern
@@ -498,7 +498,7 @@ defmodule Octopus.Apps.Whackamole.Game do
 
     # Add static yellow background
     Animator.animate(
-      animation_id: {:background_effect, mole.pannel},
+      animation_id: {:background_effect, mole.panel},
       app_pid: self(),
       canvas: yellow_canvas,
       position: {0, 0},
@@ -511,7 +511,7 @@ defmodule Octopus.Apps.Whackamole.Game do
 
     # Animate the mole sprite blinking with accelerating pattern
     Animator.animate(
-      animation_id: {:foreground_mole, mole.pannel},
+      animation_id: {:foreground_mole, mole.panel},
       app_pid: self(),
       # Start with mole visible
       canvas: sprite_canvas,
