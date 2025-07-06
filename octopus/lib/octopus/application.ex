@@ -33,6 +33,7 @@ defmodule Octopus.Application do
         # Apps
         Octopus.Broadcaster,
         {Registry, keys: :unique, name: Octopus.AppRegistry},
+        {Registry, keys: :unique, name: Octopus.Animator},
         Octopus.AppSupervisor,
         Octopus.AppManager,
         Octopus.Events.Router,
