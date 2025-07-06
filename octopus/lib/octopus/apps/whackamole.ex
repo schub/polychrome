@@ -22,7 +22,7 @@ defmodule Octopus.Apps.Whackamole do
     # and requires 8x8 pixel panels for proper mole sprite display
     installation_info = Octopus.App.get_installation_info()
 
-    installation_info.panel_count >= 10 and
+    installation_info.panel_count >= 3 and
       installation_info.panel_width == 8 and
       installation_info.panel_height == 8
   end
@@ -170,7 +170,7 @@ defmodule Octopus.Apps.Whackamole do
     text = " SCORE #{game.score |> to_string()}"
 
     score =
-      Canvas.new(10 * game.panel_width, game.panel_height)
+      Canvas.new(game.panel_count * game.panel_width, game.panel_height)
       |> Canvas.put_string({0, 0}, text, game.font, 2)
 
     Animator.animate(
@@ -180,7 +180,7 @@ defmodule Octopus.Apps.Whackamole do
       position: {0, 0},
       transition_fun: transition_fun,
       duration: duration,
-      canvas_size: {10 * game.panel_width, game.panel_height},
+      canvas_size: {game.panel_count * game.panel_width, game.panel_height},
       frame_rate: 60
     )
 
@@ -200,11 +200,11 @@ defmodule Octopus.Apps.Whackamole do
       if game.score > game.highscore do
         Game.write_highscore(game.score)
 
-        Canvas.new(10 * game.panel_width, game.panel_height)
+        Canvas.new(game.panel_count * game.panel_width, game.panel_height)
         |> Canvas.put_string({0, 0}, "HI-SCORE!", game.font, 0)
       else
-        Canvas.new(10 * game.panel_width, game.panel_height)
-        |> Canvas.put_string({0, 0}, " HI #{game.highscore}", game.font, 0)
+        Canvas.new(game.panel_count * game.panel_width, game.panel_height)
+        |> Canvas.put_string({0, 0}, "HI #{game.highscore}", game.font, 0)
       end
 
     Animator.animate(
@@ -214,7 +214,7 @@ defmodule Octopus.Apps.Whackamole do
       position: {0, 0},
       transition_fun: transition_fun,
       duration: duration,
-      canvas_size: {10 * game.panel_width, game.panel_height},
+      canvas_size: {game.panel_count * game.panel_width, game.panel_height},
       frame_rate: 60
     )
 

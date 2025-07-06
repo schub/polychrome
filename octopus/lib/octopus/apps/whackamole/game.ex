@@ -112,11 +112,11 @@ defmodule Octopus.Apps.Whackamole.Game do
     duration = 1000
 
     tilt =
-      Canvas.new(10 * game.panel_width, game.panel_height)
+      Canvas.new(game.panel_count * game.panel_width, game.panel_height)
       |> Canvas.put_string({0, 0}, "   TILT!", game.font, 3)
 
     blank_canvas =
-      Canvas.new(10 * game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
+      Canvas.new(game.panel_count * game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
 
     transition_fun = &[&1, tilt, blank_canvas, tilt, blank_canvas, &2]
 
@@ -127,7 +127,7 @@ defmodule Octopus.Apps.Whackamole.Game do
       position: {0, 0},
       transition_fun: transition_fun,
       duration: duration,
-      canvas_size: {10 * game.panel_width, game.panel_height},
+      canvas_size: {game.panel_count * game.panel_width, game.panel_height},
       frame_rate: 60
     )
 
@@ -611,7 +611,7 @@ defmodule Octopus.Apps.Whackamole.Game do
     duration = 300
 
     game_over =
-      Canvas.new(10 * game.panel_width, game.panel_height)
+      Canvas.new(game.panel_count * game.panel_width, game.panel_height)
       |> Canvas.put_string({0, 0}, "GAME OVER", game.font, 1)
 
     Animator.animate(
@@ -621,7 +621,7 @@ defmodule Octopus.Apps.Whackamole.Game do
       position: {0, 0},
       transition_fun: transition_fun,
       duration: duration,
-      canvas_size: {10 * game.panel_width, game.panel_height},
+      canvas_size: {game.panel_count * game.panel_width, game.panel_height},
       frame_rate: 60
     )
 
