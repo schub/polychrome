@@ -169,7 +169,7 @@ defmodule Octopus.Apps.Whackamole do
     text = " SCORE #{game.score |> to_string()}"
 
     score =
-      Canvas.new(game.panel_count * game.panel_width, game.panel_height)
+      Canvas.new(state.game.display_info.num_panels * game.panel_width, game.panel_height)
       |> Canvas.put_string({0, 0}, text, game.font, 2)
 
     Animator.animate(
@@ -179,7 +179,7 @@ defmodule Octopus.Apps.Whackamole do
       position: {0, 0},
       transition_fun: transition_fun,
       duration: duration,
-      canvas_size: {game.panel_count * game.panel_width, game.panel_height},
+      canvas_size: {state.game.display_info.num_panels * game.panel_width, game.panel_height},
       frame_rate: 60
     )
 
@@ -199,10 +199,10 @@ defmodule Octopus.Apps.Whackamole do
       if game.score > game.highscore do
         Game.write_highscore(game.score)
 
-        Canvas.new(game.panel_count * game.panel_width, game.panel_height)
+        Canvas.new(state.game.display_info.num_panels * game.panel_width, game.panel_height)
         |> Canvas.put_string({0, 0}, "HI-SCORE!", game.font, 0)
       else
-        Canvas.new(game.panel_count * game.panel_width, game.panel_height)
+        Canvas.new(state.game.display_info.num_panels * game.panel_width, game.panel_height)
         |> Canvas.put_string({0, 0}, "HI #{game.highscore}", game.font, 0)
       end
 
@@ -213,7 +213,7 @@ defmodule Octopus.Apps.Whackamole do
       position: {0, 0},
       transition_fun: transition_fun,
       duration: duration,
-      canvas_size: {game.panel_count * game.panel_width, game.panel_height},
+      canvas_size: {state.game.display_info.num_panels * game.panel_width, game.panel_height},
       frame_rate: 60
     )
 
