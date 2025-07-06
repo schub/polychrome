@@ -438,13 +438,17 @@ defmodule Octopus.Canvas do
   def join(%Canvas{} = canvas1, %Canvas{} = canvas2, opts \\ []) do
     direction = Keyword.get(opts, :direction, :horizontal)
 
+    {dx, dy} =
+      case direction do
+        :horizontal -> {canvas1.width, 0}
+        :vertical -> {0, canvas1.height}
+      end
+
     pixels =
-      Enum.reduce(canvas2.pixels, canvas1.pixels, fn {{x, y}, color}, pixels ->
-        case direction do
-          :horizontal -> Map.put(pixels, {x + canvas1.width, y}, color)
-          :vertical -> Map.put(pixels, {x, y + canvas1.height}, color)
-        end
-      end)
+      for x <- 0..(canvas2.width - 1),
+          y <- 0..(canvas2.height - 1),
+          do: {{x + dx, y + dy}, Canvas.get_pixel(canvas2, {x, y})},
+          into: canvas1.pixels
 
     {width, height} =
       case direction do

@@ -19,7 +19,7 @@ defmodule Octopus.MixerTest do
     assert is_integer(display_info.height)
     assert is_integer(display_info.panel_width)
     assert is_integer(display_info.panel_height)
-    assert is_integer(display_info.panel_count)
+    assert is_integer(display_info.num_panels)
     assert is_integer(display_info.panel_gap)
     assert is_function(display_info.panel_range, 2)
     assert is_function(display_info.panel_at_coord, 2)
@@ -69,16 +69,5 @@ defmodule Octopus.MixerTest do
     # Outside bounds should return :not_found
     assert display_info.panel_at_coord.(-1, 0) == :not_found
     assert display_info.panel_at_coord.(0, -1) == :not_found
-  end
-
-  test "can set selected apps" do
-    app_ids = [:app1, :app2]
-    assert :ok = Mixer.set_selected_apps(app_ids)
-  end
-
-  test "can set output mode" do
-    assert :ok = Mixer.set_output_mode(:rgb)
-    assert :ok = Mixer.set_output_mode(:grayscale)
-    assert :ok = Mixer.set_output_mode(:masked)
   end
 end

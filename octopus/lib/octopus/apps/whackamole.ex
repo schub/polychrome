@@ -8,6 +8,11 @@ defmodule Octopus.Apps.Whackamole do
   alias Octopus.Apps.Whackamole.Game
   alias Octopus.Animator
   alias Octopus.Transitions
+  alias Octopus.Installation
+
+  @tick_every_ms 100
+  @frame_rate 60
+  @frame_time_ms trunc(1000 / @frame_rate)
 
   defmodule State do
     defstruct [:game, :display_info]
@@ -20,11 +25,9 @@ defmodule Octopus.Apps.Whackamole do
   def compatible?() do
     # Game works with any number of panels >= 3 for meaningful gameplay
     # and requires 8x8 pixel panels for proper mole sprite display
-    installation_info = Octopus.App.get_installation_info()
-
-    installation_info.panel_count >= 3 and
-      installation_info.panel_width == 8 and
-      installation_info.panel_height == 8
+    Installation.num_panels() >= 3 and
+      Installation.panel_width() == 8 and
+      Installation.panel_height() == 8
   end
 
   def app_init(_) do
@@ -288,9 +291,7 @@ defmodule Octopus.Apps.Whackamole do
         %State{} = state
       ) do
     # Check if button is within valid range for current installation
-    installation_info = Octopus.App.get_installation_info()
-
-    if button >= 1 and button <= installation_info.panel_count do
+    if button >= 1 and button <= Installation.num_panels() do
       button_number = button - 1
       updated_game = Game.handle_whack(state.game, button_number)
       {:noreply, %State{state | game: updated_game}}

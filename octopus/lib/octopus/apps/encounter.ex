@@ -41,7 +41,7 @@ defmodule Octopus.Apps.Encounter do
       |> Jason.decode!(keys: :atoms)
 
     # Dynamically assign channels based on available panels
-    panel_count = display_info.panel_count
+    panel_count = display_info.num_panels
     half_panels = div(panel_count, 2)
 
     # Split channels across two tracks based on panel count

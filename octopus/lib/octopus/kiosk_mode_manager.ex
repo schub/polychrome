@@ -5,6 +5,7 @@ defmodule Octopus.KioskModeManager do
   alias Octopus.{AppSupervisor, AppManager, PlaylistScheduler, InputAdapter}
   alias Octopus.Events.Event.Input, as: InputEvent
   alias Octopus.PlaylistScheduler.Playlist
+  alias Octopus.Installation
 
   @game Octopus.Apps.Whackamole
   @playlist_name "Default"
@@ -133,7 +134,7 @@ defmodule Octopus.KioskModeManager do
   def handle_call(:is_started?, _, state), do: {:reply, true, state}
 
   def handle_info(:idle, %State{status: :playlist} = state) do
-    num_buttons = Octopus.installation().num_buttons()
+    num_buttons = Installation.num_buttons()
     InputAdapter.send_light_event(Enum.random(1..num_buttons), @idle_animation_duration)
 
     {:noreply, state}

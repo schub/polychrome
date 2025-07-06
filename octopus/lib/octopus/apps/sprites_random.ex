@@ -24,7 +24,7 @@ defmodule Octopus.Apps.Sprites do
     # Get display info instead of screen count
     display_info = Octopus.App.get_display_info()
     # Calculate screen count based on panel count (assuming 1 screen per panel)
-    screens = display_info.panel_count
+    screens = display_info.num_panels
 
     indexes = Enum.map(1..screens, fn _ -> Enum.random(0..255) end)
 

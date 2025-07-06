@@ -71,11 +71,11 @@ defmodule Octopus.Apps.Text do
     font = Font.load(state.font)
 
     # Get dynamic panel dimensions
-    display_info = Octopus.App.get_display_info()
-    empty_window = Canvas.new(display_info.panel_width, display_info.panel_height)
+    installation_info = Octopus.App.get_installation_info()
+    empty_window = Canvas.new(installation_info.panel_width, installation_info.panel_height)
 
     text_chars = String.to_charlist(state.text)
-    max_chars = min(length(text_chars), display_info.panel_count)
+    max_chars = min(length(text_chars), installation_info.panel_count)
 
     text_chars
     # Limit to available panels

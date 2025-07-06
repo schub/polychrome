@@ -3,6 +3,7 @@ defmodule Octopus.Apps.Whackamole.Game do
   require Logger
   alias Octopus.{Canvas, Font, Animator, Transitions, Sprite, InputAdapter}
   alias Octopus.Apps.Whackamole.Mole
+  alias Octopus.Installation
 
   defstruct [
     :state,
@@ -14,7 +15,6 @@ defmodule Octopus.Apps.Whackamole.Game do
     :whack_times,
     :highscore,
     :display_info,
-    :panel_count,
     :panel_width,
     :panel_height,
     :active_animators,
@@ -48,7 +48,6 @@ defmodule Octopus.Apps.Whackamole.Game do
       whack_times: [],
       highscore: read_highscore(),
       display_info: display_info,
-      panel_count: display_info.panel_count,
       panel_width: display_info.panel_width,
       panel_height: display_info.panel_height,
       active_animators: %{},
@@ -112,11 +111,11 @@ defmodule Octopus.Apps.Whackamole.Game do
     duration = 1000
 
     tilt =
-      Canvas.new(game.panel_count * game.panel_width, game.panel_height)
+      Canvas.new(Installation.num_panels() * game.panel_width, game.panel_height)
       |> Canvas.put_string({0, 0}, "   TILT!", game.font, 3)
 
     blank_canvas =
-      Canvas.new(game.panel_count * game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
+      Canvas.new(Installation.num_panels() * game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
 
     transition_fun = &[&1, tilt, blank_canvas, tilt, blank_canvas, &2]
 
@@ -127,7 +126,7 @@ defmodule Octopus.Apps.Whackamole.Game do
       position: {0, 0},
       transition_fun: transition_fun,
       duration: duration,
-      canvas_size: {game.panel_count * game.panel_width, game.panel_height},
+      canvas_size: {Installation.num_panels() * game.panel_width, game.panel_height},
       frame_rate: 60
     )
 
@@ -252,7 +251,7 @@ defmodule Octopus.Apps.Whackamole.Game do
 
         if now - game.last_mole_spawn_time > mole_delay_ms do
           panels_with_moles = Map.keys(game.moles)
-          free_panels = Enum.to_list(0..(game.panel_count - 1)) -- panels_with_moles
+          free_panels = Enum.to_list(0..(Installation.num_panels() - 1)) -- panels_with_moles
 
           case free_panels do
             [] ->
@@ -611,7 +610,7 @@ defmodule Octopus.Apps.Whackamole.Game do
     duration = 300
 
     game_over =
-      Canvas.new(game.panel_count * game.panel_width, game.panel_height)
+      Canvas.new(Installation.num_panels() * game.panel_width, game.panel_height)
       |> Canvas.put_string({0, 0}, "GAME OVER", game.font, 1)
 
     Animator.animate(
@@ -621,7 +620,7 @@ defmodule Octopus.Apps.Whackamole.Game do
       position: {0, 0},
       transition_fun: transition_fun,
       duration: duration,
-      canvas_size: {game.panel_count * game.panel_width, game.panel_height},
+      canvas_size: {Installation.num_panels() * game.panel_width, game.panel_height},
       frame_rate: 60
     )
 
@@ -636,7 +635,7 @@ defmodule Octopus.Apps.Whackamole.Game do
     end)
 
     # Clear all mole-related animations for all panels
-    for panel <- 0..(game.panel_count - 1) do
+    for panel <- 0..(Installation.num_panels() - 1) do
       # Clear foreground mole animations (spawn, warning, down)
       Animator.clear({:foreground_mole, panel})
       # Clear background effect animations (success, fail, warning)

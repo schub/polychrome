@@ -22,7 +22,7 @@ defmodule Octopus.Apps.Lemmings do
     display_info = Octopus.App.get_display_info()
 
     button_map =
-      0..(display_info.panel_count - 1)
+      0..(display_info.num_panels - 1)
       |> Enum.map(fn i -> {"BUTTON_#{i + 1}" |> String.to_atom(), i} end)
       |> Enum.into(%{})
 
@@ -30,7 +30,7 @@ defmodule Octopus.Apps.Lemmings do
       lemmings: [
         Lemming.walking_left(display_info),
         Lemming.walking_right(display_info),
-        Lemming.stopper(display_info, :rand.uniform(display_info.panel_count - 2))
+        Lemming.stopper(display_info, :rand.uniform(display_info.num_panels - 2))
       ],
       button_map: button_map
     }
@@ -64,7 +64,7 @@ defmodule Octopus.Apps.Lemmings do
     {:noreply, new_state} =
       handle_number_button_press(
         state,
-        :rand.uniform(display_info.panel_count) - 1
+        :rand.uniform(display_info.num_panels) - 1
       )
 
     new_state

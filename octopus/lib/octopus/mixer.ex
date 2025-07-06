@@ -2,7 +2,7 @@ defmodule Octopus.Mixer do
   use GenServer
   require Logger
 
-  alias Octopus.{Broadcaster, Protobuf, Canvas, AppManager, AppSupervisor}
+  alias Octopus.{Broadcaster, Protobuf, Canvas, AppManager, AppSupervisor, Installation}
 
   alias Octopus.Protobuf.{
     RGBFrame,
@@ -111,9 +111,8 @@ defmodule Octopus.Mixer do
     display_info = build_display_info(:gapped_panels)
 
     # Initialize buffer canvas
-    installation = Octopus.installation()
-    buffer_width = installation.panel_count() * installation.panel_width()
-    buffer_height = installation.panel_height()
+    buffer_width = Installation.num_panels() * Installation.panel_width()
+    buffer_height = Installation.panel_height()
 
     {:ok,
      %State{display_info: display_info, buffer_canvas: Canvas.new(buffer_width, buffer_height)}}
@@ -453,8 +452,7 @@ defmodule Octopus.Mixer do
       |> Canvas.overlay(canvas, offset: offset)
 
     # Generate frame for buffer canvas
-    installation = Octopus.installation()
-    panel_width = installation.panel_width()
+    panel_width = Installation.panel_width()
 
     data =
       for window <- 0..(div(buffer_canvas.width, panel_width) - 1),
@@ -471,9 +469,7 @@ defmodule Octopus.Mixer do
   end
 
   defp do_stop_audio_playback() do
-    installation = Octopus.installation()
-
-    for channel <- 1..installation.panel_count() do
+    for channel <- 1..Installation.num_panels() do
       %AudioFrame{
         channel: channel,
         stop: true
@@ -487,13 +483,12 @@ defmodule Octopus.Mixer do
 
   # Converts a canvas to frame using layout-aware pixel extraction.
   defp canvas_to_frame(canvas, display_info, easing_interval) do
-    installation = Octopus.installation()
-    panel_width = installation.panel_width()
-    panel_height = installation.panel_height()
+    panel_width = Installation.panel_width()
+    panel_height = Installation.panel_height()
 
     # Iterate through panels in order
     data =
-      for panel_id <- 0..(installation.panel_count() - 1),
+      for panel_id <- 0..(Installation.num_panels() - 1),
           y <- 0..(panel_height - 1),
           x <- 0..(panel_width - 1) do
         # Calculate virtual canvas coordinates for this panel pixel
@@ -513,13 +508,12 @@ defmodule Octopus.Mixer do
 
   # Converts a grayscale canvas to WFrame using layout-aware pixel extraction.
   defp canvas_to_wframe(canvas, display_info, easing_interval) do
-    installation = Octopus.installation()
-    panel_width = installation.panel_width()
-    panel_height = installation.panel_height()
+    panel_width = Installation.panel_width()
+    panel_height = Installation.panel_height()
 
     # Iterate through panels in order
     data =
-      for panel_id <- 0..(installation.panel_count() - 1),
+      for panel_id <- 0..(Installation.num_panels() - 1),
           y <- 0..(panel_height - 1),
           x <- 0..(panel_width - 1) do
         # Calculate virtual canvas coordinates for this panel pixel
@@ -543,16 +537,15 @@ defmodule Octopus.Mixer do
 
   # Converts canvas to frame with masking applied during frame generation
   defp canvas_to_frame_with_mask(canvas, mask_canvas, display_info, easing_interval, output_type) do
-    installation = Octopus.installation()
-    panel_width = installation.panel_width()
-    panel_height = installation.panel_height()
+    panel_width = Installation.panel_width()
+    panel_height = Installation.panel_height()
 
     # Ensure mask canvas is in grayscale format for masking
     grayscale_mask = Canvas.to_grayscale(mask_canvas)
 
     # Iterate through panels in order with masking applied
     data =
-      for panel_id <- 0..(installation.panel_count() - 1),
+      for panel_id <- 0..(Installation.num_panels() - 1),
           y <- 0..(panel_height - 1),
           x <- 0..(panel_width - 1) do
         # Calculate virtual canvas coordinates for this panel pixel
@@ -596,16 +589,15 @@ defmodule Octopus.Mixer do
 
   # Converts canvas to wframe with masking applied during frame generation
   defp canvas_to_wframe_with_mask(canvas, mask_canvas, display_info, easing_interval) do
-    installation = Octopus.installation()
-    panel_width = installation.panel_width()
-    panel_height = installation.panel_height()
+    panel_width = Installation.panel_width()
+    panel_height = Installation.panel_height()
 
     # Ensure mask canvas is in grayscale format for masking
     grayscale_mask = Canvas.to_grayscale(mask_canvas)
 
     # Iterate through panels in order with masking applied
     data =
-      for panel_id <- 0..(installation.panel_count() - 1),
+      for panel_id <- 0..(Installation.num_panels() - 1),
           y <- 0..(panel_height - 1),
           x <- 0..(panel_width - 1) do
         # Calculate virtual canvas coordinates for this panel pixel
@@ -634,8 +626,6 @@ defmodule Octopus.Mixer do
   end
 
   defp build_display_info(layout) do
-    installation = Octopus.installation()
-
     # Build layout-specific functions based on layout type
     {panel_range_fn, width} =
       case layout do
@@ -643,69 +633,69 @@ defmodule Octopus.Mixer do
           range_fn = fn panel_id, axis ->
             case axis do
               :x ->
-                panel_width = installation.panel_width()
+                panel_width = Installation.panel_width()
                 x_offset = panel_id * panel_width
                 {x_offset, x_offset + panel_width - 1}
 
               :y ->
-                panel_height = installation.panel_height()
+                panel_height = Installation.panel_height()
                 {0, panel_height - 1}
             end
           end
 
           # Panels are directly adjacent, no gaps
-          calculated_width = installation.panel_count() * installation.panel_width()
+          calculated_width = Installation.num_panels() * Installation.panel_width()
           {range_fn, calculated_width}
 
         :gapped_panels ->
           range_fn = fn panel_id, axis ->
             case axis do
               :x ->
-                panel_width = installation.panel_width()
-                panel_gap = installation.panel_gap()
+                panel_width = Installation.panel_width()
+                panel_gap = Installation.panel_gap()
                 x_offset = panel_id * (panel_width + panel_gap)
                 {x_offset, x_offset + panel_width - 1}
 
               :y ->
-                panel_height = installation.panel_height()
+                panel_height = Installation.panel_height()
                 {0, panel_height - 1}
             end
           end
 
           # Gaps only between panels, not after the last one
-          panel_count = installation.panel_count()
-          panel_width = installation.panel_width()
-          panel_gap = installation.panel_gap()
-          calculated_width = panel_count * panel_width + (panel_count - 1) * panel_gap
+          num_panels = Installation.num_panels()
+          panel_width = Installation.panel_width()
+          panel_gap = Installation.panel_gap()
+          calculated_width = num_panels * panel_width + (num_panels - 1) * panel_gap
           {range_fn, calculated_width}
 
         :gapped_panels_wrapped ->
           range_fn = fn panel_id, axis ->
             case axis do
               :x ->
-                panel_width = installation.panel_width()
-                panel_gap = installation.panel_gap()
+                panel_width = Installation.panel_width()
+                panel_gap = Installation.panel_gap()
                 x_offset = panel_id * (panel_width + panel_gap)
                 {x_offset, x_offset + panel_width - 1}
 
               :y ->
-                panel_height = installation.panel_height()
+                panel_height = Installation.panel_height()
                 {0, panel_height - 1}
             end
           end
 
           # Gaps between panels AND after the last panel for wrapping
-          panel_count = installation.panel_count()
-          panel_width = installation.panel_width()
-          panel_gap = installation.panel_gap()
-          calculated_width = panel_count * (panel_width + panel_gap)
+          num_panels = Installation.num_panels()
+          panel_width = Installation.panel_width()
+          panel_gap = Installation.panel_gap()
+          calculated_width = num_panels * (panel_width + panel_gap)
           {range_fn, calculated_width}
       end
 
     panel_at_coord_fn = fn x, y ->
-      panel_count = installation.panel_count()
+      num_panels = Installation.num_panels()
 
-      Enum.find(0..(panel_count - 1), fn panel_id ->
+      Enum.find(0..(num_panels - 1), fn panel_id ->
         {start_x, end_x} = panel_range_fn.(panel_id, :x)
         {start_y, end_y} = panel_range_fn.(panel_id, :y)
         x >= start_x and x <= end_x and y >= start_y and y <= end_y
@@ -713,9 +703,9 @@ defmodule Octopus.Mixer do
     end
 
     panel_to_global_coords_fn = fn panel_id, local_x, local_y ->
-      panel_count = installation.panel_count()
+      num_panels = Installation.num_panels()
 
-      if panel_id >= 0 and panel_id < panel_count do
+      if panel_id >= 0 and panel_id < num_panels do
         {x_offset, _} = panel_range_fn.(panel_id, :x)
         {_, y_offset} = panel_range_fn.(panel_id, :y)
         {x_offset + local_x, y_offset + local_y}
@@ -727,11 +717,11 @@ defmodule Octopus.Mixer do
     %{
       layout: layout,
       width: width,
-      height: installation.panel_height(),
-      panel_width: installation.panel_width(),
-      panel_height: installation.panel_height(),
-      panel_count: installation.panel_count(),
-      panel_gap: installation.panel_gap(),
+      height: Installation.panel_height(),
+      panel_width: Installation.panel_width(),
+      panel_height: Installation.panel_height(),
+      num_panels: Installation.num_panels(),
+      panel_gap: Installation.panel_gap(),
       panel_range: panel_range_fn,
       panel_at_coord: panel_at_coord_fn,
       panel_to_global_coords: panel_to_global_coords_fn

@@ -20,7 +20,7 @@ defmodule Octopus.AppTest do
     assert is_integer(display_info.height)
     assert is_integer(display_info.panel_width)
     assert is_integer(display_info.panel_height)
-    assert is_integer(display_info.panel_count)
+    assert is_integer(display_info.num_panels)
     assert is_integer(display_info.panel_gap)
     assert is_function(display_info.panel_range, 2)
     assert is_function(display_info.panel_at_coord, 2)
@@ -34,7 +34,7 @@ defmodule Octopus.AppTest do
     assert display_info.height > 0
     assert display_info.panel_width > 0
     assert display_info.panel_height > 0
-    assert display_info.panel_count > 0
+    assert display_info.num_panels > 0
     assert display_info.panel_gap >= 0
   end
 
@@ -86,6 +86,6 @@ defmodule Octopus.AppTest do
     # Both should have same panel dimensions but different total widths
     assert gapped_info.panel_width == adjacent_info.panel_width
     assert gapped_info.panel_height == adjacent_info.panel_height
-    assert gapped_info.panel_count == adjacent_info.panel_count
+    assert gapped_info.num_panels == adjacent_info.num_panels
   end
 end

@@ -88,9 +88,9 @@ defmodule Octopus.Apps.SpritesGrouped do
     Octopus.App.configure_display(layout: :adjacent_panels, easing_interval: @easing_interval)
 
     # Get dynamic dimensions from display info
-    display_info = Octopus.App.get_display_info()
-    sprite_panel_width = trunc(display_info.panel_width)
-    num_panels = display_info.panel_count
+    installation_info = Octopus.App.get_installation_info()
+    sprite_panel_width = trunc(installation_info.panel_width)
+    num_panels = installation_info.panel_count
 
     state =
       %State{

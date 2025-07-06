@@ -7,6 +7,7 @@ defmodule Octopus.Apps.PixelFun do
   alias Octopus.Events.Event.Audio, as: AudioEvent
   alias Octopus.Events.Event.Input, as: InputEvent
   alias Octopus.Apps.PixelFun.Program
+  alias Octopus.Installation
 
   @fps 60
   @frame_time_ms trunc(1000 / @fps)
@@ -41,8 +42,6 @@ defmodule Octopus.Apps.PixelFun do
     installation_info = Octopus.App.get_installation_info()
     installation_info.panel_width == 8 and installation_info.panel_height == 8
   end
-
-  defdelegate installation, to: Octopus
 
   def config_schema() do
     %{
@@ -275,7 +274,7 @@ defmodule Octopus.Apps.PixelFun do
     center_x = display_info.width / 2 - 0.5
     center_y = display_info.height / 2 - 0.5
 
-    installation().panels()
+    Installation.panels()
     |> Enum.map(fn panel ->
       for {{x, y}, i} <- Enum.with_index(panel), into: Canvas.new(8, 8) do
         local_x = rem(i, 8)

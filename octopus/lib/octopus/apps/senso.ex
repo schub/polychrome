@@ -47,7 +47,7 @@ defmodule Octopus.Apps.Senso do
     display_info = Octopus.App.get_display_info()
 
     state = %State{
-      expected_sequence: generate_sequence(@first_squence_len, display_info.panel_count),
+      expected_sequence: generate_sequence(@first_squence_len, display_info.num_panels),
       index: 0,
       successes: 0,
       input_blocked: true,
@@ -74,7 +74,7 @@ defmodule Octopus.Apps.Senso do
     bottom_right = {elem(top_left, 0) + panel_width - 1, panel_height - 1}
 
     Canvas.new(state.display_info.width, state.display_info.height)
-    |> Canvas.fill_rect(top_left, bottom_right, get_color(window, state.display_info.panel_count))
+    |> Canvas.fill_rect(top_left, bottom_right, get_color(window, state.display_info.num_panels))
     |> Octopus.App.update_display()
 
     %SynthFrame{
@@ -112,7 +112,7 @@ defmodule Octopus.Apps.Senso do
 
   def handle_info(:reset, state) do
     newState = %State{
-      expected_sequence: generate_sequence(@first_squence_len, state.display_info.panel_count),
+      expected_sequence: generate_sequence(@first_squence_len, state.display_info.num_panels),
       index: 0,
       successes: 0,
       input_blocked: true,
@@ -127,7 +127,7 @@ defmodule Octopus.Apps.Senso do
   def handle_info(:success, %State{} = state) do
     newState = %State{
       expected_sequence:
-        state.expected_sequence ++ generate_sequence(1, state.display_info.panel_count),
+        state.expected_sequence ++ generate_sequence(1, state.display_info.num_panels),
       index: 0,
       successes: state.successes + 1,
       input_blocked: true,
@@ -149,7 +149,7 @@ defmodule Octopus.Apps.Senso do
         %InputEvent{type: :button, action: :press, button: button},
         %State{} = state
       )
-      when button >= 1 and button <= state.display_info.panel_count do
+      when button >= 1 and button <= state.display_info.num_panels do
     btn_num = button
 
     # Calculate panel position dynamically
@@ -162,7 +162,7 @@ defmodule Octopus.Apps.Senso do
     |> Canvas.fill_rect(
       top_left,
       bottom_right,
-      get_color(btn_num, state.display_info.panel_count)
+      get_color(btn_num, state.display_info.num_panels)
     )
     |> Octopus.App.update_display()
 
@@ -180,7 +180,7 @@ defmodule Octopus.Apps.Senso do
   end
 
   def handle_event(%InputEvent{type: :button, action: :release, button: button}, state)
-      when button >= 1 and button <= state.display_info.panel_count do
+      when button >= 1 and button <= state.display_info.num_panels do
     btn_num = button
 
     # Calculate panel position dynamically
@@ -224,7 +224,7 @@ defmodule Octopus.Apps.Senso do
   end
 
   def handle_event(%LifecycleEvent{type: :app_selected}, state) do
-    Enum.map(1..state.display_info.panel_count, fn channel ->
+    Enum.map(1..state.display_info.num_panels, fn channel ->
       %SynthFrame{
         event_type: :CONFIG,
         channel: channel,

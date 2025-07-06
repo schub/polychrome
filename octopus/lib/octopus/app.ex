@@ -28,10 +28,10 @@ defmodule Octopus.App do
     installation = Octopus.App.get_installation_info()
 
     # Example: App requires at least 10 panels
-    installation.panel_count >= 10
+    installation.num_panels >= 10
 
     # Example: App requires one button per panel
-    installation.num_buttons == installation.panel_count
+    installation.num_buttons == installation.num_panels
   end
   ```
 
@@ -56,6 +56,7 @@ defmodule Octopus.App do
   alias Octopus.Events.Event.Audio, as: AudioEvent
   alias Octopus.Events.Event.Input, as: InputEvent
   alias Octopus.Events.Event.Lifecycle, as: LifecycleEvent
+  alias Octopus.Installation
 
   alias Octopus.{Mixer, AppSupervisor}
 
@@ -245,16 +246,14 @@ defmodule Octopus.App do
   dimensions, or other installation-specific requirements.
   """
   def get_installation_info() do
-    installation = Application.get_env(:octopus, :installation)
-
     %{
-      panel_count: installation.panel_count(),
-      panel_width: installation.panel_width(),
-      panel_height: installation.panel_height(),
-      panel_gap: installation.panel_gap(),
-      width: installation.width(),
-      height: installation.height(),
-      num_buttons: installation.num_buttons()
+      panel_count: Installation.num_panels(),
+      panel_width: Installation.panel_width(),
+      panel_height: Installation.panel_height(),
+      panel_gap: Installation.panel_gap(),
+      width: Installation.width(),
+      height: Installation.height(),
+      num_buttons: Installation.num_buttons()
     }
   end
 
@@ -297,7 +296,7 @@ defmodule Octopus.App do
     height: integer(),         # Total display height
     panel_width: integer(),    # Width of each panel
     panel_height: integer(),   # Height of each panel
-    panel_count: integer(),    # Number of panels
+    num_panels: integer(),    # Number of panels
     panel_gap: integer(),      # Gap between panels
     panel_range: function(),   # fn(panel_id, :x | :y) -> {start, end}
     panel_at_coord: function() # fn(x, y) -> panel_id | :not_found
