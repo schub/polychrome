@@ -423,24 +423,8 @@ defmodule Octopus.Apps.Whackamole do
   end
 
   defp clear_panel_canvas(state, panel) do
-    # Remove the panel canvas and update display
-    game = state.game
-    updated_panel_canvases = Map.delete(game.panel_canvases, panel)
-
-    # Compose the full display from remaining panel canvases
-    new_display_canvas = compose_full_display(updated_panel_canvases, state.display_info)
-
-    # Update display
-    Octopus.App.update_display(new_display_canvas, :rgb, easing_interval: 0)
-
-    # Update game state
-    updated_game = %{
-      game
-      | panel_canvases: updated_panel_canvases,
-        display_canvas: new_display_canvas
-    }
-
-    %{state | game: updated_game}
+    # Remove both background and foreground layers for this panel (delegate to clear_panel_layers)
+    clear_panel_layers(state, panel)
   end
 
   defp clear_panel_layers(state, panel) do
@@ -482,16 +466,5 @@ defmodule Octopus.Apps.Whackamole do
     # Update game state
     updated_game = %{game | display_canvas: new_display_canvas}
     %{state | game: updated_game}
-  end
-
-  defp compose_full_display(panel_canvases, display_info) do
-    # Create blank canvas
-    display_canvas = Canvas.new(display_info.width, display_info.height)
-
-    # Overlay each panel canvas at the correct position
-    Enum.reduce(panel_canvases, display_canvas, fn {panel_index, panel_canvas}, acc ->
-      x_offset = panel_index * display_info.panel_width
-      Canvas.overlay(acc, panel_canvas, offset: {x_offset, 0})
-    end)
   end
 end
