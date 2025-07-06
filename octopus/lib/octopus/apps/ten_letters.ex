@@ -254,7 +254,7 @@ defmodule Octopus.Apps.TenLetters do
     {:noreply, state}
   end
 
-  defp update_letter_canvas(state, letter_index, canvas, frame_status) do
+  defp update_letter_canvas(state, letter_index, canvas, _frame_status) do
     # Get current letter canvases
     letter_canvases = Map.get(state, :letter_canvases, %{})
     updated_letter_canvases = Map.put(letter_canvases, letter_index, canvas)
