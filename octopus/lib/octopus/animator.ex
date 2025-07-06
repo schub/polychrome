@@ -68,11 +68,8 @@ defmodule Octopus.Animator do
         frame_rate: frame_rate
       })
 
-    # Register the animator globally by animation_id
-    Registry.register(@registry_name, animation_id, pid)
-
-    # Start the animation immediately
-    GenServer.cast(
+    # Wait for the GenServer to register itself and start the animation
+    GenServer.call(
       pid,
       {:start_animation, {canvas, position, transition_fun, duration, easing_fun}}
     )
@@ -104,6 +101,9 @@ defmodule Octopus.Animator do
     canvas_size = opts.canvas_size
     frame_rate = opts.frame_rate
 
+    # Register this process with the animation_id
+    Registry.register(@registry_name, animation_id, nil)
+
     {width, height} = canvas_size
 
     state = %State{
@@ -117,8 +117,9 @@ defmodule Octopus.Animator do
     {:ok, state}
   end
 
-  def handle_cast(
+  def handle_call(
         {:start_animation, {target_canvas, {pos_x, pos_y}, animation_fun, duration, easing_fun}},
+        _from,
         state
       ) do
     current_canvas =
@@ -143,7 +144,7 @@ defmodule Octopus.Animator do
     tick_interval_ms = (1000 / state.frame_rate) |> trunc
     timer_ref = :timer.send_interval(tick_interval_ms, self(), :tick)
 
-    {:noreply, %State{state | animation: animation, timer_ref: timer_ref}}
+    {:reply, :ok, %State{state | animation: animation, timer_ref: timer_ref}}
   end
 
   def handle_cast(:clear, state) do
