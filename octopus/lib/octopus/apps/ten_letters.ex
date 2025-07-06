@@ -3,8 +3,9 @@ defmodule Octopus.Apps.TenLetters do
   use Octopus.Params, prefix: :tla
 
   alias Octopus.Font
+  alias Octopus.Transitions
   alias Octopus.Canvas
-  alias Octopus.TimeAnimator
+  alias Octopus.Animator
 
   require Logger
 
@@ -55,10 +56,17 @@ defmodule Octopus.Apps.TenLetters do
       current_word_index = Enum.find_index(words, &(&1 == current_word))
 
       candidate =
-        lookup[current_word_index]
-        |> Stream.map(&Enum.at(words, &1))
-        |> Stream.reject(fn word -> word in exclude end)
-        |> Enum.take(1)
+        case lookup[current_word_index] do
+          nil ->
+            # Current word not found in lookup (e.g., spaces), return empty list to trigger random selection
+            []
+
+          candidates ->
+            candidates
+            |> Stream.map(&Enum.at(words, &1))
+            |> Stream.reject(fn word -> word in exclude end)
+            |> Enum.take(1)
+        end
 
       case candidate do
         [] -> Enum.random(words)
@@ -84,8 +92,10 @@ defmodule Octopus.Apps.TenLetters do
 
   def name, do: "Ten Letters"
 
+  def icon(), do: Canvas.from_string("T", Font.load("BlinkenLightsRegular"), 3)
+
   def app_init(_) do
-    # Configure display for grayscale output
+    # Configure display for grayscale output using modern unified API
     Octopus.App.configure_display(
       layout: :adjacent_panels,
       supports_rgb: false,
@@ -93,38 +103,52 @@ defmodule Octopus.Apps.TenLetters do
       easing_interval: 150
     )
 
+    # Get display info for dynamic sizing
+    display_info = Octopus.App.get_display_info()
+
     path = Path.join([:code.priv_dir(:octopus), "words", "nog24-256-10--letter-words.txt"])
     words = Words.load(path)
     :timer.send_after(0, :next_word)
 
-    current_word = Enum.random(words.words)
+    # Start with a "blank word" (10 spaces) - this allows normal transition logic to handle the first word
+    # 10 spaces
+    current_word = "          "
     font = Font.load("BlinkenLightsRegular")
+    font_variants_count = length(font.variants)
 
-    # Create initial canvas and display it
-    display_info = Octopus.App.get_display_info()
-
-    current_canvas =
-      Canvas.new(display_info.width, display_info.height, :rgb)
-      |> Canvas.put_string({0, 0}, current_word, font)
-      |> Canvas.to_grayscale()
-
-    Octopus.App.update_display(current_canvas, :grayscale)
-
-    # Start animation timer (30 FPS for smooth animations)
-    :timer.send_interval(33, :animate_frame)
+    # Initialize with a blank display
+    blank_canvas = Canvas.new(display_info.width, display_info.height)
+    grayscale_canvas = Canvas.to_grayscale(blank_canvas)
+    Octopus.App.update_display(grayscale_canvas, :grayscale, easing_interval: 150)
 
     {:ok,
      %{
        words: words,
        last_words: [],
        font: font,
+       font_variants_count: font_variants_count,
        current_word: current_word,
-       current_canvas: current_canvas,
-       next_word: nil,
-       # Track ongoing letter animations
-       letter_animations: %{},
-       frame_counter: 0
+       display_info: display_info,
+       # Track individual letter canvases - start empty
+       letter_canvases: %{}
      }}
+  end
+
+  defp random_transition_for_index(i) do
+    case i do
+      0 ->
+        &Transitions.push(&1, &2, direction: :right, separation: 3)
+
+      9 ->
+        &Transitions.push(&1, &2, direction: :left, separation: 3)
+
+      _ ->
+        if :rand.uniform() > 0.5 do
+          &Transitions.push(&1, &2, direction: :top, separation: 3)
+        else
+          &Transitions.push(&1, &2, direction: :bottom, separation: 3)
+        end
+    end
   end
 
   def handle_info(
@@ -133,7 +157,8 @@ defmodule Octopus.Apps.TenLetters do
           words: words,
           current_word: current_word,
           last_words: last_words,
-          font: font
+          font: _font,
+          display_info: display_info
         } = state
       ) do
     last_words = [current_word | last_words] |> Enum.take(param(:last_word_list_size, 250))
@@ -141,180 +166,118 @@ defmodule Octopus.Apps.TenLetters do
 
     Logger.debug("Next Word: #{next_word}")
 
-    # Start letter animations for changed letters
-    new_animations =
-      String.split(current_word, "", trim: true)
-      |> Enum.zip(String.split(next_word, "", trim: true))
-      |> Enum.with_index()
-      |> Enum.reduce(%{}, fn
-        {{a, a}, _}, acc ->
-          # Letter didn't change, no animation needed
-          acc
+    # Simple logic: only animate letters that changed
+    # For the first word, all letters change from space to letter, so all animate automatically
+    String.split(state.current_word, "", trim: true)
+    |> Enum.zip(String.split(next_word, "", trim: true))
+    |> Enum.with_index()
+    |> Enum.each(fn
+      {{a, a}, _} ->
+        nil
 
-        {{old_letter, new_letter}, i}, acc ->
-          # Letter changed, start animation after random delay
-          delay_ms = :rand.uniform(param(:max_letter_delay, 1000))
-          start_time = System.monotonic_time(:millisecond) + delay_ms
+      {{_, b}, i} ->
+        # Use dynamic panel width instead of hardcoded 8
+        panel_width = display_info.panel_width
 
-          # Create source canvas for this letter (what it currently looks like)
-          source_canvas =
-            Canvas.new(8, 8, :rgb)
-            |> Canvas.put_string({0, 0}, old_letter, font)
-            |> Canvas.to_grayscale()
+        canvas =
+          Canvas.new(panel_width, display_info.height)
+          |> Canvas.put_string({0, 0}, b, state.font)
 
-          # Create target canvas for this letter (what it should become)
-          target_canvas =
-            Canvas.new(8, 8, :rgb)
-            |> Canvas.put_string({0, 0}, new_letter, font)
-            |> Canvas.to_grayscale()
-
-          # Choose transition direction based on position
-          transition_direction =
-            case i do
-              0 -> :right
-              9 -> :left
-              _ -> if :rand.uniform() > 0.5, do: :top, else: :bottom
-            end
-
-          Map.put(acc, i, %{
-            source_canvas: source_canvas,
-            target_canvas: target_canvas,
-            start_time: start_time,
-            # 1.5 seconds
-            duration: 1500,
-            direction: transition_direction
-          })
-      end)
-
-    # Merge new animations with existing ones
-    updated_animations = Map.merge(state.letter_animations, new_animations)
+        :timer.send_after(
+          :rand.uniform(param(:max_letter_delay, 1000)),
+          {:animate_letter, i, canvas}
+        )
+    end)
 
     :timer.send_after(param(:word_duration, 5000), :next_word)
-
-    {:noreply,
-     %{
-       state
-       | last_words: last_words,
-         next_word: next_word,
-         letter_animations: updated_animations
-     }}
+    {:noreply, %{state | last_words: last_words, current_word: next_word}}
   end
 
-  def handle_info(:animate_frame, state) do
-    current_time = System.monotonic_time(:millisecond)
-    display_info = Octopus.App.get_display_info()
+  def handle_info({:animator_update, animation_id, canvas, frame_status}, state) do
+    # Handle canvas updates from the Animator module with animation identification
+    updated_state =
+      case animation_id do
+        {:letter, letter_index} ->
+          # Update the specific letter canvas
+          update_letter_canvas(state, letter_index, canvas, frame_status)
 
-    # Start with base canvas
-    result_canvas = Canvas.new(display_info.width, display_info.height, :grayscale)
+        _ ->
+          # For other animations, convert to grayscale and update display
+          grayscale_canvas = Canvas.to_grayscale(canvas)
 
-    # Split animations into active, pending, and finished
-    {active_animations, other_animations} =
-      Enum.split_with(state.letter_animations, fn {_pos, animation} ->
-        current_time >= animation.start_time and
-          current_time < animation.start_time + animation.duration
-      end)
+          Octopus.App.update_display(grayscale_canvas, :grayscale, easing_interval: 150)
 
-    {pending_animations, finished_animations} =
-      Enum.split_with(other_animations, fn {_pos, animation} ->
-        current_time < animation.start_time
-      end)
+          state
+      end
 
-    # Render each letter position
-    result_canvas =
-      0..9
-      |> Enum.reduce(result_canvas, fn position, canvas_acc ->
-        letter_x = position * 8
+    {:noreply, updated_state}
+  end
 
-        cond do
-          # Check if this position has an active animation
-          active_animation = Enum.find(active_animations, fn {pos, _} -> pos == position end) ->
-            {_, animation} = active_animation
-            elapsed = current_time - animation.start_time
-            time_progress = min(1.0, elapsed / animation.duration)
+  def handle_info({:animate_letter, i, target_canvas}, %{display_info: display_info} = state) do
+    transition = random_transition_for_index(i)
 
-            # Evaluate transition at current time
-            animated_canvas =
-              TimeAnimator.evaluate_transition(
-                animation.source_canvas,
-                animation.target_canvas,
-                time_progress,
-                :push,
-                direction: animation.direction
-              )
+    # Check if we have any existing letter canvas for this position
+    existing_letter_canvas = Map.get(state.letter_canvases, i)
 
-            # Place animated letter into result canvas
-            Canvas.overlay(canvas_acc, animated_canvas, offset: {letter_x, 0})
-
-          # Check if this position has a pending animation (show source)
-          pending_animation = Enum.find(pending_animations, fn {pos, _} -> pos == position end) ->
-            {_, animation} = pending_animation
-            Canvas.overlay(canvas_acc, animation.source_canvas, offset: {letter_x, 0})
-
-          # Check if this position has a finished animation (show target)
-          finished_animation = Enum.find(finished_animations, fn {pos, _} -> pos == position end) ->
-            {_, animation} = finished_animation
-            Canvas.overlay(canvas_acc, animation.target_canvas, offset: {letter_x, 0})
-
-          # No animation for this position, get letter from current canvas
-          true ->
-            # Extract the letter at this position from current canvas
-            letter_canvas = extract_letter_canvas(state.current_canvas, position)
-            Canvas.overlay(canvas_acc, letter_canvas, offset: {letter_x, 0})
-        end
-      end)
-
-    # Update display
-    Octopus.App.update_display(result_canvas, :grayscale)
-
-    # Update current canvas and word when all animations finish
-    {updated_current_canvas, updated_current_word} =
-      if Enum.empty?(active_animations) and Enum.empty?(pending_animations) and
-           Map.get(state, :next_word) do
-        # All animations are done, update to the new word
-        new_canvas =
-          Canvas.new(display_info.width, display_info.height, :rgb)
-          |> Canvas.put_string({0, 0}, state.next_word, state.font)
-          |> Canvas.to_grayscale()
-
-        {new_canvas, state.next_word}
+    current_canvas =
+      if existing_letter_canvas do
+        # Use the existing animated letter canvas
+        existing_letter_canvas
       else
-        {state.current_canvas, state.current_word}
+        # For positions without existing letters, start from blank (which represents spaces)
+        Canvas.new(display_info.panel_width, display_info.height)
       end
 
-    # Remove finished animations
-    remaining_animations =
-      (active_animations ++ pending_animations)
-      |> Map.new()
+    # Create a transition function that uses the current state as the starting point
+    transition_with_current = fn _blank_canvas, to_canvas ->
+      # Ignore the blank canvas from Animator and use our current state canvas
+      transition.(current_canvas, to_canvas)
+    end
 
-    {:noreply,
-     %{
-       state
-       | letter_animations: remaining_animations,
-         current_canvas: updated_current_canvas,
-         current_word: updated_current_word,
-         next_word:
-           if(updated_current_word == Map.get(state, :next_word),
-             do: nil,
-             else: Map.get(state, :next_word)
-           ),
-         frame_counter: state.frame_counter + 1
-     }}
+    # Use new single-call API for letter animation
+    Animator.animate(
+      animation_id: {:letter, i},
+      app_pid: self(),
+      canvas: target_canvas,
+      position: {0, 0},
+      transition_fun: transition_with_current,
+      duration: 1500,
+      canvas_size: {display_info.panel_width, display_info.height},
+      frame_rate: 30
+    )
+
+    {:noreply, state}
   end
 
-  # Helper function to extract an 8x8 letter canvas from the full canvas
-  defp extract_letter_canvas(canvas, position) do
-    letter_x = position * 8
+  def handle_info(msg, state) do
+    Logger.warning("Unexpected message in Ten Letters: #{inspect(msg)}")
+    {:noreply, state}
+  end
 
-    # Create a new 8x8 canvas
-    letter_canvas = Canvas.new(8, 8, :grayscale)
+  defp update_letter_canvas(state, letter_index, canvas, _frame_status) do
+    # Get current letter canvases
+    letter_canvases = Map.get(state, :letter_canvases, %{})
+    updated_letter_canvases = Map.put(letter_canvases, letter_index, canvas)
 
-    # Copy pixels from the source canvas
-    pixels =
-      for x <- 0..7, y <- 0..7, into: %{} do
-        source_pixel = Canvas.get_pixel(canvas, {letter_x + x, y})
-        {{x, y}, source_pixel}
-      end
+    # Start with a blank canvas and only show animated letters
+    # This prevents conflicts between background word and animated letters
+    background_canvas = Canvas.new(state.display_info.width, state.display_info.height)
 
-    %{letter_canvas | pixels: pixels}
+    # Overlay animated letters on the blank background
+    new_display_canvas =
+      Enum.reduce(updated_letter_canvases, background_canvas, fn {letter_idx, letter_canvas},
+                                                                 acc ->
+        x_offset = letter_idx * state.display_info.panel_width
+        Canvas.overlay(acc, letter_canvas, offset: {x_offset, 0})
+      end)
+
+    # Convert to grayscale and update display
+    grayscale_canvas = Canvas.to_grayscale(new_display_canvas)
+
+    # Only update display for efficiency (could optimize further to only update on :final)
+    Octopus.App.update_display(grayscale_canvas, :grayscale, easing_interval: 150)
+
+    # Update state with new letter canvases
+    Map.put(state, :letter_canvases, updated_letter_canvases)
   end
 end

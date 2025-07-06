@@ -1,26 +1,32 @@
 defmodule Octopus.Apps.Whackamole.Game do
   use Octopus.Params, prefix: :whackamole
   require Logger
-  alias Octopus.{Canvas, Font, TimeAnimator, Sprite, KioskModeManager, InputAdapter}
+  alias Octopus.{Canvas, Font, Animator, Transitions, Sprite, InputAdapter}
   alias Octopus.Apps.Whackamole.Mole
+  alias Octopus.Installation
 
   defstruct [
     :state,
-    :tick,
     :score,
     :font,
     :lives,
     :moles,
-    :last_mole,
     :difficulty,
     :whack_times,
-    :tilt_start,
     :highscore,
-    # TimeAnimator-based animation tracking
-    :animations,
-    :base_canvas,
-    # Dynamic panel configuration
-    :panel_count
+    :display_info,
+    :panel_width,
+    :panel_height,
+    :active_animators,
+    :panel_canvases,
+    :display_canvas,
+    :last_mole_spawn_time,
+    # Track sprites for each panel
+    :mole_sprites,
+    # Double buffer system - background layer (red/green effects)
+    :panel_background_canvases,
+    # Double buffer system - foreground layer (mole sprites)
+    :panel_foreground_canvases
   ]
 
   # game_states [:intro, :playing, :game_over, :tilt]
@@ -31,238 +37,267 @@ defmodule Octopus.Apps.Whackamole.Game do
   # 56..59
   @mole_sprites 0..255
 
-  def new() do
-    # Get display info for canvas dimensions
-    display_info = Octopus.App.get_display_info()
-    base_canvas = Canvas.new(display_info.width, display_info.height)
-    panel_count = display_info.num_panels
-
-    Logger.info(
-      "WhackAMole: Initializing game with canvas size #{display_info.width}x#{display_info.height}, #{panel_count} panels"
-    )
-
+  def new(display_info) do
     %__MODULE__{
       state: :intro,
       lives: 3,
       font: Font.load(@font_name),
-      tick: 0,
       score: 0,
       difficulty: 1,
-      last_mole: 0,
       moles: %{},
       whack_times: [],
       highscore: read_highscore(),
-      animations: %{},
-      base_canvas: base_canvas,
-      panel_count: panel_count
+      display_info: display_info,
+      panel_width: display_info.panel_width,
+      panel_height: display_info.panel_height,
+      active_animators: %{},
+      panel_canvases: %{},
+      display_canvas: Canvas.new(display_info.width, display_info.height),
+      last_mole_spawn_time: System.os_time(:millisecond),
+      mole_sprites: %{},
+      panel_background_canvases: %{},
+      panel_foreground_canvases: %{}
     }
   end
 
-  def tick(%__MODULE__{state: :intro} = game) do
-    case game.tick do
-      3 ->
-        Logger.info("WhackAMole: Starting intro whack animation at tick #{game.tick}")
+  def start_intro(game, app_pid) do
+    # Start the intro sequence
+    transition_fun = &Transitions.push(&1, &2, direction: :top, separation: 0)
+    duration = 300
 
-        # Create first part of intro text with font variant 0
-        intro_text1 = "WHACK"
-        intro_text2 = "'EM!"
+    whack =
+      Canvas.new(6 * game.panel_width, game.panel_height)
+      |> Canvas.put_string({0, 0}, " WHACK", game.font, 0)
 
-        # Calculate center position for both texts together
-        center_x = center_text_two_parts(intro_text1, intro_text2, game.base_canvas.width)
+    # Start "WHACK" animation
+    Animator.animate(
+      animation_id: {:intro_whack},
+      app_pid: app_pid,
+      canvas: whack,
+      position: {0, 0},
+      transition_fun: transition_fun,
+      duration: duration,
+      canvas_size: {6 * game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
 
-        whack_canvas =
-          Canvas.new(String.length(intro_text1) * 8, 8)
-          |> Canvas.put_string({0, 0}, intro_text1, game.font, 0)
+    # Schedule "'EM!" animation to start after "WHACK" completes
+    :timer.send_after(duration + 100, {:start_intro_em})
 
-        # Show for 4 seconds (4000ms)
-        game = start_animation(game, :intro_whack, whack_canvas, {center_x, 0}, :push, :top, 4000)
-
-        Logger.info(
-          "WhackAMole: Intro whack animation started, animations count: #{map_size(game.animations)}"
-        )
-
-        next_tick(game)
-
-      18 ->
-        Logger.info("WhackAMole: Starting intro 'EM animation at tick #{game.tick}")
-
-        # Create second part of intro text with font variant 1
-        intro_text1 = "WHACK"
-        intro_text2 = "'EM!"
-
-        # Calculate positions for both texts centered together
-        center_x = center_text_two_parts(intro_text1, intro_text2, game.base_canvas.width)
-        em_x = center_x + String.length(intro_text1) * 8
-
-        em_canvas =
-          Canvas.new(String.length(intro_text2) * 8, 8)
-          |> Canvas.put_string({0, 0}, intro_text2, game.font, 1)
-
-        # Show for 3.5 seconds (3500ms) - both texts should disappear together
-        game = start_animation(game, :intro_em, em_canvas, {em_x, 0}, :push, :top, 3500)
-
-        Logger.info(
-          "WhackAMole: Intro 'EM animation started, animations count: #{map_size(game.animations)}"
-        )
-
-        next_tick(game)
-
-      60 ->
-        Logger.info("WhackAMole: Intro complete, switching to playing state")
-        # Clear any remaining intro animations and start gameplay
-        game = clear_animations(game)
-        %__MODULE__{game | state: :playing, tick: 0}
-
-      _ ->
-        next_tick(game)
-    end
+    %{game | state: :intro}
   end
 
-  def tick(%__MODULE__{state: :playing} = game) do
-    game
-    |> mole_survived?()
-    |> case do
-      %__MODULE__{lives: lives} = game when lives > 0 ->
-        game
-        |> check_tilt()
-        |> maybe_add_mole()
-        |> maybe_increase_difficulty()
-        |> next_tick()
+  def start_playing(game) do
+    # Clear display and start playing
+    blank_canvas = Canvas.new(game.display_info.width, game.display_info.height)
+    send(self(), {:clear_display, blank_canvas})
 
-      _ ->
-        %__MODULE__{game | state: :game_over, tick: 0}
-    end
+    # Start mole spawning
+    schedule_next_mole_spawn(game)
+
+    %{game | state: :playing, active_animators: %{}, display_canvas: blank_canvas}
   end
 
-  def tick(%__MODULE__{state: :game_over} = game) do
-    case game.tick do
-      1 ->
-        # Clear all animations (including active sprite animations) immediately when game ends
-        game = clear_animations(game)
-        next_tick(game)
+  def start_game_over(game) do
+    # Clear any remaining animators and start game over sequence
+    clear_all_animators(game)
+    start_game_over_animation(game, self())
 
-      10 ->
-        # Create game over text that fits the available width
-        game_over_text = "GAME OVER"
-        text_width = min(String.length(game_over_text) * 8, game.base_canvas.width)
-        center_x = center_text(game_over_text, game.base_canvas.width)
-
-        game_over =
-          Canvas.new(text_width, 8)
-          |> Canvas.put_string({0, 0}, game_over_text, game.font, 1)
-
-        # Show for 3 seconds (3000ms)
-        game = start_animation(game, :game_over_text, game_over, {center_x, 0}, :push, :top, 3000)
-        next_tick(game)
-
-      50 ->
-        text = "SCORE #{game.score |> to_string()}"
-        text_width = min(String.length(text) * 8, game.base_canvas.width)
-        center_x = center_text(text, game.base_canvas.width)
-
-        score =
-          Canvas.new(text_width, 8)
-          |> Canvas.put_string({0, 0}, text, game.font, 2)
-
-        # Show for 3 seconds (3000ms)
-        game = start_animation(game, :score_text, score, {center_x, 0}, :push, :top, 3000)
-        next_tick(game)
-
-      90 ->
-        {canvas, center_x} =
-          if game.score > game.highscore do
-            write_highscore(game.score)
-            highscore_text = "HI-SCORE!"
-            text_width = min(String.length(highscore_text) * 8, game.base_canvas.width)
-            center_x = center_text(highscore_text, game.base_canvas.width)
-
-            canvas =
-              Canvas.new(text_width, 8)
-              |> Canvas.put_string({0, 0}, highscore_text, game.font, 0)
-
-            {canvas, center_x}
-          else
-            highscore_text = "HI-SCORE #{game.highscore}"
-            text_width = min(String.length(highscore_text) * 8, game.base_canvas.width)
-            center_x = center_text(highscore_text, game.base_canvas.width)
-
-            canvas =
-              Canvas.new(text_width, 8)
-              |> Canvas.put_string({0, 0}, highscore_text, game.font, 0)
-
-            {canvas, center_x}
-          end
-
-        # Show for 3 seconds (3000ms)
-        game = start_animation(game, :highscore_text, canvas, {center_x, 0}, :push, :top, 3000)
-        next_tick(game)
-
-      130 ->
-        KioskModeManager.game_finished()
-        next_tick(game)
-
-      _ ->
-        next_tick(game)
-    end
+    %{game | state: :game_over}
   end
 
-  def tick(%__MODULE__{state: :tilt} = game) do
-    case game.tick - game.tilt_start do
-      1 ->
-        # Clear all existing animations when tilt starts
-        game = clear_animations(game)
+  def start_tilt(game) do
+    # Start tilt animation
+    duration = 1000
 
-        tilt_text = "TILT!"
-        text_width = min(String.length(tilt_text) * 8, game.base_canvas.width)
-        center_x = center_text(tilt_text, game.base_canvas.width)
+    tilt =
+      Canvas.new(Installation.num_panels() * game.panel_width, game.panel_height)
+      |> Canvas.put_string({0, 0}, "   TILT!", game.font, 3)
 
-        tilt =
-          Canvas.new(text_width, 8)
-          |> Canvas.put_string({0, 0}, tilt_text, game.font, 3)
+    blank_canvas =
+      Canvas.new(Installation.num_panels() * game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
 
-        # Show tilt for 3 seconds (3000ms)
-        game = start_blinking_animation(game, :tilt_text, tilt, {center_x, 0}, 3000)
-        next_tick(game)
+    transition_fun = &[&1, tilt, blank_canvas, tilt, blank_canvas, &2]
 
-      30 ->
-        # Clear tilt animation and return to playing
-        game = clear_animations(game)
-        %__MODULE__{game | state: :playing}
+    Animator.animate(
+      animation_id: {:tilt},
+      app_pid: self(),
+      canvas: tilt,
+      position: {0, 0},
+      transition_fun: transition_fun,
+      duration: duration,
+      canvas_size: {Installation.num_panels() * game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
 
-      _ ->
-        next_tick(game)
-    end
+    # Schedule end of tilt
+    :timer.send_after(duration + 100, {:end_tilt})
+
+    %{game | state: :tilt}
   end
 
-  def whack(game, button_number, app_pid \\ nil)
+  def end_tilt(game) do
+    # Clear tilt animation
+    clear_all_animators(game)
+    blank_canvas = Canvas.new(game.display_info.width, game.display_info.height)
+    send(self(), {:clear_display, blank_canvas})
 
-  def whack(%__MODULE__{state: :playing} = game, button_number, app_pid) do
-    if Map.has_key?(game.moles, button_number) do
-      moles = Map.delete(game.moles, button_number)
-      score = game.score + 1
-
-      # Remove the spawn animation for this panel
-      animations_without_spawn = Map.delete(game.animations, {:spawn, button_number})
-      game_without_spawn = %__MODULE__{game | animations: animations_without_spawn}
-
-      # Add whack success animation
-      game_with_whack = whack_success_animation(game_without_spawn, button_number, app_pid)
-
-      %__MODULE__{game_with_whack | moles: moles, score: score}
+    # Check if game should be over after tilt
+    if game.lives <= 0 do
+      # Game over - don't return to playing, go directly to game over
+      send(self(), {:game_over})
+      %{game | state: :game_over, active_animators: %{}, display_canvas: blank_canvas}
     else
-      game_with_fail = whack_fail_animation(game, button_number, false)
-      now = System.os_time(:millisecond)
-      %__MODULE__{game_with_fail | whack_times: [now | game.whack_times]}
+      # Resume playing - resume mole spawning
+      schedule_next_mole_spawn(game)
+      %{game | state: :playing, active_animators: %{}, display_canvas: blank_canvas}
     end
   end
 
-  def whack(%__MODULE__{} = game, _, _), do: game
+  def handle_whack(game, button_number) do
+    case game.state do
+      :playing ->
+        if Map.has_key?(game.moles, button_number) do
+          # Successful whack
+          moles = Map.delete(game.moles, button_number)
+          score = game.score + 1
 
-  def next_tick(%__MODULE__{tick: tick} = game) do
-    %__MODULE__{game | tick: tick + 1}
+          # Clear both foreground and background animations for this panel
+          Animator.clear({:foreground_mole, button_number})
+          Animator.clear({:background_effect, button_number})
+          send(self(), {:clear_panel_layers, button_number})
+
+          # Start success animation
+          whack_success_animation(game, button_number)
+
+          %{game | moles: moles, score: score}
+        else
+          # Missed whack - check for tilt
+          whack_fail_animation(game, button_number, false)
+          now = System.os_time(:millisecond)
+          whack_times = [now | game.whack_times]
+
+          updated_game = %{game | whack_times: whack_times}
+          check_tilt(updated_game)
+        end
+
+      _ ->
+        # Ignore whacks in other states
+        game
+    end
   end
 
-  def check_tilt(%__MODULE__{} = game) do
+  def handle_mole_warning(game, panel) do
+    case game.state do
+      :playing ->
+        if Map.has_key?(game.moles, panel) do
+          # Start warning animation - dramatic blinking without decrementing lives yet
+          mole = game.moles[panel]
+          warning_animation(game, mole)
+          game
+        else
+          game
+        end
+
+      _ ->
+        game
+    end
+  end
+
+  def handle_mole_timeout(game, panel) do
+    case game.state do
+      :playing ->
+        if Map.has_key?(game.moles, panel) do
+          # Mole actually timed out - decrement lives and remove mole
+          moles = Map.delete(game.moles, panel)
+          lives = game.lives - 1
+
+          # Clear both foreground and background animations for this panel
+          Animator.clear({:foreground_mole, panel})
+          Animator.clear({:background_effect, panel})
+          send(self(), {:clear_panel_layers, panel})
+
+          # Clear the stored mole sprite since the mole is gone
+          send(self(), {:clear_mole_sprite, panel})
+
+          updated_game = %{
+            game
+            | moles: moles,
+              lives: lives
+          }
+
+          # Check if game over - give more time for any remaining animations
+          if lives <= 0 do
+            # Delay game over to allow any remaining animations to complete
+            :timer.send_after(1000, {:game_over})
+            updated_game
+          else
+            updated_game
+          end
+        else
+          game
+        end
+
+      _ ->
+        game
+    end
+  end
+
+  def maybe_spawn_mole(game) do
+    case game.state do
+      :playing ->
+        now = System.os_time(:millisecond)
+        mole_delay_ms = get_mole_delay_ms(game.difficulty)
+
+        if now - game.last_mole_spawn_time > mole_delay_ms do
+          panels_with_moles = Map.keys(game.moles)
+          free_panels = Enum.to_list(0..(Installation.num_panels() - 1)) -- panels_with_moles
+
+          case free_panels do
+            [] ->
+              game
+
+            _ ->
+              panel = Enum.random(free_panels)
+              mole = Mole.new(panel, now)
+              moles = Map.put(game.moles, panel, mole)
+
+              # Start spawn animation
+              spawn_animation(game, panel)
+
+              # Schedule mole warning (3 seconds before timeout)
+              mole_timeout_ms = get_mole_timeout_ms(game.difficulty)
+              # Start warning 3s before timeout
+              warning_delay_ms = mole_timeout_ms - 3000
+
+              if warning_delay_ms > 0 do
+                :timer.send_after(warning_delay_ms, {:mole_warning, panel})
+              else
+                # If timeout is less than 3s, start warning immediately
+                :timer.send_after(100, {:mole_warning, panel})
+              end
+
+              # Schedule actual mole timeout
+              :timer.send_after(mole_timeout_ms, {:mole_timeout, panel})
+
+              %{game | moles: moles, last_mole_spawn_time: now}
+          end
+        else
+          game
+        end
+
+      _ ->
+        game
+    end
+  end
+
+  def schedule_next_mole_spawn(game) do
+    delay_ms = get_mole_spawn_interval_ms(game.difficulty)
+    :timer.send_after(delay_ms, {:spawn_mole})
+    :ok
+  end
+
+  defp check_tilt(game) do
     tilt_duration_ms = param(:tilt_duration_ms, 1000)
     tilt_max = param(:tilt_max, 6)
     now = System.os_time(:millisecond)
@@ -274,470 +309,363 @@ defmodule Octopus.Apps.Whackamole.Game do
 
     case Enum.count(active) do
       count when count > tilt_max ->
-        %__MODULE__{
-          game
-          | lives: game.lives - 1,
-            whack_times: [],
-            state: :tilt,
-            tilt_start: game.tick
-        }
+        # Start tilt
+        lives = game.lives - 1
+        updated_game = %{game | lives: lives, whack_times: []}
+
+        # Always start tilt animation - end_tilt will check if game should be over
+        send(self(), {:start_tilt})
+        updated_game
 
       _ ->
-        %__MODULE__{game | whack_times: active}
+        %{game | whack_times: active}
     end
   end
 
-  def maybe_add_mole(%__MODULE__{} = game) do
-    mole_delay_s = param(:mole_delay_s, 1.5)
-    spread = 0.3
-    value = mole_delay_s * 10 * game.difficulty
-    diff = value * spread
-    min = value - diff
-    target = :rand.uniform() * diff + min
-
-    if game.tick - game.last_mole > target do
-      pannels_with_moles = Map.keys(game.moles)
-
-      case Enum.to_list(0..(game.panel_count - 1)) -- pannels_with_moles do
-        [] ->
-          Logger.error("No free pannels")
-          game
-
-        free_pannels ->
-          pannel = Enum.random(free_pannels)
-          moles = Map.put(game.moles, pannel, Mole.new(pannel, game.tick))
-          game_with_animation = spawn_animation(game, pannel)
-
-          %__MODULE__{game_with_animation | moles: moles, last_mole: game.tick}
-      end
-    else
-      game
-    end
+  defp get_mole_delay_ms(difficulty) do
+    base_delay = param(:mole_delay_s, 1.5) * 1000
+    round(base_delay * difficulty)
   end
 
-  def maybe_increase_difficulty(%__MODULE__{} = game) do
-    increment_difficulty_every_s = param(:increment_difficulty_every_s, 4)
-    difficulty_decay = param(:difficulty_decay, 0.04)
-
-    if rem(game.tick, increment_difficulty_every_s * 10) == 0 do
-      difficulty =
-        :math.exp(game.tick / increment_difficulty_every_s / 10 * difficulty_decay * -1)
-
-      Logger.info("Difficulty increased from #{game.difficulty} to #{difficulty}")
-      %__MODULE__{game | difficulty: difficulty}
-    else
-      game
-    end
+  defp get_mole_timeout_ms(difficulty) do
+    base_timeout = param(:mole_time_to_live_s, 7) * 1000
+    round(base_timeout * difficulty)
   end
 
-  def mole_survived?(%__MODULE__{} = game) do
-    mole_time_to_live_s = param(:mole_time_to_live_s, 7)
-
-    {survived, active} =
-      Enum.split_with(game.moles, fn {_, mole} ->
-        game.tick - mole.start_tick > mole_time_to_live_s * 10 * game.difficulty
-      end)
-
-    # For each survived mole, remove its spawn animation and add lost animation
-    game_with_lost_animations =
-      survived
-      |> Enum.reduce(game, fn {pannel, %Mole{} = mole}, acc_game ->
-        # Remove the spawn animation for this panel
-        animations_without_spawn = Map.delete(acc_game.animations, {:spawn, pannel})
-        game_without_spawn = %__MODULE__{acc_game | animations: animations_without_spawn}
-
-        # Add lost animation
-        lost_animation(game_without_spawn, mole)
-      end)
-
-    moles = Enum.into(active, %{})
-
-    %__MODULE__{
-      game_with_lost_animations
-      | moles: moles,
-        lives: game.lives - Enum.count(survived)
-    }
+  defp get_mole_spawn_interval_ms(difficulty) do
+    # How often to check for spawning new moles
+    base_interval = 500
+    round(base_interval * difficulty)
   end
 
-  # TimeAnimator-based animation functions
-
-  def cleanup_expired_animations(%__MODULE__{} = game) do
-    current_time = System.monotonic_time(:millisecond)
-
-    active_animations =
-      Enum.filter(game.animations, fn {_id, animation} ->
-        elapsed = current_time - animation.start_time
-        total_duration = animation.total_duration
-        elapsed < total_duration
-      end)
-      |> Map.new()
-
-    %__MODULE__{game | animations: active_animations}
-  end
-
-  def render_canvas(%__MODULE__{} = game) do
-    current_time = System.monotonic_time(:millisecond)
-    result_canvas = Canvas.clear(game.base_canvas)
-
-    # First render the game state content (moles, etc.)
-    result_canvas = render_game_content(result_canvas, game)
-
-    # Then render all active animations on top
-    final_canvas =
-      Enum.reduce(game.animations, result_canvas, fn {_id, animation}, canvas_acc ->
-        case evaluate_animation(animation, current_time) do
-          {:active, animated_canvas} ->
-            Canvas.overlay(canvas_acc, animated_canvas, offset: animation.position)
-
-          :expired ->
-            canvas_acc
-        end
-      end)
-
-    final_canvas
-  end
-
-  defp render_game_content(canvas, %__MODULE__{state: :playing} = _game) do
-    # During gameplay, moles are rendered through animations only
-    # Static mole rendering is handled by spawn/down animations
-    canvas
-  end
-
-  defp render_game_content(canvas, %__MODULE__{state: state})
-       when state in [:intro, :game_over, :tilt] do
-    # For intro, game_over, and tilt states, ensure canvas is cleared
-    # Only animations should be visible
-    Canvas.clear(canvas)
-  end
-
-  defp render_game_content(canvas, %__MODULE__{}) do
-    # Fallback for any other states
-    Canvas.clear(canvas)
-  end
-
-  defp start_animation(
-         game,
-         id,
-         target_canvas,
-         position,
-         transition_type,
-         direction,
-         total_duration
-       ) do
-    # Ensure consistent canvas size - use 8x8 for individual panel animations
-    panel_width = 8
-    panel_height = 8
-
-    {adjusted_canvas, adjusted_position} =
-      case target_canvas.width do
-        w when w > panel_width ->
-          # This is a text canvas spanning multiple panels - keep as is
-          {target_canvas, position}
-
-        _ ->
-          # This is a single panel canvas - ensure it's exactly 8x8
-          resized = Canvas.new(panel_width, panel_height)
-          resized = Canvas.overlay(resized, target_canvas)
-          {resized, position}
-      end
-
-    # Create source canvas with same dimensions as target
-    current_canvas = Canvas.new(adjusted_canvas.width, adjusted_canvas.height)
-
-    # For text animations (intro, game over), use quick transition but long hold time
-    transition_duration =
-      cond do
-        String.starts_with?(to_string(id), "intro_") -> 800
-        String.contains?(to_string(id), "_text") -> 800
-        true -> total_duration
-      end
-
-    animation = %{
-      id: id,
-      source_canvas: current_canvas,
-      target_canvas: adjusted_canvas,
-      position: adjusted_position,
-      transition_type: transition_type,
-      direction: direction,
-      transition_duration: transition_duration,
-      total_duration: total_duration,
-      start_time: System.monotonic_time(:millisecond)
-    }
-
-    animations = Map.put(game.animations, id, animation)
-    %__MODULE__{game | animations: animations}
-  end
-
-  defp start_blinking_animation(game, id, canvas, position, duration) do
-    # Ensure consistent canvas size
-    panel_width = 8
-    panel_height = 8
-
-    {adjusted_canvas, adjusted_position} =
-      case canvas.width do
-        w when w > panel_width ->
-          # This is a text canvas spanning multiple panels - keep as is
-          {canvas, position}
-
-        _ ->
-          # This is a single panel canvas - ensure it's exactly 8x8
-          resized = Canvas.new(panel_width, panel_height)
-          resized = Canvas.overlay(resized, canvas)
-          {resized, position}
-      end
-
-    blank_canvas = Canvas.new(adjusted_canvas.width, adjusted_canvas.height)
-
-    animation = %{
-      id: id,
-      source_canvas: adjusted_canvas,
-      target_canvas: blank_canvas,
-      position: adjusted_position,
-      transition_type: :blink,
-      direction: nil,
-      transition_duration: duration,
-      total_duration: duration,
-      start_time: System.monotonic_time(:millisecond)
-    }
-
-    animations = Map.put(game.animations, id, animation)
-    %__MODULE__{game | animations: animations}
-  end
-
-  defp clear_animations(game) do
-    %__MODULE__{game | animations: %{}}
-  end
-
-  defp evaluate_animation(animation, current_time) do
-    elapsed = current_time - animation.start_time
-    transition_duration = Map.get(animation, :transition_duration, animation.total_duration)
-    total_duration = animation.total_duration
-
-    cond do
-      elapsed < 0 ->
-        {:active, animation.source_canvas}
-
-      elapsed >= total_duration ->
-        case animation.transition_type do
-          :blink -> :expired
-          _ -> :expired
-        end
-
-      elapsed >= transition_duration ->
-        # Transition is complete, hold the target canvas for the remaining duration
-        {:active, animation.target_canvas}
-
-      true ->
-        # Still in transition phase
-        time_progress = elapsed / transition_duration
-
-        animated_canvas =
-          case animation.transition_type do
-            :blink ->
-              # Blink effect: alternate between source and blank
-              # 200ms cycle
-              cycle_time = 200
-              cycle_progress = rem(elapsed, cycle_time) / cycle_time
-              if cycle_progress < 0.5, do: animation.source_canvas, else: animation.target_canvas
-
-            transition_type ->
-              TimeAnimator.evaluate_transition(
-                animation.source_canvas,
-                animation.target_canvas,
-                time_progress,
-                transition_type,
-                direction: animation.direction
-              )
-          end
-
-        {:active, animated_canvas}
-    end
-  end
-
-  def lost_animation(%__MODULE__{} = game, %Mole{} = mole) do
-    red_canvas = background_canvas(0, 100, 100)
-    sprite_canvas = Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
-
-    # Ensure sprite canvas is exactly 8x8
-    sprite_canvas =
-      if sprite_canvas.width != 8 or sprite_canvas.height != 8 do
-        resized = Canvas.new(8, 8)
-        Canvas.overlay(resized, sprite_canvas)
-      else
-        sprite_canvas
-      end
-
-    # Create blinking red effect
-    animation_id = {:lost, mole.pannel}
-    blended = Canvas.blend(sprite_canvas, red_canvas, :multiply, 1.0)
-
-    animation = %{
-      id: animation_id,
-      source_canvas: blended,
-      target_canvas: Canvas.new(8, 8),
-      position: {mole.pannel * 8, 0},
-      transition_type: :blink,
-      direction: nil,
-      transition_duration: param(:lost_animation_duration_ms, 500),
-      total_duration: param(:lost_animation_duration_ms, 500),
-      start_time: System.monotonic_time(:millisecond)
-    }
-
-    animations = Map.put(game.animations, animation_id, animation)
-    %__MODULE__{game | animations: animations}
-  end
-
-  def spawn_animation(%__MODULE__{} = game, pannel) do
+  defp spawn_animation(game, panel) do
     show_hints_till = 50
+    current_time = System.os_time(:millisecond)
 
     sprite_canvas = Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
-    # Ensure sprite canvas is exactly 8x8
-    sprite_canvas =
-      if sprite_canvas.width != 8 or sprite_canvas.height != 8 do
-        resized = Canvas.new(8, 8)
-        Canvas.overlay(resized, sprite_canvas)
-      else
-        sprite_canvas
-      end
+    transition_fun = &Transitions.push(&1, &2, direction: :top, separation: 0)
+    mole_spawn_duration_ms = param(:mole_spawn_duration_ms, 300) * game.difficulty
 
-    mole_spawn_duration_ms = trunc(param(:mole_spawn_duration_ms, 800) * game.difficulty)
-    # Mole should stay visible for the full time-to-live duration
-    mole_time_to_live_s = param(:mole_time_to_live_s, 7)
-    mole_visible_duration_ms = trunc(mole_time_to_live_s * 1000 * game.difficulty)
+    # Store the sprite for this panel so we can use it in down animation
+    send(self(), {:store_mole_sprite, panel, sprite_canvas})
 
-    if game.tick < show_hints_till do
-      InputAdapter.send_light_event(pannel + 1, 1000)
+    # Show light hint for early game
+    if current_time - game.last_mole_spawn_time < show_hints_till * 1000 do
+      InputAdapter.send_light_event(panel + 1, 1000)
     end
 
-    animation_id = {:spawn, pannel}
+    # Use foreground layer for mole sprites
+    Animator.animate(
+      animation_id: {:foreground_mole, panel},
+      app_pid: self(),
+      canvas: sprite_canvas,
+      position: {0, 0},
+      transition_fun: transition_fun,
+      duration: mole_spawn_duration_ms,
+      canvas_size: {game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
 
-    animation = %{
-      id: animation_id,
-      source_canvas: Canvas.new(8, 8),
-      target_canvas: sprite_canvas,
-      position: {pannel * 8, 0},
-      transition_type: :push,
-      direction: :top,
-      transition_duration: mole_spawn_duration_ms,
-      total_duration: mole_visible_duration_ms,
-      start_time: System.monotonic_time(:millisecond)
-    }
-
-    animations = Map.put(game.animations, animation_id, animation)
-    %__MODULE__{game | animations: animations}
+    :ok
   end
 
-  def down_animation(%__MODULE__{} = game, pannel) do
-    sprite_canvas = Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
-    # Ensure sprite canvas is exactly 8x8
+  defp warning_animation(game, mole) do
+    blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
+    yellow_canvas = background_canvas(game, 60, 50, 70)
+
+    # Get the stored mole sprite for this panel, or fallback to random
     sprite_canvas =
-      if sprite_canvas.width != 8 or sprite_canvas.height != 8 do
-        resized = Canvas.new(8, 8)
-        Canvas.overlay(resized, sprite_canvas)
-      else
-        sprite_canvas
-      end
+      Map.get(game.mole_sprites, mole.panel) ||
+        Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
 
-    green_canvas = background_canvas(120, 100, 100)
-    blended = Canvas.blend(sprite_canvas, green_canvas, :multiply, 1.0)
+    # Create a proper accelerating blink pattern
+    # Start with slow blinks (long on/off periods) and progressively get faster
+    foreground_transition_fn = fn _start, _ ->
+      # Create frames with decreasing blink duration
+      # Early frames: long on/off periods (slow blinks)
+      # Later frames: short on/off periods (fast blinks)
+      slow_blinks = [
+        # 4 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 4 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        # 4 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 4 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        blank_canvas
+      ]
 
-    mole_spawn_duration_ms = trunc(param(:mole_spawn_duration_ms, 800) * game.difficulty)
+      medium_blinks = [
+        # 3 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 3 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        # 3 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 3 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas,
+        # 3 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        sprite_canvas,
+        # 3 frames OFF
+        blank_canvas,
+        blank_canvas,
+        blank_canvas
+      ]
 
-    # Remove any existing animations for this panel first
-    cleaned_animations =
-      game.animations
-      |> Map.delete({:spawn, pannel})
-      |> Map.delete({:whack_success, pannel})
-      |> Map.delete({:whack_fail, pannel})
+      fast_blinks = [
+        # 2 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        # 2 frames OFF
+        blank_canvas,
+        blank_canvas,
+        # 2 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        # 2 frames OFF
+        blank_canvas,
+        blank_canvas,
+        # 2 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        # 2 frames OFF
+        blank_canvas,
+        blank_canvas,
+        # 2 frames ON
+        sprite_canvas,
+        sprite_canvas,
+        # 2 frames OFF
+        blank_canvas,
+        blank_canvas
+      ]
 
-    animation_id = {:down, pannel}
+      rapid_blinks = [
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas,
+        # 1 frame ON, 1 frame OFF
+        sprite_canvas,
+        blank_canvas
+      ]
 
-    animation = %{
-      id: animation_id,
-      source_canvas: blended,
-      target_canvas: Canvas.new(8, 8),
-      position: {pannel * 8, 0},
-      transition_type: :push,
-      direction: :bottom,
-      transition_duration: mole_spawn_duration_ms,
-      total_duration: mole_spawn_duration_ms,
-      start_time: System.monotonic_time(:millisecond)
-    }
-
-    animations = Map.put(cleaned_animations, animation_id, animation)
-    %__MODULE__{game | animations: animations}
-  end
-
-  def whack_success_animation(%__MODULE__{} = game, pannel, app_pid) do
-    whack_canvas = background_canvas(120, 50, 50)
-    whack_duration = param(:whack_duration, 100)
-
-    InputAdapter.send_light_event(pannel + 1, 500)
-
-    # Start immediate flash animation
-    animation_id = {:whack_success, pannel}
-
-    animation = %{
-      id: animation_id,
-      source_canvas: whack_canvas,
-      # Ensure consistent size
-      target_canvas: Canvas.new(8, 8),
-      position: {pannel * 8, 0},
-      transition_type: :blink,
-      direction: nil,
-      transition_duration: whack_duration,
-      total_duration: whack_duration,
-      start_time: System.monotonic_time(:millisecond)
-    }
-
-    animations = Map.put(game.animations, animation_id, animation)
-    game_with_animation = %__MODULE__{game | animations: animations}
-
-    # Schedule down animation after whack animation - send to WhackAMole app process
-    if app_pid do
-      spawn(fn ->
-        :timer.sleep(whack_duration)
-        send(app_pid, {:trigger_down_animation, pannel})
-      end)
+      # Combine all sequences for accelerating effect
+      slow_blinks ++ medium_blinks ++ fast_blinks ++ rapid_blinks ++ [blank_canvas]
     end
 
-    game_with_animation
+    # Fixed 3 second warning
+    warning_animation_duration_ms = 3000
+
+    # Add static yellow background
+    Animator.animate(
+      animation_id: {:background_effect, mole.panel},
+      app_pid: self(),
+      canvas: yellow_canvas,
+      position: {0, 0},
+      # Static - no transition
+      transition_fun: fn _start, target -> [target] end,
+      duration: warning_animation_duration_ms,
+      canvas_size: {game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
+
+    # Animate the mole sprite blinking with accelerating pattern
+    Animator.animate(
+      animation_id: {:foreground_mole, mole.panel},
+      app_pid: self(),
+      # Start with mole visible
+      canvas: sprite_canvas,
+      position: {0, 0},
+      transition_fun: foreground_transition_fn,
+      duration: warning_animation_duration_ms,
+      canvas_size: {game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
   end
 
-  def whack_fail_animation(%__MODULE__{} = game, pannel, _hit?) do
-    whack_canvas = background_canvas(0, 75, 50)
-    whack_duration = param(:whack_duration, 100)
+  defp down_animation(game, panel) do
+    # Get the stored mole sprite for this panel, or fallback to random
+    sprite_canvas =
+      Map.get(game.mole_sprites, panel) || Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
 
-    InputAdapter.send_light_event(pannel + 1, 500)
+    blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
 
-    animation_id = {:whack_fail, pannel}
+    transition_fun = fn _start_canvas, target_canvas ->
+      # Animate mole sprite going down (push down transition)
+      Transitions.push(sprite_canvas, target_canvas, direction: :bottom, separation: 0)
+    end
 
-    animation = %{
-      id: animation_id,
-      source_canvas: whack_canvas,
-      # Ensure consistent size
-      target_canvas: Canvas.new(8, 8),
-      position: {pannel * 8, 0},
-      transition_type: :blink,
-      direction: nil,
-      transition_duration: whack_duration,
-      total_duration: whack_duration,
-      start_time: System.monotonic_time(:millisecond)
-    }
+    # Separate parameter for down animation
+    mole_down_duration_ms = param(:mole_down_duration_ms, 400)
 
-    animations = Map.put(game.animations, animation_id, animation)
-    %__MODULE__{game | animations: animations}
+    # Use foreground layer for mole down animation
+    Animator.animate(
+      animation_id: {:foreground_mole, panel},
+      app_pid: self(),
+      canvas: blank_canvas,
+      position: {0, 0},
+      transition_fun: transition_fun,
+      duration: mole_down_duration_ms,
+      canvas_size: {game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
+
+    # Clean up the stored sprite
+    send(self(), {:clear_mole_sprite, panel})
   end
 
-  def background_canvas(h, s, v) do
+  defp whack_success_animation(game, panel) do
+    # Green background effect on background layer
+    green_canvas = background_canvas(game, 120, 50, 70)
+    blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
+
+    # Green flash effect on background layer
+    green_transition_fun = fn _start, _ ->
+      [blank_canvas, green_canvas, green_canvas, blank_canvas]
+    end
+
+    green_duration = 400
+
+    # Start background green flash effect
+    Animator.animate(
+      animation_id: {:background_effect, panel},
+      app_pid: self(),
+      canvas: blank_canvas,
+      position: {0, 0},
+      transition_fun: green_transition_fun,
+      duration: green_duration,
+      canvas_size: {game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
+
+    # Start mole down animation simultaneously on foreground layer
+    down_animation(game, panel)
+
+    InputAdapter.send_light_event(panel + 1, 500)
+  end
+
+  defp whack_fail_animation(game, panel, _hit?) do
+    # Red background effect on background layer
+    red_canvas = background_canvas(game, 0, 50, 70)
+    blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
+
+    transition_fun = fn _start, _ -> [blank_canvas, red_canvas, blank_canvas] end
+    whack_duration = param(:whack_duration, 300)
+
+    Animator.animate(
+      animation_id: {:background_effect, panel},
+      app_pid: self(),
+      canvas: blank_canvas,
+      position: {0, 0},
+      transition_fun: transition_fun,
+      duration: whack_duration,
+      canvas_size: {game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
+
+    InputAdapter.send_light_event(panel + 1, 500)
+  end
+
+  defp start_game_over_animation(game, app_pid) do
+    transition_fun = &Transitions.push(&1, &2, direction: :top, separation: 0)
+    duration = 300
+
+    game_over =
+      Canvas.new(Installation.num_panels() * game.panel_width, game.panel_height)
+      |> Canvas.put_string({0, 0}, "GAME OVER", game.font, 1)
+
+    Animator.animate(
+      animation_id: {:game_over},
+      app_pid: app_pid,
+      canvas: game_over,
+      position: {0, 0},
+      transition_fun: transition_fun,
+      duration: duration,
+      canvas_size: {Installation.num_panels() * game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
+
+    # Schedule score animation
+    :timer.send_after(duration + 1000, {:start_score_animation})
+  end
+
+  defp clear_all_animators(game) do
+    # Clear old-style tracked animators
+    Enum.each(Map.keys(game.active_animators), fn animation_id ->
+      Animator.clear(animation_id)
+    end)
+
+    # Clear all mole-related animations for all panels
+    for panel <- 0..(Installation.num_panels() - 1) do
+      # Clear foreground mole animations (spawn, warning, down)
+      Animator.clear({:foreground_mole, panel})
+      # Clear background effect animations (success, fail, warning)
+      Animator.clear({:background_effect, panel})
+    end
+
+    # Clear any intro/game-over animations that might be running
+    Animator.clear({:intro_whack})
+    Animator.clear({:intro_em})
+    Animator.clear({:game_over})
+    Animator.clear({:score})
+    Animator.clear({:highscore})
+    Animator.clear({:tilt})
+
+    # Clear the display
+    blank_canvas = Canvas.new(game.display_info.width, game.display_info.height)
+    send(self(), {:clear_display, blank_canvas})
+
+    :ok
+  end
+
+  defp background_canvas(game, h, s, v) do
     %Chameleon.RGB{r: r, g: g, b: b} = Chameleon.HSV.to_rgb(%Chameleon.HSV{h: h, s: s, v: v})
 
-    Canvas.new(8, 8)
+    Canvas.new(game.panel_width, game.panel_height)
     |> Canvas.fill({r, g, b})
     |> Canvas.put_pixel({0, 0}, {0, 0, 0})
-    |> Canvas.put_pixel({0, 7}, {0, 0, 0})
-    |> Canvas.put_pixel({7, 0}, {0, 0, 0})
-    |> Canvas.put_pixel({7, 7}, {0, 0, 0})
+    |> Canvas.put_pixel({0, game.panel_height - 1}, {0, 0, 0})
+    |> Canvas.put_pixel({game.panel_width - 1, 0}, {0, 0, 0})
+    |> Canvas.put_pixel({game.panel_width - 1, game.panel_height - 1}, {0, 0, 0})
   end
 
   def read_highscore() do
@@ -754,30 +682,5 @@ defmodule Octopus.Apps.Whackamole.Game do
   def write_highscore(score) do
     highscore_path = File.cwd!() |> Path.join(@highscore_file)
     File.write!(highscore_path, score |> to_string())
-  end
-
-  # Helper function for centering text based on panels (not pixels)
-  # This ensures each character appears on a single panel
-  defp center_text(text, canvas_width) do
-    text_length_in_panels = String.length(text)
-    # Each panel is 8 pixels wide
-    total_panels = div(canvas_width, 8)
-
-    # Center based on panels, then convert to pixels
-    center_panel = max(0, div(total_panels - text_length_in_panels, 2))
-    # Convert panel position to pixel position
-    center_panel * 8
-  end
-
-  # Helper function for centering two-part text (like "WHACK" + "'EM!")
-  # Returns the starting position for the first text part
-  defp center_text_two_parts(text1, text2, canvas_width) do
-    total_text_length = String.length(text1) + String.length(text2)
-    total_panels = div(canvas_width, 8)
-
-    # Center the combined text based on panels
-    center_panel = max(0, div(total_panels - total_text_length, 2))
-    # Convert panel position to pixel position
-    center_panel * 8
   end
 end

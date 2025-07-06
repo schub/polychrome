@@ -13,7 +13,6 @@ defmodule Octopus.Canvas do
 
   alias Octopus.Font
   alias Octopus.WebP
-  alias Octopus.Protobuf.{RGBFrame, WFrame}
   alias Octopus.Canvas
 
   defstruct [:width, :height, :pixels, :mode]
@@ -198,83 +197,6 @@ defmodule Octopus.Canvas do
     |> Enum.reduce(Canvas.new(length(chars) * 8, 8), fn {char, i}, acc ->
       Font.draw_char(font, char, variant, acc, {i * 8, 0})
     end)
-  end
-
-  @window_width 8
-  @window_gap 18
-
-  def to_frame(canvas, opts \\ [])
-
-  def to_frame(%Canvas{mode: :rgb, width: width, height: height} = canvas, opts) do
-    window_gap = if Keyword.get(opts, :drop, false), do: @window_gap, else: 0
-    window_width = @window_width + window_gap
-    easing_interval = Keyword.get(opts, :easing_interval, 0)
-
-    data =
-      for window <- 0..(div(width + window_gap, window_width) - 1),
-          y <- 0..(height - 1),
-          x <- 0..7,
-          {r, g, b} = get_pixel(canvas, {window * window_width + x, y}),
-          do: [r, g, b]
-
-    %RGBFrame{data: data |> IO.iodata_to_binary(), easing_interval: easing_interval}
-  end
-
-  def to_frame(%Canvas{mode: :grayscale, width: width, height: height} = canvas, opts) do
-    window_gap = if Keyword.get(opts, :drop, false), do: @window_gap, else: 0
-    window_width = @window_width + window_gap
-    easing_interval = Keyword.get(opts, :easing_interval, 0)
-
-    data =
-      for window <- 0..(div(width + window_gap, window_width) - 1),
-          y <- 0..(height - 1),
-          x <- 0..7,
-          gray_value = get_pixel(canvas, {window * window_width + x, y}) do
-        [gray_value, gray_value, gray_value]
-      end
-
-    %RGBFrame{data: data |> IO.iodata_to_binary(), easing_interval: easing_interval}
-  end
-
-  def to_wframe(canvas, opts \\ [])
-
-  def to_wframe(%Canvas{mode: :rgb, width: width, height: height} = canvas, opts) do
-    window_gap = if Keyword.get(opts, :drop, false), do: @window_gap, else: 0
-    window_width = @window_width + window_gap
-    easing_interval = Keyword.get(opts, :easing_interval, 0)
-
-    data =
-      for window <- 0..(div(width + window_gap, window_width) - 1),
-          y <- 0..(height - 1),
-          x <- 0..7,
-          {r, g, b} = get_pixel(canvas, {window * window_width + x, y}) do
-        %Chameleon.HSL{l: l} = Chameleon.RGB.new(r, g, b) |> Chameleon.convert(Chameleon.HSL)
-        trunc(l * 2.55)
-      end
-
-    %WFrame{
-      data: data |> IO.iodata_to_binary(),
-      easing_interval: easing_interval
-    }
-  end
-
-  def to_wframe(%Canvas{mode: :grayscale, width: width, height: height} = canvas, opts) do
-    window_gap = if Keyword.get(opts, :drop, false), do: @window_gap, else: 0
-    window_width = @window_width + window_gap
-    easing_interval = Keyword.get(opts, :easing_interval, 0)
-
-    data =
-      for window <- 0..(div(width + window_gap, window_width) - 1),
-          y <- 0..(height - 1),
-          x <- 0..7,
-          gray_value = get_pixel(canvas, {window * window_width + x, y}) do
-        gray_value
-      end
-
-    %WFrame{
-      data: data |> IO.iodata_to_binary(),
-      easing_interval: easing_interval
-    }
   end
 
   @doc """

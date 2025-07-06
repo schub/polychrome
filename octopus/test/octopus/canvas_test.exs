@@ -312,42 +312,4 @@ defmodule Octopus.CanvasTest do
       assert inspect_output =~ "mode: grayscale"
     end
   end
-
-  describe "to_frame/2 and to_wframe/2" do
-    test "converts RGB canvas to RGB frame" do
-      canvas = Canvas.new(8, 8, :rgb)
-      canvas = Canvas.put_pixel(canvas, {0, 0}, {255, 0, 0})
-
-      frame = Canvas.to_frame(canvas)
-      assert %Octopus.Protobuf.RGBFrame{} = frame
-      assert byte_size(frame.data) > 0
-    end
-
-    test "converts grayscale canvas to RGB frame" do
-      canvas = Canvas.new(8, 8, :grayscale)
-      canvas = Canvas.put_pixel(canvas, {0, 0}, 128)
-
-      frame = Canvas.to_frame(canvas)
-      assert %Octopus.Protobuf.RGBFrame{} = frame
-      assert byte_size(frame.data) > 0
-    end
-
-    test "converts RGB canvas to W frame" do
-      canvas = Canvas.new(8, 8, :rgb)
-      canvas = Canvas.put_pixel(canvas, {0, 0}, {255, 0, 0})
-
-      frame = Canvas.to_wframe(canvas)
-      assert %Octopus.Protobuf.WFrame{} = frame
-      assert byte_size(frame.data) > 0
-    end
-
-    test "converts grayscale canvas to W frame" do
-      canvas = Canvas.new(8, 8, :grayscale)
-      canvas = Canvas.put_pixel(canvas, {0, 0}, 128)
-
-      frame = Canvas.to_wframe(canvas)
-      assert %Octopus.Protobuf.WFrame{} = frame
-      assert byte_size(frame.data) > 0
-    end
-  end
 end
