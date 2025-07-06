@@ -10,8 +10,6 @@ defmodule Octopus.Apps.Whackamole do
   alias Octopus.Transitions
   alias Octopus.Installation
 
-  @frame_rate 60
-
   defmodule State do
     defstruct [:game, :display_info]
   end
