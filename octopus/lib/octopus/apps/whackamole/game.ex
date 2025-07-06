@@ -163,22 +163,15 @@ defmodule Octopus.Apps.Whackamole.Game do
           moles = Map.delete(game.moles, button_number)
           score = game.score + 1
 
-          # Clear the spawn animator for this panel
-          spawn_animator_key = {:foreground_mole, button_number}
-
-          updated_active_animators =
-            if Map.has_key?(game.active_animators, spawn_animator_key) do
-              Animator.clear(spawn_animator_key)
-              send(self(), {:clear_panel_layers, button_number})
-              Map.delete(game.active_animators, spawn_animator_key)
-            else
-              game.active_animators
-            end
+          # Clear both foreground and background animations for this panel
+          Animator.clear({:foreground_mole, button_number})
+          Animator.clear({:background_effect, button_number})
+          send(self(), {:clear_panel_layers, button_number})
 
           # Start success animation
           whack_success_animation(game, button_number)
 
-          %{game | moles: moles, score: score, active_animators: updated_active_animators}
+          %{game | moles: moles, score: score}
         else
           # Missed whack - check for tilt
           whack_fail_animation(game, button_number, false)
@@ -220,17 +213,10 @@ defmodule Octopus.Apps.Whackamole.Game do
           moles = Map.delete(game.moles, panel)
           lives = game.lives - 1
 
-          # Clear spawn animator
-          spawn_animator_key = {:foreground_mole, panel}
-
-          updated_active_animators =
-            if Map.has_key?(game.active_animators, spawn_animator_key) do
-              Animator.clear(spawn_animator_key)
-              send(self(), {:clear_panel_layers, panel})
-              Map.delete(game.active_animators, spawn_animator_key)
-            else
-              game.active_animators
-            end
+          # Clear both foreground and background animations for this panel
+          Animator.clear({:foreground_mole, panel})
+          Animator.clear({:background_effect, panel})
+          send(self(), {:clear_panel_layers, panel})
 
           # Clear the stored mole sprite since the mole is gone
           send(self(), {:clear_mole_sprite, panel})
@@ -238,8 +224,7 @@ defmodule Octopus.Apps.Whackamole.Game do
           updated_game = %{
             game
             | moles: moles,
-              lives: lives,
-              active_animators: updated_active_animators
+              lives: lives
           }
 
           # Check if game over - give more time for any remaining animations
