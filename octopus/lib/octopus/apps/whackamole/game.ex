@@ -20,7 +20,13 @@ defmodule Octopus.Apps.Whackamole.Game do
     :active_animators,
     :panel_canvases,
     :display_canvas,
-    :last_mole_spawn_time
+    :last_mole_spawn_time,
+    # Track sprites for each panel
+    :mole_sprites,
+    # Double buffer system - background layer (red/green effects)
+    :panel_background_canvases,
+    # Double buffer system - foreground layer (mole sprites)
+    :panel_foreground_canvases
   ]
 
   # game_states [:intro, :playing, :game_over, :tilt]
@@ -48,7 +54,10 @@ defmodule Octopus.Apps.Whackamole.Game do
       active_animators: %{},
       panel_canvases: %{},
       display_canvas: Canvas.new(display_info.width, display_info.height),
-      last_mole_spawn_time: System.os_time(:millisecond)
+      last_mole_spawn_time: System.os_time(:millisecond),
+      mole_sprites: %{},
+      panel_background_canvases: %{},
+      panel_foreground_canvases: %{}
     }
   end
 
@@ -131,15 +140,21 @@ defmodule Octopus.Apps.Whackamole.Game do
   end
 
   def end_tilt(game) do
-    # Clear tilt animation and return to playing
+    # Clear tilt animation
     clear_all_animators(game)
     blank_canvas = Canvas.new(game.display_info.width, game.display_info.height)
     send(self(), {:clear_display, blank_canvas})
 
-    # Resume mole spawning
-    schedule_next_mole_spawn(game)
-
-    %{game | state: :playing, active_animators: %{}, display_canvas: blank_canvas}
+    # Check if game should be over after tilt
+    if game.lives <= 0 do
+      # Game over - don't return to playing, go directly to game over
+      send(self(), {:game_over})
+      %{game | state: :game_over, active_animators: %{}, display_canvas: blank_canvas}
+    else
+      # Resume playing - resume mole spawning
+      schedule_next_mole_spawn(game)
+      %{game | state: :playing, active_animators: %{}, display_canvas: blank_canvas}
+    end
   end
 
   def handle_whack(game, button_number) do
@@ -151,12 +166,12 @@ defmodule Octopus.Apps.Whackamole.Game do
           score = game.score + 1
 
           # Clear the spawn animator for this panel
-          spawn_animator_key = {:mole_spawn, button_number}
+          spawn_animator_key = {:foreground_mole, button_number}
 
           updated_active_animators =
             if Map.has_key?(game.active_animators, spawn_animator_key) do
               Animator.clear(spawn_animator_key)
-              send(self(), {:clear_panel_canvas, button_number})
+              send(self(), {:clear_panel_layers, button_number})
               Map.delete(game.active_animators, spawn_animator_key)
             else
               game.active_animators
@@ -191,12 +206,12 @@ defmodule Octopus.Apps.Whackamole.Game do
           lives = game.lives - 1
 
           # Clear spawn animator
-          spawn_animator_key = {:mole_spawn, panel}
+          spawn_animator_key = {:foreground_mole, panel}
 
           updated_active_animators =
             if Map.has_key?(game.active_animators, spawn_animator_key) do
               Animator.clear(spawn_animator_key)
-              send(self(), {:clear_panel_canvas, panel})
+              send(self(), {:clear_panel_layers, panel})
               Map.delete(game.active_animators, spawn_animator_key)
             else
               game.active_animators
@@ -205,6 +220,9 @@ defmodule Octopus.Apps.Whackamole.Game do
           # Start lost animation
           mole = game.moles[panel]
           lost_animation(game, mole)
+
+          # Clear the stored mole sprite since the mole is gone
+          send(self(), {:clear_mole_sprite, panel})
 
           updated_game = %{
             game
@@ -274,12 +292,6 @@ defmodule Octopus.Apps.Whackamole.Game do
     :ok
   end
 
-  def start_down_animation(game, panel) do
-    # Start the down animation for a specific panel
-    down_animation(game, panel)
-    :ok
-  end
-
   defp check_tilt(game) do
     tilt_duration_ms = param(:tilt_duration_ms, 1000)
     tilt_max = param(:tilt_max, 6)
@@ -296,14 +308,9 @@ defmodule Octopus.Apps.Whackamole.Game do
         lives = game.lives - 1
         updated_game = %{game | lives: lives, whack_times: []}
 
-        if lives <= 0 do
-          # Game over after tilt
-          :timer.send_after(1100, {:game_over})
-          updated_game
-        else
-          send(self(), {:start_tilt})
-          updated_game
-        end
+        # Always start tilt animation - end_tilt will check if game should be over
+        send(self(), {:start_tilt})
+        updated_game
 
       _ ->
         %{game | whack_times: active}
@@ -334,13 +341,17 @@ defmodule Octopus.Apps.Whackamole.Game do
     transition_fun = &Transitions.push(&1, &2, direction: :top, separation: 0)
     mole_spawn_duration_ms = param(:mole_spawn_duration_ms, 300) * game.difficulty
 
+    # Store the sprite for this panel so we can use it in down animation
+    send(self(), {:store_mole_sprite, panel, sprite_canvas})
+
     # Show light hint for early game
     if current_time - game.last_mole_spawn_time < show_hints_till * 1000 do
       InputAdapter.send_light_event(panel + 1, 1000)
     end
 
+    # Use foreground layer for mole sprites
     Animator.animate(
-      animation_id: {:mole_spawn, panel},
+      animation_id: {:foreground_mole, panel},
       app_pid: self(),
       canvas: sprite_canvas,
       position: {0, 0},
@@ -357,19 +368,41 @@ defmodule Octopus.Apps.Whackamole.Game do
     red_canvas = background_canvas(game, 0, 100, 100)
     blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
 
-    transition_fn = fn canvas_sprite, _ ->
-      blended = Canvas.blend(canvas_sprite, red_canvas, :multiply, 1.0)
-      [canvas_sprite, blended, canvas_sprite, blended, canvas_sprite, blended, blank_canvas]
+    # Background red flashing effect
+    background_transition_fn = fn _canvas_sprite, _ ->
+      [blank_canvas, red_canvas, blank_canvas, red_canvas, blank_canvas, red_canvas, blank_canvas]
     end
 
     lost_animation_duration_ms = param(:lost_animation_duration_ms, 500)
 
+    # Start background red flashing effect
     Animator.animate(
-      animation_id: {:mole_lost, mole.pannel},
+      animation_id: {:background_effect, mole.pannel},
       app_pid: self(),
       canvas: blank_canvas,
       position: {0, 0},
-      transition_fun: transition_fn,
+      transition_fun: background_transition_fn,
+      duration: lost_animation_duration_ms,
+      canvas_size: {game.panel_width, game.panel_height},
+      frame_rate: 60
+    )
+
+    # Also animate the mole disappearing from foreground layer
+    sprite_canvas =
+      Map.get(game.mole_sprites, mole.pannel) ||
+        Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
+
+    # Mole fades out/disappears
+    foreground_transition_fn = fn _start, _ ->
+      [sprite_canvas, sprite_canvas, blank_canvas, blank_canvas]
+    end
+
+    Animator.animate(
+      animation_id: {:foreground_mole, mole.pannel},
+      app_pid: self(),
+      canvas: blank_canvas,
+      position: {0, 0},
+      transition_fun: foreground_transition_fn,
       duration: lost_animation_duration_ms,
       canvas_size: {game.panel_width, game.panel_height},
       frame_rate: 60
@@ -377,61 +410,84 @@ defmodule Octopus.Apps.Whackamole.Game do
   end
 
   defp down_animation(game, panel) do
-    blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
-    green_canvas = background_canvas(game, 120, 100, 100)
+    # Get the stored mole sprite for this panel, or fallback to random
+    sprite_canvas =
+      Map.get(game.mole_sprites, panel) || Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
 
-    transition_fun = fn canvas_sprite, target ->
-      blended = Canvas.blend(canvas_sprite, green_canvas, :multiply, 1.0)
-      Transitions.push(blended, target, direction: :bottom, separation: 0)
+    blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
+
+    transition_fun = fn _start_canvas, target_canvas ->
+      # Animate mole sprite going down (push down transition)
+      Transitions.push(sprite_canvas, target_canvas, direction: :bottom, separation: 0)
     end
 
-    mole_spawn_duration_ms = param(:mole_spawn_duration_ms, 300) * game.difficulty
+    # Separate parameter for down animation
+    mole_down_duration_ms = param(:mole_down_duration_ms, 400)
 
+    # Use foreground layer for mole down animation
     Animator.animate(
-      animation_id: {:mole_down, panel},
+      animation_id: {:foreground_mole, panel},
       app_pid: self(),
       canvas: blank_canvas,
       position: {0, 0},
       transition_fun: transition_fun,
-      duration: mole_spawn_duration_ms,
+      duration: mole_down_duration_ms,
       canvas_size: {game.panel_width, game.panel_height},
       frame_rate: 60
     )
+
+    # Clean up the stored sprite
+    send(self(), {:clear_mole_sprite, panel})
   end
 
   defp whack_success_animation(game, panel) do
-    whack_canvas = background_canvas(game, 120, 50, 50)
+    # Get the current mole sprite
+    sprite_canvas =
+      Map.get(game.mole_sprites, panel) || Sprite.load(@sprite_sheet, Enum.random(@mole_sprites))
 
-    transition_fun = fn start, _ -> [start, whack_canvas, start] end
-    whack_duration = param(:whack_duration, 100)
+    # Create a green-tinted version of the mole sprite for success feedback
+    # Green background
+    green_canvas = background_canvas(game, 120, 80, 80)
+    green_tinted_mole = Canvas.blend(sprite_canvas, green_canvas, :multiply, 0.7)
+
+    blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
+
+    # Animate: normal mole → green tinted mole → mole going down → blank
+    transition_fun = fn _start_canvas, target_canvas ->
+      [sprite_canvas, green_tinted_mole, green_tinted_mole, target_canvas]
+    end
+
+    # Use foreground layer for the complete success animation
+    # Total duration including green flash
+    success_duration = 600
 
     Animator.animate(
-      animation_id: {:whack_success, panel},
+      animation_id: {:foreground_mole, panel},
       app_pid: self(),
-      canvas: whack_canvas,
+      canvas: blank_canvas,
       position: {0, 0},
       transition_fun: transition_fun,
-      duration: whack_duration,
+      duration: success_duration,
       canvas_size: {game.panel_width, game.panel_height},
       frame_rate: 60
     )
 
     InputAdapter.send_light_event(panel + 1, 500)
-
-    # Schedule down animation to start after whack animation completes
-    :timer.send_after(whack_duration + 50, {:start_down_animation, panel})
   end
 
   defp whack_fail_animation(game, panel, _hit?) do
-    whack_canvas = background_canvas(game, 0, 75, 50)
+    # Red background effect on background layer
+    red_canvas = background_canvas(game, 0, 75, 50)
+    blank_canvas = Canvas.new(game.panel_width, game.panel_height) |> Canvas.fill({0, 0, 0})
 
-    transition_fun = fn start, _ -> [start, whack_canvas, start] end
-    whack_duration = param(:whack_duration, 100)
+    transition_fun = fn _start, _ -> [blank_canvas, red_canvas, blank_canvas] end
+    # Increased from 100ms to 300ms
+    whack_duration = param(:whack_duration, 300)
 
     Animator.animate(
-      animation_id: {:whack_fail, panel},
+      animation_id: {:background_effect, panel},
       app_pid: self(),
-      canvas: whack_canvas,
+      canvas: blank_canvas,
       position: {0, 0},
       transition_fun: transition_fun,
       duration: whack_duration,

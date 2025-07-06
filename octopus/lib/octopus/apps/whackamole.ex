@@ -95,10 +95,24 @@ defmodule Octopus.Apps.Whackamole do
     {:noreply, %{state | game: updated_game}}
   end
 
-  def handle_info({:start_down_animation, panel}, %State{} = state) do
-    # Start the down animation for the specified panel
-    Game.start_down_animation(state.game, panel)
-    {:noreply, state}
+  def handle_info({:store_mole_sprite, panel, sprite_canvas}, %State{} = state) do
+    # Store the mole sprite for this panel
+    updated_game = %{
+      state.game
+      | mole_sprites: Map.put(state.game.mole_sprites, panel, sprite_canvas)
+    }
+
+    {:noreply, %{state | game: updated_game}}
+  end
+
+  def handle_info({:clear_mole_sprite, panel}, %State{} = state) do
+    # Clear the stored mole sprite for this panel
+    updated_game = %{
+      state.game
+      | mole_sprites: Map.delete(state.game.mole_sprites, panel)
+    }
+
+    {:noreply, %{state | game: updated_game}}
   end
 
   def handle_info({:clear_display, canvas}, %State{} = state) do
@@ -113,6 +127,12 @@ defmodule Octopus.Apps.Whackamole do
   def handle_info({:clear_panel_canvas, panel}, %State{} = state) do
     # Clear the specific panel canvas
     updated_state = clear_panel_canvas(state, panel)
+    {:noreply, updated_state}
+  end
+
+  def handle_info({:clear_panel_layers, panel}, %State{} = state) do
+    # Clear both background and foreground layers for this panel
+    updated_state = clear_panel_layers(state, panel)
     {:noreply, updated_state}
   end
 
@@ -138,9 +158,9 @@ defmodule Octopus.Apps.Whackamole do
       frame_rate: 60
     )
 
-    # Schedule intro completion
-    Logger.info("Scheduling intro completion in #{duration + 100}ms")
-    :timer.send_after(duration + 100, {:intro_complete})
+    # Schedule intro completion - keep text visible for 1 second after animation finishes
+    Logger.info("Scheduling intro completion in #{duration + 1000}ms")
+    :timer.send_after(duration + 1000, {:intro_complete})
 
     {:noreply, state}
   end
@@ -219,20 +239,11 @@ defmodule Octopus.Apps.Whackamole do
     # Handle canvas updates from the Animator module with animation identification
     updated_state =
       case animation_id do
-        {:mole_spawn, panel} ->
-          update_panel_canvas(state, panel, canvas, frame_status)
+        {:background_effect, panel} ->
+          update_panel_background_canvas(state, panel, canvas, frame_status)
 
-        {:mole_lost, panel} ->
-          update_panel_canvas(state, panel, canvas, frame_status)
-
-        {:mole_down, panel} ->
-          update_panel_canvas(state, panel, canvas, frame_status)
-
-        {:whack_success, panel} ->
-          update_panel_canvas(state, panel, canvas, frame_status)
-
-        {:whack_fail, panel} ->
-          update_panel_canvas(state, panel, canvas, frame_status)
+        {:foreground_mole, panel} ->
+          update_panel_foreground_canvas(state, panel, canvas, frame_status)
 
         {:intro_whack} ->
           # Handle intro "WHACK" text - overlay on existing display
@@ -302,21 +313,144 @@ defmodule Octopus.Apps.Whackamole do
     {:noreply, state}
   end
 
-  defp update_panel_canvas(state, panel, canvas, _frame_status) do
-    # Update the panel canvas in the game state
+  defp update_panel_background_canvas(state, panel, canvas, _frame_status) do
+    # Update the background canvas for this panel
     game = state.game
-    updated_panel_canvases = Map.put(game.panel_canvases, panel, canvas)
+    updated_background_canvases = Map.put(game.panel_background_canvases, panel, canvas)
 
-    # Compose the full display from all panel canvases
+    # Compose the full display from background + foreground layers
+    new_display_canvas =
+      compose_layered_display(
+        updated_background_canvases,
+        game.panel_foreground_canvases,
+        state.display_info
+      )
+
+    # Update display
+    Octopus.App.update_display(new_display_canvas, :rgb, easing_interval: 0)
+
+    # Update game state
+    updated_game = %{
+      game
+      | panel_background_canvases: updated_background_canvases,
+        display_canvas: new_display_canvas
+    }
+
+    %{state | game: updated_game}
+  end
+
+  defp update_panel_foreground_canvas(state, panel, canvas, _frame_status) do
+    # Update the foreground canvas for this panel
+    game = state.game
+    updated_foreground_canvases = Map.put(game.panel_foreground_canvases, panel, canvas)
+
+    # Compose the full display from background + foreground layers
+    new_display_canvas =
+      compose_layered_display(
+        game.panel_background_canvases,
+        updated_foreground_canvases,
+        state.display_info
+      )
+
+    # Update display
+    Octopus.App.update_display(new_display_canvas, :rgb, easing_interval: 0)
+
+    # Update game state
+    updated_game = %{
+      game
+      | panel_foreground_canvases: updated_foreground_canvases,
+        display_canvas: new_display_canvas
+    }
+
+    %{state | game: updated_game}
+  end
+
+  defp compose_layered_display(background_canvases, foreground_canvases, display_info) do
+    # Create blank canvas
+    display_canvas = Canvas.new(display_info.width, display_info.height)
+
+    # Get all panels that have either background or foreground content
+    all_panels =
+      MapSet.union(
+        MapSet.new(Map.keys(background_canvases)),
+        MapSet.new(Map.keys(foreground_canvases))
+      )
+
+    # Compose each panel by layering background + foreground
+    Enum.reduce(all_panels, display_canvas, fn panel_index, acc ->
+      x_offset = panel_index * display_info.panel_width
+
+      # Start with background layer (if exists)
+      panel_canvas =
+        case Map.get(background_canvases, panel_index) do
+          nil -> Canvas.new(display_info.panel_width, display_info.panel_height)
+          bg_canvas -> bg_canvas
+        end
+
+      # Overlay foreground layer (if exists)
+      panel_canvas =
+        case Map.get(foreground_canvases, panel_index) do
+          nil -> panel_canvas
+          fg_canvas -> Canvas.overlay(panel_canvas, fg_canvas, offset: {0, 0})
+        end
+
+      # Overlay the composed panel onto the display
+      Canvas.overlay(acc, panel_canvas, offset: {x_offset, 0})
+    end)
+  end
+
+  # Helper function to check if a canvas has any non-black content
+  defp has_color_content?(nil), do: false
+
+  defp has_color_content?(canvas) do
+    # Simple check: if canvas has any non-black pixels, it has color content
+    # This is a heuristic - in practice, our background effects are either black or colored
+    canvas != Canvas.new(canvas.width, canvas.height) |> Canvas.fill({0, 0, 0})
+  end
+
+  defp clear_panel_canvas(state, panel) do
+    # Remove the panel canvas and update display
+    game = state.game
+    updated_panel_canvases = Map.delete(game.panel_canvases, panel)
+
+    # Compose the full display from remaining panel canvases
     new_display_canvas = compose_full_display(updated_panel_canvases, state.display_info)
 
-    # Always update display when panels change
+    # Update display
     Octopus.App.update_display(new_display_canvas, :rgb, easing_interval: 0)
 
     # Update game state
     updated_game = %{
       game
       | panel_canvases: updated_panel_canvases,
+        display_canvas: new_display_canvas
+    }
+
+    %{state | game: updated_game}
+  end
+
+  defp clear_panel_layers(state, panel) do
+    # Remove both background and foreground layers for this panel
+    game = state.game
+    updated_background_canvases = Map.delete(game.panel_background_canvases, panel)
+    updated_foreground_canvases = Map.delete(game.panel_foreground_canvases, panel)
+
+    # Compose the full display from remaining layers
+    new_display_canvas =
+      compose_layered_display(
+        updated_background_canvases,
+        updated_foreground_canvases,
+        state.display_info
+      )
+
+    # Update display
+    Octopus.App.update_display(new_display_canvas, :rgb, easing_interval: 0)
+
+    # Update game state
+    updated_game = %{
+      game
+      | panel_background_canvases: updated_background_canvases,
+        panel_foreground_canvases: updated_foreground_canvases,
         display_canvas: new_display_canvas
     }
 
@@ -345,26 +479,5 @@ defmodule Octopus.Apps.Whackamole do
       x_offset = panel_index * display_info.panel_width
       Canvas.overlay(acc, panel_canvas, offset: {x_offset, 0})
     end)
-  end
-
-  defp clear_panel_canvas(state, panel) do
-    # Remove the panel canvas and update display
-    game = state.game
-    updated_panel_canvases = Map.delete(game.panel_canvases, panel)
-
-    # Compose the full display from remaining panel canvases
-    new_display_canvas = compose_full_display(updated_panel_canvases, state.display_info)
-
-    # Update display
-    Octopus.App.update_display(new_display_canvas, :rgb, easing_interval: 0)
-
-    # Update game state
-    updated_game = %{
-      game
-      | panel_canvases: updated_panel_canvases,
-        display_canvas: new_display_canvas
-    }
-
-    %{state | game: updated_game}
   end
 end
