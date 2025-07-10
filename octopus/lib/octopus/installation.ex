@@ -4,22 +4,40 @@ defmodule Octopus.Installation do
   """
   @type pixel :: {integer(), integer()}
 
-  @typedoc """
-  Physical layout of the installation
+  @doc """
+  Returns the physical layout of the installation
   """
-  @type layout :: :circular | :linear
+  @callback arrangement() :: :circular | :linear
 
+  @doc """
+  Returns the number of panels in the installation
+  """
   @callback num_panels() :: pos_integer()
 
+  @doc """
+  Returns the width of a panel in pixels
+  """
   @callback panel_width() :: integer()
+
+  @doc """
+  Returns the height of a panel in pixels
+  """
   @callback panel_height() :: integer()
+
+  @doc """
+  Returns the gap between panels in pixels
+  """
   @callback panel_gap() :: integer()
 
+  @doc """
+  Returns the width of the installation in pixels (including gaps)
+  """
   @callback width() :: integer()
-  @callback height() :: integer()
 
-  @callback center_x() :: number()
-  @callback center_y() :: number()
+  @doc """
+  Returns the height of the installation in pixels (including gaps)
+  """
+  @callback height() :: integer()
 
   @callback simulator_layouts() :: nonempty_list(Octopus.Layout.t())
 
@@ -29,13 +47,12 @@ defmodule Octopus.Installation do
   @callback num_buttons() :: pos_integer()
 
   @options_schema NimbleOptions.new!(
+                    arrangement: [type: {:in, [:linear, :circular]}, default: :linear],
                     num_panels: [type: :pos_integer, required: true],
                     num_buttons: [type: :non_neg_integer, required: true],
                     panel_width: [type: :pos_integer, required: true],
                     panel_height: [type: :pos_integer, required: true],
                     panel_gap: [type: :pos_integer, required: true],
-                    width: [type: :pos_integer, required: true],
-                    height: [type: :pos_integer, required: true],
                     simulator_layouts: [
                       type:
                         {:list,
@@ -72,13 +89,14 @@ defmodule Octopus.Installation do
   defmacro __using__(opts) do
     opts = NimbleOptions.validate!(opts, @options_schema)
 
+    arrangement = Keyword.fetch!(opts, :arrangement)
     num_panels = Keyword.fetch!(opts, :num_panels)
     num_buttons = Keyword.fetch!(opts, :num_buttons)
     panel_width = Keyword.fetch!(opts, :panel_width)
     panel_height = Keyword.fetch!(opts, :panel_height)
     panel_gap = Keyword.fetch!(opts, :panel_gap)
-    width = Keyword.fetch!(opts, :width)
-    height = Keyword.fetch!(opts, :height)
+    width = (num_panels - 1) * (panel_width + panel_gap) + panel_width
+    height = panel_height
 
     simulator_layouts =
       Keyword.fetch!(opts, :simulator_layouts)
@@ -121,34 +139,32 @@ defmodule Octopus.Installation do
       @behaviour Octopus.Installation
 
       @impl Octopus.Installation
-      def num_panels(), do: unquote(num_panels)
+      def arrangement, do: unquote(arrangement)
       @impl Octopus.Installation
-      def num_buttons(), do: unquote(num_buttons)
+      def num_panels, do: unquote(num_panels)
       @impl Octopus.Installation
-      def panel_width(), do: unquote(panel_width)
+      def num_buttons, do: unquote(num_buttons)
       @impl Octopus.Installation
-      def panel_height(), do: unquote(panel_height)
+      def panel_width, do: unquote(panel_width)
       @impl Octopus.Installation
-      def panel_gap(), do: unquote(panel_gap)
+      def panel_height, do: unquote(panel_height)
       @impl Octopus.Installation
-      def width(), do: unquote(width)
+      def panel_gap, do: unquote(panel_gap)
       @impl Octopus.Installation
-      def height(), do: unquote(height)
+      def width, do: unquote(width)
       @impl Octopus.Installation
-      def center_x(), do: width() / 2 - 0.5
+      def height, do: unquote(height)
       @impl Octopus.Installation
-      def center_y(), do: height() / 2 - 0.5
-      @impl Octopus.Installation
-      def simulator_layouts(), do: unquote(simulator_layouts)
+      def simulator_layouts, do: unquote(simulator_layouts)
     end
   end
 
   @behaviour __MODULE__
 
   @impl __MODULE__
+  defdelegate arrangement, to: Application.compile_env(:octopus, :installation)
+  @impl __MODULE__
   defdelegate num_panels, to: Application.compile_env(:octopus, :installation)
-  @deprecated "Use num_panels/0 instead"
-  defdelegate panel_count, as: :num_panels, to: Application.compile_env(:octopus, :installation)
   @impl __MODULE__
   defdelegate panel_width, to: Application.compile_env(:octopus, :installation)
   @impl __MODULE__
@@ -160,45 +176,28 @@ defmodule Octopus.Installation do
   @impl __MODULE__
   defdelegate height, to: Application.compile_env(:octopus, :installation)
   @impl __MODULE__
-  defdelegate center_x, to: Application.compile_env(:octopus, :installation)
-  @impl __MODULE__
-  defdelegate center_y, to: Application.compile_env(:octopus, :installation)
-  @impl __MODULE__
   defdelegate simulator_layouts, to: Application.compile_env(:octopus, :installation)
   @impl __MODULE__
   defdelegate num_buttons, to: Application.compile_env(:octopus, :installation)
 
-  def panels() do
-    for {offset_x, offset_y} <- panel_offsets() do
+  @doc """
+  Returns the concrete pixel positions of all panels in the installation
+  in the order of the panels, taking into account the panel gap.
+  """
+  def virtual_pixel_positions_per_panel do
+    for {pos_x, pos_y} <- panel_positions_in_pixels() do
       for y <- 0..(panel_height() - 1), x <- 0..(panel_width() - 1) do
         {
-          x + offset_x,
-          y + offset_y
+          pos_x + x,
+          pos_y + y
         }
       end
     end
   end
 
-  def panel_offsets() do
-    # Calculate panel spacing in virtual pixels for circular arrangement
-    panel_spacing_pixels = calculate_panel_spacing_pixels()
-
-    # Generate linear panel positions on a plane
+  defp panel_positions_in_pixels do
     for i <- 0..(num_panels() - 1) do
-      {i * panel_spacing_pixels, 0}
+      {i * (panel_width() + panel_gap()), 0}
     end
-  end
-
-  defp calculate_panel_spacing_pixels() do
-    diameter_in_meters = Octopus.Params.Sim3d.diameter()
-    radius_in_meters = diameter_in_meters / 2
-    panel_width_in_meters = 1.6
-    angle_between_panels = 2 * :math.pi() / num_panels()
-    pixels_per_meter = 8 / panel_width_in_meters
-
-    chord_length_pixels =
-      2 * (radius_in_meters * pixels_per_meter) * :math.sin(angle_between_panels / 2)
-
-    round(chord_length_pixels)
   end
 end

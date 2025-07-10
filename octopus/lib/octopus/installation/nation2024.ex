@@ -1,12 +1,11 @@
 defmodule Octopus.Installation.Nation2024 do
   use Octopus.Installation,
+    arrangement: :linear,
     num_panels: 10,
     num_buttons: 10,
     panel_width: 8,
     panel_height: 8,
     panel_gap: 17,
-    width: 1280,
-    height: 720,
     simulator_layouts: [
       [
         name: "Nation 2024",

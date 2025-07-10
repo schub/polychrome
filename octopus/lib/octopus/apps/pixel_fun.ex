@@ -274,7 +274,7 @@ defmodule Octopus.Apps.PixelFun do
     center_x = display_info.width / 2 - 0.5
     center_y = display_info.height / 2 - 0.5
 
-    Installation.panels()
+    Installation.virtual_pixel_positions_per_panel()
     |> Enum.map(fn panel ->
       for {{x, y}, i} <- Enum.with_index(panel), into: Canvas.new(8, 8) do
         local_x = rem(i, 8)
