@@ -36,7 +36,7 @@ defmodule Lemming do
       lem
       | state: new_state,
         anchor: {x + xoffset, y},
-        frames: lem.frames |> Enum.map(&Canvas.flip_horizontal/1),
+        frames: lem.frames |> Enum.map(&Canvas.flip(&1, :horizontal)),
         offsets: lem.offsets |> Enum.map(fn {i, {x, y}} -> {i, {-x, y}} end) |> Enum.into(%{})
     }
   end
@@ -118,7 +118,7 @@ defmodule Lemming do
 
     new_lem =
       if :rand.uniform(2) == 1 do
-        %Lemming{new_lem | frames: new_lem.frames |> Enum.map(&Canvas.flip_horizontal/1)}
+        %Lemming{new_lem | frames: new_lem.frames |> Enum.map(&Canvas.flip(&1, :horizontal))}
       else
         new_lem
       end

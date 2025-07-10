@@ -299,7 +299,7 @@ defmodule Octopus.Apps.MarioRun do
         canvas
       end
     end)
-    |> then(&if(flip, do: Canvas.flip_horizontal(&1), else: &1))
+    |> then(&if(flip, do: Canvas.flip(&1, :horizontal), else: &1))
   end
 
   def handle_config(%{speed: speed, look_speed: look_speed}, state) do

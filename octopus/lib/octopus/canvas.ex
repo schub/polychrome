@@ -267,13 +267,19 @@ defmodule Octopus.Canvas do
   """
   @spec flip(t(), :horizontal | :vertical) :: Canvas.t()
   def flip(%Canvas{width: width} = canvas, :horizontal) do
-    pixels = canvas.pixels |> Enum.map(fn {{x, y}, color} -> {{width - x - 1, y}, color} end)
+    pixels =
+      canvas.pixels
+      |> Enum.map(fn {{x, y}, color} -> {{width - x - 1, y}, color} end)
+      |> Map.new()
 
     %Canvas{canvas | pixels: pixels}
   end
 
   def flip(%Canvas{height: height} = canvas, :vertical) do
-    pixels = canvas.pixels |> Enum.map(fn {{x, y}, color} -> {{x, height - y - 1}, color} end)
+    pixels =
+      canvas.pixels
+      |> Enum.map(fn {{x, y}, color} -> {{x, height - y - 1}, color} end)
+      |> Map.new()
 
     %Canvas{canvas | pixels: pixels}
   end
@@ -428,25 +434,6 @@ defmodule Octopus.Canvas do
           into: %{}
 
     %Canvas{canvas | width: width, height: height, pixels: pixels}
-  end
-
-  def flip_horizontal(%Canvas{} = canvas) do
-    pixels =
-      canvas.pixels
-      |> Enum.map(fn {{x, y}, value} -> {{canvas.width - 1 - x, y}, value} end)
-      |> Enum.into(%{})
-
-    %Canvas{canvas | pixels: pixels}
-  end
-
-  def flip_vertical(%Canvas{} = canvas) do
-    pixels =
-      for x <- 0..(canvas.width - 1),
-          y <- 0..(canvas.height - 1),
-          do: {{x, y}, Canvas.get_pixel(canvas, {x, canvas.height - 1 - y})},
-          into: %{}
-
-    %Canvas{canvas | pixels: pixels}
   end
 
   @doc """
