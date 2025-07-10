@@ -253,7 +253,8 @@ defmodule Octopus.App do
       panel_gap: Installation.panel_gap(),
       width: Installation.width(),
       height: Installation.height(),
-      num_buttons: Installation.num_buttons()
+      num_buttons: Installation.num_buttons(),
+      num_joysticks: Installation.num_joysticks()
     }
   end
 

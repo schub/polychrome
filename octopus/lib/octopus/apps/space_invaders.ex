@@ -192,6 +192,14 @@ defmodule Octopus.Apps.SpaceInvaders do
 
   def name, do: "Space Invaders"
 
+  def compatible?() do
+    installation_info = Octopus.App.get_installation_info()
+
+    installation_info.num_joysticks >= 1 and
+      installation_info.panel_width == 8 and
+      installation_info.panel_height == 8
+  end
+
   def app_init(_args) do
     # Configure display using new unified API - adjacent layout (was Canvas.to_frame())
     Octopus.App.configure_display(layout: :adjacent_panels)
