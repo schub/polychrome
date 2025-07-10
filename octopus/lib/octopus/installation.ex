@@ -47,7 +47,7 @@ defmodule Octopus.Installation do
   @callback num_buttons() :: pos_integer()
 
   @options_schema NimbleOptions.new!(
-                    arrangement: [type: {:in, [:linear, :circular]}, default: :linear],
+                    arrangement: [type: {:in, [:linear, :circular]}, required: true],
                     num_panels: [type: :pos_integer, required: true],
                     num_buttons: [type: :non_neg_integer, required: true],
                     panel_width: [type: :pos_integer, required: true],
