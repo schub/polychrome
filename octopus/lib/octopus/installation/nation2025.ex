@@ -3,6 +3,7 @@ defmodule Octopus.Installation.Nation2025 do
     arrangement: :circular,
     num_panels: 12,
     num_buttons: 12,
+    num_joysticks: 0,
     panel_width: 8,
     panel_height: 8,
     panel_gap: 26,

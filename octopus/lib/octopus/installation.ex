@@ -15,6 +15,11 @@ defmodule Octopus.Installation do
   @callback num_panels() :: pos_integer()
 
   @doc """
+  Returns the number of joysticks in the installation
+  """
+  @callback num_joysticks() :: pos_integer()
+
+  @doc """
   Returns the width of a panel in pixels
   """
   @callback panel_width() :: integer()
@@ -50,6 +55,7 @@ defmodule Octopus.Installation do
                     arrangement: [type: {:in, [:linear, :circular]}, required: true],
                     num_panels: [type: :pos_integer, required: true],
                     num_buttons: [type: :non_neg_integer, required: true],
+                    num_joysticks: [type: :non_neg_integer, required: true],
                     panel_width: [type: :pos_integer, required: true],
                     panel_height: [type: :pos_integer, required: true],
                     panel_gap: [type: :pos_integer, required: true],
@@ -92,6 +98,7 @@ defmodule Octopus.Installation do
     arrangement = Keyword.fetch!(opts, :arrangement)
     num_panels = Keyword.fetch!(opts, :num_panels)
     num_buttons = Keyword.fetch!(opts, :num_buttons)
+    num_joysticks = Keyword.fetch!(opts, :num_joysticks)
     panel_width = Keyword.fetch!(opts, :panel_width)
     panel_height = Keyword.fetch!(opts, :panel_height)
     panel_gap = Keyword.fetch!(opts, :panel_gap)
@@ -143,6 +150,8 @@ defmodule Octopus.Installation do
       @impl Octopus.Installation
       def num_panels, do: unquote(num_panels)
       @impl Octopus.Installation
+      def num_joysticks, do: unquote(num_joysticks)
+      @impl Octopus.Installation
       def num_buttons, do: unquote(num_buttons)
       @impl Octopus.Installation
       def panel_width, do: unquote(panel_width)
@@ -165,6 +174,8 @@ defmodule Octopus.Installation do
   defdelegate arrangement, to: Application.compile_env(:octopus, :installation)
   @impl __MODULE__
   defdelegate num_panels, to: Application.compile_env(:octopus, :installation)
+  @impl __MODULE__
+  defdelegate num_joysticks, to: Application.compile_env(:octopus, :installation)
   @impl __MODULE__
   defdelegate panel_width, to: Application.compile_env(:octopus, :installation)
   @impl __MODULE__

@@ -3,6 +3,7 @@ defmodule Octopus.Installation.Nation2024 do
     arrangement: :linear,
     num_panels: 10,
     num_buttons: 10,
+    num_joysticks: 0,
     panel_width: 8,
     panel_height: 8,
     panel_gap: 17,
