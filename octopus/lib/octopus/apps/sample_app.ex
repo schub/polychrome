@@ -1,5 +1,5 @@
 defmodule Octopus.Apps.SampleApp do
-  use Octopus.App, category: :animation
+  use Octopus.App, category: :test
   require Logger
 
   alias Octopus.Canvas
@@ -64,14 +64,12 @@ defmodule Octopus.Apps.SampleApp do
   end
 
   def handle_event(%InputEvent{type: :button, action: :press, button: 1}, state) do
-    state = %State{state | color: 8}
-
     canvas =
       state.canvas
       |> Canvas.fill_rect(
         {0, 0},
         {state.display_info.width - 1, state.display_info.height - 1},
-        state.color
+        {255, 0, 0}
       )
 
     # Use new unified display API instead of Canvas.to_frame() |> VirtualMatrix.send_frame()
@@ -81,14 +79,12 @@ defmodule Octopus.Apps.SampleApp do
   end
 
   def handle_event(%InputEvent{type: :button, action: :press, button: 2}, state) do
-    state = %State{state | color: 7}
-
     canvas =
       state.canvas
       |> Canvas.fill_rect(
         {0, 0},
         {state.display_info.width - 1, state.display_info.height - 1},
-        state.color
+        {0, 255, 0}
       )
 
     # Use new unified display API instead of Canvas.to_frame() |> VirtualMatrix.send_frame()
